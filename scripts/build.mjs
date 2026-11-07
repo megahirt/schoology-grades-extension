@@ -40,7 +40,7 @@ async function main() {
       sourcemap: isDev,
       // __DEV__ turns on dev-only UI (the real/mock data source switch).
       define: { __DEV__: JSON.stringify(isDev) },
-      loader: { '.css': 'text' },
+      loader: { '.css': 'text', '.png': 'dataurl' },
       logLevel: 'info',
     });
   }

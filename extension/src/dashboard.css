@@ -114,8 +114,12 @@
 .sgd .dev-build { color: var(--muted); }
 .sgd .dev-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: #fff; background: #5b3fd1; border-radius: 4px; padding: 2px 5px; }
 
-/* Footer */
-.sgd .foot { padding: 10px 18px 14px; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 6px; }
+/* Footer: dev row, status and (popup) demo button; hidden when empty. */
+.sgd .foot { padding: 10px 18px; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 6px; }
+.sgd .foot:not(:has(.dev-row, .foot-row, .status:not(:empty))) { display: none; }
+/* Credit banner at the very bottom. */
+.sgd .credit { padding: 9px 18px; background: #f6f7f9; border-top: 1px solid var(--line-2); display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #4b5563; }
+.sgd .credit-logo { width: 20px; height: 20px; border-radius: 4px; display: block; }
 .sgd .foot-row { display: flex; align-items: center; gap: 8px; }
 .sgd .status:empty { display: none; }
 .sgd .status { font-size: 12px; color: var(--ink-2); }
