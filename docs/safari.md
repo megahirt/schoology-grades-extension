@@ -1,12 +1,12 @@
 # Safari distribution — Schoology Dashboard
 
-**Safari first.** Students at North Point Christian use Safari, so the
+**Safari first.** Many students use Safari (school Macs and iPhones), so the
 Safari version is the primary target; Chrome (Web Store) is second.
 
 > Sources: Apple Safari Extensions overview and WWDC26 session
 > "Create web extensions for Safari" (developer.apple.com), plus the
 > research report at
-> `~/workspace/research_notes/safari-extension-distribution-20261106-2028/report.md`.
+> the maintainer's research notes (not in this repo).
 > Figures from secondary sources are marked as such; verify exact
 > screenshot sizes, CLI flags, and review timing in App Store Connect /
 > on the build Mac at submission time.
@@ -64,7 +64,7 @@ xcrun safari-web-extension-packager --copy-resources ./dist \
 - `--copy-resources` copies the extension files into the project
   (default references them at their original path).
 - **Bundle ID placeholder:** `com.example.schoology-dashboard` —
-  **TO BE REPLACED** with Chris's real bundle ID (e.g.
+  **TO BE REPLACED** with the publisher's real bundle ID (e.g.
   `com.<familyname>.schoology-dashboard`) before submission. Bundle IDs
   can never be reused or changed later — pick carefully. The converter
   derives target IDs from it and appends `.Extension` to the extension
@@ -210,14 +210,14 @@ reviewed too, usually faster than a first submission). Users get the
 update through normal App Store updates; there is no separate
 extension-only update channel.
 
-## Chris's personal checklist (must be done by the account owner)
+## Account owner's checklist (must be done by the account owner)
 
-| Chris does personally | Builder / CI can do |
+| Account owner does personally | Builder / CI can do |
 |---|---|
 | Create Apple Account, turn on 2FA, verify identity | Write/convert/build the extension, run the packager, fix bundle IDs |
 | Enrol as **Individual** at developer.apple.com/programs/enroll, accept the Developer Program Licence Agreement, pay **$99/year** | Bump versions, archive, upload builds |
-| Create the App Store Connect API key and distribution certificate (or approve Xcode creating them while signed in) — the `.p8`/`.p12` are created once, then stored as CI secrets | Run the CI pipeline; fill listing metadata *drafts*, screenshots, privacy answers for Chris to review |
-| Add the helper in App Store Connect → Users and Access with a role (e.g. Developer / App Manager) so the helper works **without Chris's Apple ID password** — never share the Apple ID password or 2FA codes | Submit a build for review *only if* Chris granted that role; Chris should still read the final listing and press submit the first time |
+| Create the App Store Connect API key and distribution certificate (or approve Xcode creating them while signed in) — the `.p8`/`.p12` are created once, then stored as CI secrets | Run the CI pipeline; fill listing metadata *drafts*, screenshots, privacy answers for the account owner to review |
+| Add the helper in App Store Connect → Users and Access with a role (e.g. Developer / App Manager) so the helper works **without the account owner's Apple ID password** — never share the Apple ID password or 2FA codes | Submit a build for review *only if* the account owner granted that role; The account owner should still read the final listing and press submit the first time |
 | Answer/submit privacy, age-rating, and trader (EU, if applicable) declarations; reply to App Review messages; renew membership yearly | Prepare the privacy policy text and the review notes |
 
 ## CI
@@ -229,7 +229,7 @@ fastlane. Secrets needed: distribution certificate as base64 `.p12` +
 password, provisioning profiles (base64) for *each* target, App Store
 Connect API key (`.p8` base64 / Key ID / Issuer ID), Team ID. The
 release workflow's Safari job **skips gracefully** when those secrets
-are not set (Chris has not done Apple Developer setup yet) — it still
+are not set (The account owner has not done Apple Developer setup yet) — it still
 produces the extension ZIP + converter script so the manual path stays
 open. Xcode Cloud is the alternative: 25 compute hours/month included
 with the $99 membership, signing managed by Apple.

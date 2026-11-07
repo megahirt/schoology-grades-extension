@@ -9,7 +9,7 @@
 # `xcrun safari-web-extension-packager --help` on the build Mac.
 #
 # BUNDLE ID PLACEHOLDER: com.example.schoology-dashboard
-#   TO BE REPLACED with Chris's real bundle ID before any App Store
+#   TO BE REPLACED with the publisher's real bundle ID before any App Store
 #   submission. Bundle IDs can never be reused or changed later.
 set -e
 cd "$(dirname "$0")/.."

@@ -4,7 +4,7 @@
  *
  *   node scripts/build-safari.mjs [--dev]
  *
- * Safari-first: students at North Point Christian use Safari, so the
+ * Safari-first: many students use Safari, so the
  * Safari build is the primary distribution target (Chrome Web Store is
  * second). The shared extension is Safari-compatible from day one
  * (webextension-polyfill, browser.* Promise APIs, bundled pure-JS parser,
@@ -37,7 +37,7 @@
  *     separately or the content script never runs.
  *
  * Bundle ID placeholder: com.example.schoology-dashboard — TO BE REPLACED
- * with Chris's real bundle ID (e.g. com.<familyname>.schoology-dashboard)
+ * with the publisher's real bundle ID (e.g. com.<familyname>.schoology-dashboard)
  * before any App Store submission. Bundle IDs can never be reused or
  * changed later, so pick carefully. Never invent a Team ID.
  *
@@ -54,7 +54,7 @@ import path from 'node:path';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dev = process.argv.includes('--dev');
 
-// TO BE REPLACED with Chris's real bundle ID before submission.
+// TO BE REPLACED with the publisher's real bundle ID before submission.
 // Placeholder only — do not submit to App Store Connect with this ID.
 const BUNDLE_ID = 'com.example.schoology-dashboard';
 const APP_NAME = 'Schoology Dashboard';
@@ -96,7 +96,7 @@ function writeConvertScript(inputDir) {
 # \`xcrun safari-web-extension-packager --help\` on the build Mac.
 #
 # BUNDLE ID PLACEHOLDER: com.example.schoology-dashboard
-#   TO BE REPLACED with Chris's real bundle ID before any App Store
+#   TO BE REPLACED with the publisher's real bundle ID before any App Store
 #   submission. Bundle IDs can never be reused or changed later.
 set -e
 cd "$(dirname "$0")/.."
@@ -141,7 +141,7 @@ function ensureSafariReadme() {
       `\`node scripts/build-safari.mjs\`). It is created on a Mac — on Linux\n` +
       `only \`convert.sh\` exists here.\n\nFull pipeline, local testing, TestFlight, and App Store submission:\n` +
       `see \`docs/safari.md\` in the repo root.\n\nBundle ID placeholder: \`com.example.schoology-dashboard\` —\n` +
-      `TO BE REPLACED with Chris's real bundle ID before submission.\n`,
+      `TO BE REPLACED with the publisher's real bundle ID before submission.\n`,
     'utf8'
   );
 }

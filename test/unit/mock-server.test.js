@@ -1,7 +1,5 @@
 // mock-server.test.js — unit tests for the mock Schoology server itself
-// (test/mock-server/server.js). These do NOT depend on extension/src, so
-// they verify the test harness (fixtures, personas, login flow) even while
-// the extension code is still being built.
+// (test/mock-server/server.js): login flow, personas, live endpoint shapes.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startServer } from '../mock-server/server.js';
@@ -9,29 +7,29 @@ import { startServer } from '../mock-server/server.js';
 let mock;
 let baseUrl;
 
-// Tiny cookie jar for fetch.
 function jarredFetch(jar) {
-  return async (url, init = {}) => {
+  const f = async (url, init = {}) => {
     const headers = { ...(init.headers || {}) };
-    if (jar.cookies.length) headers.cookie = jar.cookies.join('; ');
+    const cookie = Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
+    if (cookie) headers.cookie = cookie;
     const res = await fetch(url, { ...init, headers, redirect: 'manual' });
-    for (const c of res.headers.getSetCookie?.() || []) jar.cookies.push(c.split(';')[0]);
+    for (const c of res.headers.getSetCookie?.() || []) {
+      const [pair] = c.split(';');
+      const i = pair.indexOf('=');
+      jar[pair.slice(0, i)] = pair.slice(i + 1);
+    }
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get('location');
-      if (location) return jarredFetch(jar)(new URL(location, url).toString(), init);
+      if (location) return f(new URL(location, url).toString(), { ...init, method: 'GET', body: undefined });
     }
     return res;
   };
+  return f;
 }
 
 async function loginAs(persona) {
-  const jar = { cookies: [] };
-  const f = jarredFetch(jar);
-  const res = await f(`${baseUrl}/login?as=${persona}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: 'username=test&password=test',
-  });
+  const f = jarredFetch({});
+  const res = await f(`${baseUrl}/login?as=${persona}`, { method: 'POST', body: 'u=x' });
   expect(res.status).toBe(200);
   return f;
 }
@@ -45,11 +43,9 @@ afterAll(async () => {
   await mock.close();
 });
 
-describe('mock server', () => {
+describe('mock Schoology server', () => {
   it('GET /login returns a login form', async () => {
-    const res = await fetch(`${baseUrl}/login`);
-    expect(res.status).toBe(200);
-    const html = await res.text();
+    const html = await (await fetch(`${baseUrl}/login`)).text();
     expect(html).toContain('id="login-form"');
   });
 
@@ -59,13 +55,8 @@ describe('mock server', () => {
     expect(res.headers.get('location')).toBe('/login');
   });
 
-  it('POST /login sets mock-session + mock-persona cookies and redirects to /home', async () => {
-    const res = await fetch(`${baseUrl}/login?as=parent`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: 'username=a&password=b',
-      redirect: 'manual',
-    });
+  it('POST /login sets the session + persona cookies and redirects to /home', async () => {
+    const res = await fetch(`${baseUrl}/login?as=parent`, { method: 'POST', body: 'u=x', redirect: 'manual' });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/home');
     const cookies = res.headers.getSetCookie().join('; ');
@@ -73,55 +64,41 @@ describe('mock server', () => {
     expect(cookies).toContain('mock-persona=parent');
   });
 
-  it('student home lists Alex Student and 4 courses including the advisory', async () => {
+  it('student grade report uses the live markup (gradebook-course, item-row, Missing exception)', async () => {
     const f = await loginAs('student');
-    const html = await (await f(`${baseUrl}/home`)).text();
-    expect(html).toContain('Alex Student');
-    expect(html).toContain('/course/1001/grades');
-    expect(html).toContain('/course/1004/grades');
-    expect(html).toContain('BPL Advisory 11');
+    const html = await (await f(`${baseUrl}/grades/grades`)).text();
+    expect(html.match(/class="gradebook-course /g)).toHaveLength(4);
+    expect(html).toContain('class="report-row item-row');
+    expect(html.match(/exception-icon missing/g)).toHaveLength(1);
   });
 
-  it('student course page contains the fixture Missing marker (1x)', async () => {
-    const f = await loginAs('student');
-    const html = await (await f(`${baseUrl}/course/1002/grades`)).text();
-    expect(html).toContain('Propaganda Script');
-    expect(html.match(/exception-missing/g)).toHaveLength(1);
-  });
-
-  it('parent /iapi/parent/info returns 2 children', async () => {
+  it('parent /iapi/parent/info returns the live shape with two children', async () => {
     const f = await loginAs('parent');
     const info = await (await f(`${baseUrl}/iapi/parent/info`)).json();
-    expect(info.view_mode).toBe(1);
-    expect(info.children).toHaveLength(2);
-    expect(info.children.map((c) => c.name)).toEqual(['Luis Hirt', 'Emma Hirt']);
+    expect(info.response_code).toBe(200);
+    expect(Object.values(info.body.children).map((c) => c.username)).toEqual(['Sam Rivera', 'Jamie Rivera']);
+    expect(info.body.session.view_child).toBe('2000001');
   });
 
-  it('student /iapi/parent/info returns no children', async () => {
+  it('student /iapi/parent/info is refused', async () => {
     const f = await loginAs('student');
+    expect((await f(`${baseUrl}/iapi/parent/info`)).status).toBe(403);
+  });
+
+  it('/parent/home?child_uid switches which child the grade report shows', async () => {
+    const f = await loginAs('parent');
+    const first = await (await f(`${baseUrl}/parent/grades_attendance/grades`)).text();
+    expect(first).toContain('Unit 2 Essay');
+    await f(`${baseUrl}/parent/home?child_uid=2000002`);
+    const second = await (await f(`${baseUrl}/parent/grades_attendance/grades`)).text();
+    expect(second).toContain('Poetry Analysis Essay');
+    expect(second).not.toContain('Unit 2 Essay');
     const info = await (await f(`${baseUrl}/iapi/parent/info`)).json();
-    expect(info.children).toEqual([]);
+    expect(info.body.session.view_child).toBe('2000002');
   });
 
-  it('parent overdue endpoint: Luis 2 items, Emma 1 item', async () => {
+  it('a course outside the viewed child returns 403', async () => {
     const f = await loginAs('parent');
-    const luis = await (await f(`${baseUrl}/iapi/parent/overdue_submissions/uid-luis-hirt`)).json();
-    const emma = await (await f(`${baseUrl}/iapi/parent/overdue_submissions/uid-emma-hirt`)).json();
-    expect(luis.overdue).toHaveLength(2);
-    expect(emma.overdue).toHaveLength(1);
-  });
-
-  it('parent grade report contains both children and 3 Missing markers', async () => {
-    const f = await loginAs('parent');
-    const html = await (await f(`${baseUrl}/parent/grades_attendance/grades`)).text();
-    expect(html).toContain('Luis Hirt');
-    expect(html).toContain('Emma Hirt');
-    expect(html.match(/exception-missing/g)).toHaveLength(3);
-  });
-
-  it('unknown course id returns 404', async () => {
-    const f = await loginAs('student');
-    const res = await f(`${baseUrl}/course/999999/grades`);
-    expect(res.status).toBe(404);
+    expect((await f(`${baseUrl}/course/3101/student_grades`)).status).toBe(403);
   });
 });

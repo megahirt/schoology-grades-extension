@@ -59,8 +59,8 @@ REST API/OAuth — auth is the user's logged-in browser session cookies.
   student view (avatar, class icons, badge hidden unless
   `settings.showGoNoGo`); sections Missing / Due soon (Due today /
   Due tomorrow badges) / Doing well / Not so good / Awaiting teacher;
-  "Refresh now", "Load demo data" (`demo-data.json`: Luis Hirt —
-  2 Missing + 55% class = NO-GO; Emma Hirt — 1 Missing, all classes
+  "Refresh now", "Load demo data" (`demo-data.json`: Sam Rivera —
+  2 Missing + 55% class = NO-GO; Jamie Rivera — 1 Missing, all classes
   >= 90 = GO; demo due dates are shifted to today on load so Due
   today/tomorrow always render), updatedAt + stale warning past 24h,
   gray ✓ mark-as-turned-in with Undo persisted in storage.

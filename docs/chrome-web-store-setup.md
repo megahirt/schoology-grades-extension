@@ -1,7 +1,6 @@
 # Chrome Web Store setup
 
-Chrome is the **second** target — Safari first (students at North Point
-Christian use Safari). See `docs/safari.md` for the primary pipeline.
+Chrome is the **second** target — Safari first (many students use Safari). See `docs/safari.md` for the primary pipeline.
 
 > Figures below (fees, listing requirements) come from Chrome Web Store
 > developer documentation and the project spec; **verify at submission
@@ -91,7 +90,7 @@ Web Store **second**, after the Safari job, using
 
 **Skip behaviour (by design):** if any of those secrets is not set,
 the upload step **skips gracefully** with a clear echo message and the
-release still succeeds with the ZIP attached. Chris has **not** done
+release still succeeds with the ZIP attached. The account owner has **not** done
 Chrome Web Store developer setup yet, and no store credentials exist —
 do not invent them. The manual upload in step 3 is the path until the
 secrets are set.

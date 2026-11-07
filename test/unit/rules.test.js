@@ -1,5 +1,5 @@
 // rules.test.js — unit tests for extension/src/rules.js (SPEC: Rules engine).
-// Defaults are the Hirt family rules: gradeThreshold 75 (75 passes),
+// Defaults are the shipped default rules: gradeThreshold 75 (75 passes),
 // missingThreshold 2 (NO-GO if missingCount >= 2; one Missing alone is GO).
 // Badge wording (SPEC): "NO-GO — Missing work", "NO-GO — Low grades",
 // "NO-GO — Missing work + Low grades", otherwise "GO".
@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent } from '../../extension/src/rules.js';
 
 describe('DEFAULT_SETTINGS', () => {
-  it('uses the Hirt family defaults (75 / 2)', () => {
+  it('uses the shipped defaults (75 / 2)', () => {
     expect(DEFAULT_SETTINGS.gradeThreshold).toBe(75);
     expect(DEFAULT_SETTINGS.missingThreshold).toBe(2);
     expect(DEFAULT_SETTINGS.notSoGoodDays).toBe(7);
@@ -76,17 +76,17 @@ describe('summarizeStudent', () => {
   // Courses shaped like parser output: { id, name, grade, assignments: [...] }.
   const courses = [
     {
-      id: '8508768642',
-      name: 'BPL American Literature',
+      id: '4042',
+      name: 'American Literature',
       grade: 55,
       assignments: [
-        { id: '1', title: 'Propaganda Script', status: 'missing', score: 0, maxPoints: 50, due: '2026-11-03T23:59:00' },
-        { id: '2', title: 'Unit 2 Contexts Essay', status: 'missing', score: 0, maxPoints: 50, due: '2026-11-05T23:59:00' },
+        { id: '1', title: 'Persuasive Essay Draft', status: 'missing', score: 0, maxPoints: 50, due: '2026-11-03T23:59:00' },
+        { id: '2', title: 'Unit 2 Essay', status: 'missing', score: 0, maxPoints: 50, due: '2026-11-05T23:59:00' },
         { id: '3', title: 'Rhetoric Analysis', status: 'graded', score: 42, maxPoints: 50, due: '2026-10-30T23:59:00' },
       ],
     },
     {
-      id: '8508768643',
+      id: '4043',
       name: 'United States History',
       grade: 88,
       assignments: [
@@ -95,24 +95,24 @@ describe('summarizeStudent', () => {
     },
   ];
 
-  it('counts Missing items and finds the lowest class grade (Luis fixture shape)', () => {
+  it('counts Missing items and finds the lowest class grade (two-Missing child)', () => {
     const summary = summarizeStudent(courses, DEFAULT_SETTINGS);
     expect(summary.missingCount).toBe(2);
     expect(summary.missingItems.map((a) => a.title)).toEqual(
-      expect.arrayContaining(['Propaganda Script', 'Unit 2 Contexts Essay']),
+      expect.arrayContaining(['Persuasive Essay Draft', 'Unit 2 Essay']),
     );
     expect(summary.lowestClassGrade).toBe(55);
     // lowClasses are course objects ({ id, name, grade }), not bare names.
     expect(summary.lowClasses.map((c) => c.name)).toEqual(
-      expect.arrayContaining(['BPL American Literature']),
+      expect.arrayContaining(['American Literature']),
     );
     expect(summary.verdict.verdict).toBe('NO-GO');
   });
 
-  it('GO summary for one Missing and all classes >= 75 (Emma fixture shape)', () => {
-    const emma = [
+  it('GO summary for one Missing and all classes >= 75 (one-Missing child)', () => {
+    const oneMissing = [
       {
-        id: '8508768650',
+        id: '4050',
         name: '07 English',
         grade: 92,
         assignments: [
@@ -120,9 +120,9 @@ describe('summarizeStudent', () => {
           { id: '2', title: 'Grammar Quiz 5', status: 'graded', score: 19, maxPoints: 20, due: '2026-10-30T23:59:00' },
         ],
       },
-      { id: '8508768651', name: '07 Math', grade: 94, assignments: [] },
+      { id: '4051', name: '07 Math', grade: 94, assignments: [] },
     ];
-    const summary = summarizeStudent(emma, DEFAULT_SETTINGS);
+    const summary = summarizeStudent(oneMissing, DEFAULT_SETTINGS);
     expect(summary.missingCount).toBe(1);
     expect(summary.lowestClassGrade).toBe(92);
     expect(summary.verdict.verdict).toBe('GO');
@@ -132,7 +132,7 @@ describe('summarizeStudent', () => {
     const summary = summarizeStudent(
       [{
         id: '1004',
-        name: 'BPL Advisory 11',
+        name: 'Advisory 11',
         grade: null,
         assignments: [
           { id: '1', title: 'Advisory Check-in', status: 'pending', score: null, maxPoints: null, due: '2026-11-06T23:59:00' },
@@ -169,5 +169,23 @@ describe('summarizeStudent', () => {
     expect(summary.dueToday.map((a) => a.title)).toContain('Due Today Item');
     expect(summary.dueTomorrow.map((a) => a.title)).toContain('Due Tomorrow Item');
     expect(summary.dueToday.map((a) => a.title)).not.toContain('Graded Item');
+  });
+  it('counts letter grades as graded: A/B/C doing well, D/F not so good, never due soon', () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T23:59:00`;
+    const summary = summarizeStudent(
+      [{
+        id: '1', name: 'Art', grade: 95,
+        assignments: [
+          { id: 'a', title: 'Map Project', status: 'graded', score: null, letterGrade: 'A', due: today },
+          { id: 'b', title: 'Sketchbook', status: 'graded', score: null, letterGrade: 'D+', due: null },
+        ],
+      }],
+      DEFAULT_SETTINGS,
+    );
+    expect(summary.doingWell.map((a) => a.title)).toEqual(['Map Project']);
+    expect(summary.notSoGood.map((a) => a.title)).toEqual(['Sketchbook']);
+    expect(summary.dueToday).toEqual([]);
   });
 });

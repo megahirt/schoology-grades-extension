@@ -15,6 +15,7 @@ import {
   setDashboards,
   setLiveTest,
   setAccount,
+  getAccount,
   getTurnedIn,
 } from './src/storage.js';
 
@@ -47,9 +48,9 @@ async function refreshGrades() {
     for (const d of dashboards) {
       // Re-summarize with the family's settings (fetch layer used defaults).
       let summary = summarizeStudent(d.courses, settings, turnedIn[d.studentUid]);
-      if (d.error === 'NO_CHILD_ATTRIBUTION') {
+      if (d.error) {
         // Keep the UNKNOWN verdict — empty courses would recompute to a false GO.
-        summary = { ...summary, verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades — courses could not be attributed to this child.'] } };
+        summary = { ...summary, verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades.'] } };
       }
       byUid[d.studentUid] = { ...d, summary, updatedAt: new Date().toISOString() };
     }
@@ -62,7 +63,7 @@ async function refreshGrades() {
     if (result.error === 'LOGGED_OUT') {
       return { ok: false, accountType: 'student', error: 'LOGGED_OUT', fallback: 'hidden-tab' };
     }
-    if (result.error === 'PARSE_EMPTY' || result.error === 'NO_GRADES_LINKS') {
+    if (result.error === 'PARSE_EMPTY' || result.error === 'NO_GRADES') {
       return { ok: false, accountType: 'student', error: result.error, fallback: 'hidden-tab' };
     }
     const summary = summarizeStudent(result.courses, settings, turnedIn.self);
@@ -134,6 +135,12 @@ function refreshViaHiddenTab(url, timeoutMs = 30000) {
 async function handleGradesScraped(message, sender) {
   const tabId = sender && sender.tab ? sender.tab.id : null;
   const courses = Array.isArray(message.courses) ? message.courses : [];
+  // A parent browsing a child's Grades page must not create a bogus
+  // "Student" dashboard: only store page scrapes for student accounts or
+  // for a hidden-tab fallback scrape this worker asked for.
+  const account = await getAccount();
+  const expected = pendingScrape && (tabId === null || pendingScrape.tabId === tabId);
+  if (!expected && account && account.type === 'parent') return { ok: true, ignored: 'parent-account' };
   const settings = await loadSettings();
   const turnedIn = (await getTurnedIn()) || {};
   const summary = summarizeStudent(courses, settings, turnedIn.self);

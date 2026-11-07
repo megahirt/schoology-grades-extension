@@ -1,5 +1,5 @@
 // rules.js — deterministic GO/NO-GO rules engine (pure JS, no browser APIs).
-// The Hirt family defaults below are DEFAULTS, not hard-coded for everyone:
+// The defaults below are DEFAULTS, not hard-coded for everyone:
 // the setup wizard lets each family change the thresholds.
 
 export const DEFAULT_SETTINGS = {
@@ -119,11 +119,15 @@ export function summarizeStudent(courses, settings, turnedInIdsArg) {
         continue;
       }
       const pct = assignmentPercent(a);
-      const graded = pct !== null;
+      // Letter/scale grades (e.g. "A") carry no number: they still count as
+      // graded. Only D/F letters count as below the threshold.
+      const letter = pct === null && a.status === 'graded' && a.letterGrade ? String(a.letterGrade) : null;
+      const graded = pct !== null || letter !== null;
       const due = a.due ? new Date(a.due) : null;
       const dueValid = due && !Number.isNaN(due.getTime());
       if (graded) {
-        if (pct < s.gradeThreshold) {
+        const below = pct !== null ? pct < s.gradeThreshold : /^[DF]/i.test(letter);
+        if (below) {
           // "Not so good": graded below threshold from the past
           // notSoGoodDays days only (by the date shown on the row).
           if (!dueValid || (due >= notSoGoodCutoff && due <= now)) {

@@ -7,7 +7,7 @@ no Schoology API or OAuth.
 
 ## Safari first — why
 
-**Students at North Point Christian use Safari, so the Safari version
+**Many students use Safari (school Macs and iPhones), so the Safari version
 is what matters most.** Chrome (Web Store, $5 one-time, Unlisted
 listing) is second. The shared codebase is Safari-compatible from day
 one: the `webextension-polyfill` with `browser.*` Promise APIs, a
@@ -24,7 +24,7 @@ not a follow-up — see [docs/safari.md](docs/safari.md).
 - Shows each course's grade, each assignment's due date and score, and
   the teacher-marked **Missing** flag.
 - Computes a GO / NO-GO verdict per student from deterministic,
-  customizable rules (defaults, the Hirt family rules): **75 passes**
+  customizable rules (defaults, the shipped default rules): **75 passes**
   (below 75 is NO-GO); **NO-GO if 2+ items are Missing** (one Missing
   alone is GO). The badge states the reason: "NO-GO — Missing work",
   "NO-GO — Low grades", or both.
@@ -52,34 +52,42 @@ not a follow-up — see [docs/safari.md](docs/safari.md).
   background tab + content script. All data is stored in
   `browser.storage.local` on the device; the service worker never holds
   grades only in memory (it terminates after ~30 s idle).
-- **Parent accounts:** detected via `GET /iapi/parent/info`
-  (`view_mode`, `view_child`, child profiles); per-child data comes
-  from parameterised endpoints
-  (`/iapi/parent/overdue_submissions/<uid>`, `/home/feed?children=<uid>`).
-  Whether HTML Grades pages accept a per-child URL parameter is
-  **unverified** — the extension does not assume it.
+- **Parent accounts:** detected via `GET /iapi/parent/info` (child
+  profiles + the session's `view_child`). Per child, the extension
+  switches the viewed child (`/parent/home?child_uid=<uid>`, the same as
+  picking the child in Schoology's menu), confirms the switch, and reads
+  `/parent/grades_attendance/grades`, which lists all of that child's
+  courses on one page. If the switch can't be confirmed, that child's
+  verdict is **UNKNOWN**; grades are never attributed to the wrong child.
 
-## Live-test status — NOT yet proven
+## Live-test status (2026-11-06)
 
-> **⚠️ The background-fetch path has NOT been proven against live
-> Schoology.** Community reports say service-worker `fetch()` sometimes
-> does not attach cookies even with `credentials:'include'`, and it is
-> unverified whether a plain fetch of a Grades page returns the grades
-> table or an empty JS shell. The probe in [`test/probe/`](test/probe/)
-> tests exactly that against real Schoology (Safari first, then
-> Chrome). See [`test/probe/LIVE-TEST-RESULTS.md`](test/probe/LIVE-TEST-RESULTS.md)
-> — it currently says **NOT YET RUN**. Do not treat the fetch path as
-> proven until that file holds real evidence.
+**Verified on live Schoology (parent account, Chrome, read-only):**
+Grades pages are **server-rendered**. A plain `fetch()` with the session
+cookie returns the full grades table, including the Missing markers, so
+no JS rendering is needed. The parser was run on every assignment row of
+three students (526 rows, 0 unread, 0 warnings) and matched Schoology's
+own Missing flags exactly, including a Missing item hidden inside a
+collapsed earlier grading period. `/iapi/parent/overdue_submissions` was
+checked and found **unreliable** as a Missing source, so it is not used.
 
-## Fixture-vs-live-DOM caveat
+**Still not verified:**
+- The fetch from the extension's own **service worker** on
+  schoology.com. It was verified from a logged-in page context (what a
+  content script does), and against the mock server from the service
+  worker in the e2e tests.
+- Anything in **Safari** (macOS or iOS).
+- The **student-account** flow (no student login was available).
 
-The mock server fixtures (`test/mock-server/fixtures/`) and the parser
-are **modelled on** the known Schoology Grades structure (grades table,
-Missing markers) — they are **not verified live Schoology DOM**. The
-parser's selectors must be re-validated against live pages once the
-probe runs, and the parser self-checks: if a page looks like a grades
-page but zero courses/assignments parse, it reports `PARSE_EMPTY`
-("Schoology page changed — could not read grades") instead of a green GO.
+See [`test/probe/LIVE-TEST-RESULTS.md`](test/probe/LIVE-TEST-RESULTS.md).
+
+## Parser and markup
+
+The parser (`extension/src/parser-core.js`) reads the live Schoology
+Grades markup verified on 2026-11-06. Its header documents the structure.
+The mock server renders that same markup from made-up data. The parser
+self-checks: if a page has grade rows but nothing parses, it reports
+`PARSE_EMPTY` ("could not read grades") instead of a green GO.
 
 ## Load unpacked
 
@@ -141,7 +149,7 @@ second (skipped gracefully until the CWS secrets are configured).
 | `scripts/build.mjs` | Main build (esbuild → `dist/`) |
 | `scripts/build-safari.mjs` | Safari packager step (`safari/convert.sh` fallback on Linux) |
 | `safari/` | Generated Xcode project + `convert.sh` + README |
-| `test/mock-server/` | Mock Schoology server + fixtures (port 8123) |
+| `test/mock-server/` | Mock Schoology server, live-markup renderer (port 8123) |
 | `test/unit/` | Vitest unit tests |
 | `test/e2e/` | Playwright e2e tests |
 | `test/probe/` | Live-test probe extension + results (Safari first) |

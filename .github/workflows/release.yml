@@ -3,8 +3,7 @@
 # Trigger: version tags (v*, e.g. v0.1.0). The tag version should match
 # package.json / extension/manifest.json.
 #
-# Order is SAFARI FIRST, Chrome second — students at North Point
-# Christian use Safari.
+# Order is SAFARI FIRST, Chrome second — many students use Safari.
 #
 # Jobs:
 #   1. build      (ubuntu)  — prod build -> extension ZIP artifact.
@@ -19,13 +18,13 @@
 #                              release still ships the ZIP + convert.sh.
 #   3. chrome     (ubuntu)  — Chrome Web Store upload, guarded: SKIPS
 #                              GRACEFULLY with a clear echo when the
-#                              CWS_* secrets are not set. Chris has NOT
+#                              CWS_* secrets are not set. The account owner has NOT
 #                              done Chrome Web Store developer setup yet;
 #                              do not invent store credentials.
 #   4. release              — creates the GitHub Release with the ZIP(s)
 #                              attached (softprops/action-gh-release).
 #
-# Apple secrets (set only after Chris enrols in the Apple Developer
+# Apple secrets (set only after the account owner enrols in the Apple Developer
 # Program, $99/yr — see docs/safari.md; never commit them):
 #   APPLE_TEAM_ID, APPLE_API_KEY_ID, APPLE_API_ISSUER_ID,
 #   APPLE_API_KEY_P8_BASE64 (.p8 private key, base64),
@@ -146,7 +145,7 @@ jobs:
         if: steps.apple-secrets.outputs.configured != 'true'
         run: |
           echo "SKIPPED: Xcode archive / App Store Connect upload — Apple Developer secrets are not set."
-          echo "Chris has not completed Apple Developer Program enrolment yet (see docs/safari.md)."
+          echo "The account owner has not completed Apple Developer Program enrolment yet (see docs/safari.md)."
           echo "The release still ships the extension ZIP, the Safari source ZIP, and safari/convert.sh"
           echo "so the manual Mac path stays open. This is not a failure."
 
@@ -196,7 +195,7 @@ jobs:
         if: steps.cws-secrets.outputs.configured != 'true'
         run: |
           echo "SKIPPED: Chrome Web Store upload — CWS_CLIENT_ID / CWS_CLIENT_SECRET / CWS_REFRESH_TOKEN / CWS_EXTENSION_ID are not set."
-          echo "Chris has NOT done Chrome Web Store developer setup yet (see docs/chrome-web-store-setup.md)."
+          echo "The account owner has NOT done Chrome Web Store developer setup yet (see docs/chrome-web-store-setup.md)."
           echo "Upload manually from the Developer Dashboard (Unlisted listing) until the secrets are configured."
           echo "This is not a failure — the release still ships the extension ZIP."
 

@@ -3,10 +3,28 @@
 // NO Schoology REST API / OAuth, NO stored password. All requests use
 // { credentials: 'include' }.
 //
-// NOTE: the exact student Grades page URL pattern was NOT verified from any
-// source — runLiveProbe / fetchGradesPage NEVER guess a grades URL. The URL
-// comes from the logged-in UI (content script captures it) or from storage
-// set by the user.
+// Endpoints VERIFIED live on app.schoology.com with a parent account
+// (2026-11-06); all are server-rendered, a plain fetch returns everything:
+//
+//   GET /iapi/parent/info
+//       { response_code: 200, body: { session: { view_mode, view_child },
+//         children: { "<uid>": { uid, username, profile_url, profile_tiny } } } }
+//   GET /parent/home?child_uid=<uid>
+//       switches the parent session's "viewing as" child (same as picking
+//       the child in Schoology's own menu).
+//   GET /parent/grades_attendance/grades
+//       every course of the CURRENTLY VIEWED child on one page
+//       (.gradebook-course blocks — see parser-core.js).
+//   GET /course/<id>/student_grades
+//       one course's Grades page (same markup).
+//
+// NOT verified (no student account was available): the student flow below
+// reads /grades/grades, falling back to /course/<id>/student_grades for the
+// courses linked from /home.
+//
+// Deliberately NOT used: /iapi/parent/overdue_submissions (live testing
+// showed it omits teacher-marked Missing items and includes items that are
+// not Missing) and /home/feed (submission events only).
 
 import { parseGradesHtml } from './parser.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
@@ -22,26 +40,45 @@ function isLoginPage(html, finalUrl) {
   if (!html) return false;
   return (
     /<form[^>]+(?:id|class)=["'][^"']*login/i.test(html) ||
-    /name=["']pass["']/i.test(html) ||
-    /action=["'][^"']*\/login["']/i.test(html) ||
-    /Log in to Schoology/i.test(html)
+    /<title>\s*Log in to Schoology/i.test(html)
   );
 }
 
 function getFinalUrl(res, fallbackUrl) {
   if (res && typeof res.url === 'string' && res.url) return res.url;
-  if (res && res.headers && typeof res.headers.get === 'function') {
-    // Some stubs expose the final URL via a header; ignore otherwise.
-  }
   return fallbackUrl;
+}
+
+function errMsg(e) {
+  return String(e && e.message ? e.message : e);
+}
+
+// /iapi/parent/info -> { viewChild, children: [{ uid, name, pictureUrl }] }.
+// Accepts the live shape (body.children keyed by uid) and a plain array.
+export function normalizeParentInfo(json) {
+  const body = json && typeof json === 'object' && json.body && typeof json.body === 'object' ? json.body : json || {};
+  const raw = body.children;
+  const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? Object.values(raw) : [];
+  const children = list
+    .map((c) => {
+      const uid = String(c.uid ?? c.id ?? c.user_id ?? '');
+      const name = c.username || c.name || c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Child';
+      let pictureUrl = c.pictureUrl || c.picture_url || null;
+      if (!pictureUrl && typeof c.profile_tiny === 'string') {
+        const m = c.profile_tiny.match(/<img[^>]+src=["']([^"']+)["']/i);
+        if (m) pictureUrl = m[1].replace(/&amp;/g, '&');
+      }
+      return { uid, name, pictureUrl };
+    })
+    .filter((c) => c.uid);
+  const session = body.session && typeof body.session === 'object' ? body.session : {};
+  const viewChild = session.view_child != null ? String(session.view_child) : body.view_child != null ? String(body.view_child) : null;
+  return { viewChild, children };
 }
 
 export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } = {}) {
   const base = stripTrailingSlash(baseUrl) || DEFAULT_BASE_URL;
-  const doFetch = async (url, options = {}) => {
-    const res = await fetchImpl(url, { credentials: 'include', ...options });
-    return res;
-  };
+  const doFetch = (url, options = {}) => fetchImpl(url, { credentials: 'include', ...options });
   const readText = async (res) => {
     try {
       return typeof res.text === 'function' ? await res.text() : '';
@@ -57,94 +94,79 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
     }
   };
 
-  // Best-effort display-name extraction from a logged-in home page.
-  // Patterns: "Welcome, Alex Student" heading, or a data-user-name attr.
-  // Returns null when nothing matches — callers fall back to 'Student'.
-  // Never guesses a name from a URL or a cookie.
+  // Best-effort display name from a logged-in page. Returns null when
+  // nothing matches — callers fall back to 'Student'.
   function extractDisplayName(html) {
     if (!html) return null;
-    const welcome = html.match(/Welcome,\s*([^<,\n\r]+)/i);
-    if (welcome && welcome[1] && welcome[1].trim()) return welcome[1].trim();
     const attr = html.match(/data-user-name=["']([^"']+)["']/i);
-    if (attr && attr[1] && attr[1].trim()) return attr[1].trim();
+    if (attr && attr[1].trim()) return attr[1].trim();
+    const welcome = html.match(/Welcome,\s*([^<,\n\r]+)/i);
+    if (welcome && welcome[1].trim()) return welcome[1].trim();
     return null;
+  }
+
+  async function fetchPage(url) {
+    const res = await doFetch(url, { headers: { Accept: 'text/html' } });
+    const html = await readText(res);
+    const finalUrl = getFinalUrl(res, url);
+    return { status: res.status, finalUrl, html, loggedIn: !isLoginPage(html, finalUrl) };
+  }
+  // Kept under its old name for callers (probe, hidden-tab fallback).
+  const fetchGradesPage = fetchPage;
+
+  async function getParentInfo() {
+    const res = await doFetch(`${base}/iapi/parent/info`, { headers: { Accept: 'application/json' } });
+    const finalUrl = getFinalUrl(res, `${base}/iapi/parent/info`);
+    if (/\/login(\b|\?|#|$)/i.test(finalUrl)) return { loggedOut: true, status: res.status, viewChild: null, children: [] };
+    const json = res.status < 400 ? await readJson(res) : null;
+    return { status: res.status, ...normalizeParentInfo(json) };
   }
 
   async function detectAccount() {
     const evidence = {};
-    // Parent signal first: GET {base}/iapi/parent/info
     try {
-      const res = await doFetch(`${base}/iapi/parent/info`, {
-        headers: { Accept: 'application/json' },
-      });
-      evidence.parentInfoStatus = res.status;
-      const data = await readJson(res);
-      const childrenRaw = data && Array.isArray(data.children) ? data.children : null;
-      if (childrenRaw && childrenRaw.length > 0) {
-        const children = childrenRaw.map((c) => ({
-          uid: String(c.uid ?? c.id ?? c.user_id ?? ''),
-          name: c.name || c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Child',
-          pictureUrl: c.pictureUrl || c.picture_url || c.profile_pic || null,
-        }));
-        return {
-          type: 'parent',
-          children,
-          studentName: null,
-          evidence: { ...evidence, viewMode: data.view_mode, viewChild: data.view_child },
-        };
+      const info = await getParentInfo();
+      evidence.parentInfoStatus = info.status;
+      if (info.children.length > 0) {
+        return { type: 'parent', children: info.children, studentName: null, evidence: { ...evidence, viewChild: info.viewChild } };
       }
-      evidence.parentInfoChildren = childrenRaw ? childrenRaw.length : 0;
+      evidence.parentInfoChildren = 0;
     } catch (e) {
-      evidence.parentInfoError = String(e && e.message ? e.message : e);
+      evidence.parentInfoError = errMsg(e);
     }
-    // Otherwise: fetch {base}/home — a logged-in page means a student
-    // account (a parent with no children listed would land here too, but
-    // the parent-info check above is the primary detector).
     try {
-      const res = await doFetch(`${base}/home`, { headers: { Accept: 'text/html' } });
-      const html = await readText(res);
-      const finalUrl = getFinalUrl(res, `${base}/home`);
-      evidence.homeStatus = res.status;
-      evidence.homeFinalUrl = finalUrl;
-      if (isLoginPage(html, finalUrl)) {
-        return { type: 'loggedOut', children: [], studentName: null, evidence };
-      }
-      return { type: 'student', children: [], studentName: extractDisplayName(html) || 'Student', evidence };
+      const home = await fetchPage(`${base}/home`);
+      evidence.homeStatus = home.status;
+      evidence.homeFinalUrl = home.finalUrl;
+      if (!home.loggedIn) return { type: 'loggedOut', children: [], studentName: null, evidence };
+      return { type: 'student', children: [], studentName: extractDisplayName(home.html) || 'Student', evidence };
     } catch (e) {
-      evidence.homeError = String(e && e.message ? e.message : e);
+      evidence.homeError = errMsg(e);
       return { type: 'unknown', children: [], studentName: null, evidence };
     }
   }
 
-  async function fetchGradesPage(url) {
-    const res = await doFetch(url, { headers: { Accept: 'text/html' } });
-    const html = await readText(res);
-    const finalUrl = getFinalUrl(res, url);
-    const loggedIn = !isLoginPage(html, finalUrl);
-    return { status: res.status, finalUrl, html, loggedIn };
-  }
-
-  // runLiveProbe(gradesUrl, { assignmentTitle } = {})
-  // Evidence object — never guesses the grades URL.
+  // runLiveProbe(gradesUrl, { assignmentTitle }) — evidence object for the
+  // probe extension. Never guesses the grades URL.
   async function runLiveProbe(gradesUrl, { assignmentTitle = null } = {}) {
     const checkedAt = new Date().toISOString();
     try {
-      const page = await fetchGradesPage(gradesUrl);
+      const page = await fetchPage(gradesUrl);
       const html = page.html || '';
-      const containsAssignmentTitle =
-        assignmentTitle !== null && assignmentTitle !== undefined
-          ? html.includes(String(assignmentTitle))
-          : false;
-      const containsGrade = /grade-score|grades-table|\b\d{1,3}\s*%/.test(html);
-      const containsMissing = /missing/i.test(html);
+      const parsed = parseGradesHtml(html, { sourceUrl: page.finalUrl, baseUrl: base });
+      const assignments = parsed.courses.flatMap((c) => c.assignments);
       return {
         status: page.status,
         finalUrl: page.finalUrl,
         loggedIn: page.loggedIn,
         bodyLength: html.length,
-        containsAssignmentTitle,
-        containsGrade,
-        containsMissing,
+        containsAssignmentTitle: assignmentTitle != null ? html.includes(String(assignmentTitle)) : false,
+        containsGrade: /class=["'][^"']*\bitem-row\b/.test(html),
+        containsMissing: /exception-icon missing/.test(html),
+        parsedCourses: parsed.courses.length,
+        parsedAssignments: assignments.length,
+        parsedMissing: assignments.filter((a) => a.status === 'missing').length,
+        parseError: parsed.error || null,
         assignmentTitleChecked: assignmentTitle,
         checkedAt,
       };
@@ -159,250 +181,140 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
         containsMissing: false,
         assignmentTitleChecked: assignmentTitle,
         checkedAt,
-        error: String(e && e.message ? e.message : e),
+        error: errMsg(e),
       };
     }
   }
 
-  function extractCourseGradesLinks(homeHtml) {
-    const links = [];
-    const seen = new Set();
-    const re = /href=["']([^"']*\/course\/(\d+)\/grades[^"']*)["']/gi;
+  function extractCourseIds(html) {
+    const ids = [];
+    const re = /href=["'][^"']*\/course\/(\d+)(?:\/|["'])/gi;
     let m;
-    while ((m = re.exec(homeHtml)) !== null) {
-      const href = m[1];
-      const id = m[2];
-      const url = href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href}`;
-      if (!seen.has(url)) {
-        seen.add(url);
-        links.push({ id, url });
-      }
-    }
-    return links;
+    while ((m = re.exec(html || '')) !== null) if (!ids.includes(m[1])) ids.push(m[1]);
+    return ids;
   }
 
-  // Per-child course links from a parent home page: each child gets a
-  // <section class="child" data-child-uid="..."> block listing that child's
-  // course Grades links. Returns [{ uid, links: [{ id, url }] }].
-  // Returns [] when the home page has no per-child sections — callers must
-  // fall back to the combined report with section attribution, never guess.
-  function extractChildCourseLinks(homeHtml) {
-    const out = [];
-    const sectionRe = /<section[^>]*data-child-uid=["']([^"']+)["'][^>]*>([\s\S]*?)<\/section>/gi;
-    let sm;
-    while ((sm = sectionRe.exec(homeHtml || '')) !== null) {
-      const uid = sm[1];
-      const links = [];
-      const seen = new Set();
-      const re = /href=["']([^"']*\/course\/(\d+)\/grades[^"']*)["']/gi;
-      let m;
-      while ((m = re.exec(sm[2])) !== null) {
-        const href = m[1];
-        const id = m[2];
-        const url = href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href}`;
-        if (!seen.has(url)) {
-          seen.add(url);
-          links.push({ id, url });
-        }
-      }
-      out.push({ uid, links });
-    }
-    return out;
-  }
-
-  // Fetch + parse a list of per-course Grades pages. Shared by the student
-  // flow and the parent per-child flow. Returns { courses, parseWarnings, fetchedUrls }.
-  async function fetchCoursesForLinks(links) {
-    const courses = [];
-    const parseWarnings = [];
-    const fetchedUrls = [];
-    for (const link of links) {
-      const page = await fetchGradesPage(link.url);
-      fetchedUrls.push(page.finalUrl);
-      if (!page.loggedIn) {
-        parseWarnings.push(`Logged out while fetching ${link.url}`);
-        continue;
-      }
-      const parsed = parseGradesHtml(page.html, { courseId: link.id, sourceUrl: page.finalUrl });
-      if (parsed.error) {
-        parseWarnings.push(`PARSE_EMPTY for ${link.url}`);
-        continue;
-      }
-      parseWarnings.push(...parsed.parseWarnings);
-      courses.push(...parsed.courses);
-    }
-    return { courses, parseWarnings, fetchedUrls };
-  }
-
-  // Student flow: /home -> per-course Grades pages -> parse -> summarize.
+  // Student flow (UNVERIFIED live — see header).
   async function fetchStudentDashboard({ turnedInIds } = {}) {
     const updatedAt = new Date().toISOString();
-    const home = await fetchGradesPage(`${base}/home`);
+    const home = await fetchPage(`${base}/home`);
     if (!home.loggedIn) {
-      return { courses: [], studentName: 'Student', parseWarnings: ['Not logged in to Schoology'], source: 'student-grades-pages', updatedAt, error: 'LOGGED_OUT' };
+      return { courses: [], studentName: 'Student', parseWarnings: ['Not logged in to Schoology'], source: 'student', updatedAt, error: 'LOGGED_OUT' };
     }
-    const studentName = extractDisplayName(home.html || '') || 'Student';
-    const links = extractCourseGradesLinks(home.html || '');
-    if (links.length === 0) {
-      return {
-        courses: [],
-        studentName,
-        parseWarnings: ['No course Grades links found on the Schoology home page'],
-        source: 'student-grades-pages',
-        updatedAt,
-        error: 'NO_GRADES_LINKS',
-      };
+    const studentName = extractDisplayName(home.html) || 'Student';
+    const parseWarnings = [];
+    const fetchedUrls = [];
+    let courses = [];
+    let source = 'student-grades-report';
+
+    const report = await fetchPage(`${base}/grades/grades`);
+    fetchedUrls.push(report.finalUrl);
+    if (report.loggedIn && report.status < 400) {
+      const parsed = parseGradesHtml(report.html, { sourceUrl: report.finalUrl, baseUrl: base });
+      if (parsed.error) parseWarnings.push(`PARSE_EMPTY for ${report.finalUrl}`);
+      else {
+        courses = parsed.courses;
+        parseWarnings.push(...parsed.parseWarnings);
+      }
     }
-    const { courses, parseWarnings, fetchedUrls } = await fetchCoursesForLinks(links);
+    if (courses.length === 0) {
+      source = 'student-course-pages';
+      for (const id of extractCourseIds(home.html)) {
+        const page = await fetchPage(`${base}/course/${id}/student_grades`);
+        fetchedUrls.push(page.finalUrl);
+        if (!page.loggedIn || page.status >= 400) continue;
+        const parsed = parseGradesHtml(page.html, { courseId: id, sourceUrl: page.finalUrl, baseUrl: base });
+        if (parsed.error) {
+          parseWarnings.push(`PARSE_EMPTY for ${page.finalUrl}`);
+          continue;
+        }
+        parseWarnings.push(...parsed.parseWarnings);
+        courses.push(...parsed.courses);
+      }
+    }
+    if (courses.length === 0) {
+      return { courses: [], studentName, parseWarnings: [...parseWarnings, 'No grades found for this account'], source, updatedAt, fetchedUrls, error: 'NO_GRADES' };
+    }
     const summary = summarizeStudent(courses, DEFAULT_SETTINGS, turnedInIds);
-    return {
-      courses,
-      studentName,
-      summary,
-      parseWarnings,
-      source: 'student-grades-pages',
-      updatedAt,
-      fetchedUrls,
-    };
+    return { courses, studentName, summary, parseWarnings, source, updatedAt, fetchedUrls };
   }
 
-  // Parent flow: /iapi/parent/info, then per child the parameterised
-  // endpoints plus the parent grade report. Returns one dashboard object
-  // per child, each labelled with which source supplied it.
+  // Parent flow: for each child, switch the viewed child, read that child's
+  // whole grade report, and CONFIRM the session was still viewing that child
+  // before and after the read. Anything unconfirmed gets verdict UNKNOWN —
+  // a child is never shown another child's grades. The originally viewed
+  // child is restored at the end.
   async function fetchParentDashboards({ turnedInIdsByStudent } = {}) {
     const updatedAt = new Date().toISOString();
-    const infoRes = await doFetch(`${base}/iapi/parent/info`, {
-      headers: { Accept: 'application/json' },
-    });
-    const info = await readJson(infoRes);
-    const childrenRaw = info && Array.isArray(info.children) ? info.children : [];
-    if (childrenRaw.length === 0) {
-      return [];
-    }
+    const info = await getParentInfo();
+    if (info.children.length === 0) return [];
+    const originalChild = info.viewChild;
     const dashboards = [];
-    // Primary per-child source: the parent home page lists each child's own
-    // course Grades links, grouped by child UID. Fetch it once up front.
-    let childLinksByUid = new Map();
-    const homeWarnings = [];
-    try {
-      const homePage = await fetchGradesPage(`${base}/home`);
-      if (homePage.loggedIn && homePage.html) {
-        for (const entry of extractChildCourseLinks(homePage.html)) {
-          childLinksByUid.set(entry.uid, entry.links);
-        }
-        if (childLinksByUid.size === 0) {
-          homeWarnings.push('Parent home page has no per-child course sections — falling back to the combined grade report with section attribution.');
-        }
-      } else {
-        homeWarnings.push('Could not read the parent home page (logged out?) — falling back to the combined grade report with section attribution.');
-      }
-    } catch (e) {
-      homeWarnings.push(`Parent home page fetch failed: ${e.message || e} — falling back to the combined grade report with section attribution.`);
-    }
-    for (const child of childrenRaw) {
-      const uid = String(child.uid ?? child.id ?? child.user_id ?? '');
-      const name =
-        child.name || child.display_name || [child.first_name, child.last_name].filter(Boolean).join(' ') || 'Child';
-      const pictureUrl = child.pictureUrl || child.picture_url || child.profile_pic || null;
-      const source = { overdue: false, feed: false, childCoursePages: false, gradesReport: false, attribution: null };
-      const parseWarnings = [...homeWarnings];
+
+    for (const child of info.children) {
+      const parseWarnings = [];
       let courses = [];
-      let overdueItems = [];
-      let attributionError = null;
-
+      let error = null;
+      const source = { gradesReport: false, attribution: null, url: `${base}/parent/grades_attendance/grades` };
       try {
-        const overdueRes = await doFetch(`${base}/iapi/parent/overdue_submissions/${uid}`, {
-          headers: { Accept: 'application/json' },
-        });
-        const overdue = await readJson(overdueRes);
-        if (overdue) {
-          source.overdue = true;
-          const list = Array.isArray(overdue) ? overdue : overdue.overdue || overdue.submissions || [];
-          overdueItems = Array.isArray(list) ? list : [];
-        }
-      } catch (e) {
-        parseWarnings.push(`overdue_submissions failed for ${name}: ${e.message || e}`);
-      }
-
-      try {
-        const feedRes = await doFetch(`${base}/home/feed?children=${encodeURIComponent(uid)}`, {
-          headers: { Accept: 'application/json' },
-        });
-        if (feedRes && feedRes.status < 400) source.feed = true;
-        await readText(feedRes);
-      } catch (e) {
-        parseWarnings.push(`feed failed for ${name}: ${e.message || e}`);
-      }
-
-      // Grades for THIS child only. Primary: the child's own course pages
-      // (links grouped by child UID on the parent home page). Fallback: the
-      // combined parent grade report, filtered by the per-section attribution
-      // the parser captures (data-child-uid / data-student). NEVER assign
-      // unattributed courses to a child — withhold the verdict instead.
-      const links = childLinksByUid.get(uid) || [];
-      if (links.length > 0) {
-        const fetched = await fetchCoursesForLinks(links);
-        courses = fetched.courses;
-        parseWarnings.push(...fetched.parseWarnings);
-        source.childCoursePages = true;
-        source.attribution = 'per-child-links';
-      } else {
-        try {
-          const report = await fetchGradesPage(`${base}/parent/grades_attendance/grades`);
-          if (report.loggedIn && report.html) {
-            const parsed = parseGradesHtml(report.html, { sourceUrl: report.finalUrl });
-            if (!parsed.error) {
+        await doFetch(`${base}/parent/home?child_uid=${encodeURIComponent(child.uid)}`, { headers: { Accept: 'text/html' } });
+        const before = await getParentInfo();
+        if (before.viewChild !== child.uid) {
+          error = 'NO_CHILD_ATTRIBUTION';
+          parseWarnings.push(`Schoology did not switch to ${child.name} — verdict withheld rather than guessed.`);
+        } else {
+          const report = await fetchPage(source.url);
+          const after = await getParentInfo();
+          if (!report.loggedIn) {
+            error = 'LOGGED_OUT';
+            parseWarnings.push('Logged out of Schoology while reading grades.');
+          } else if (after.viewChild !== child.uid) {
+            error = 'NO_CHILD_ATTRIBUTION';
+            parseWarnings.push(`The viewed child changed while reading ${child.name}'s grades (another tab?) — verdict withheld.`);
+          } else {
+            const parsed = parseGradesHtml(report.html, { sourceUrl: report.finalUrl, baseUrl: base });
+            parseWarnings.push(...parsed.parseWarnings);
+            if (parsed.error) error = parsed.error;
+            else {
+              courses = parsed.courses;
               source.gradesReport = true;
-              parseWarnings.push(...parsed.parseWarnings);
-              const mine = parsed.courses.filter(
-                (c) => c.childUid === uid || (c.studentName && c.studentName.toLowerCase() === name.toLowerCase()),
-              );
-              if (mine.length > 0) {
-                courses = mine;
-                source.attribution = 'report-section';
-              } else if (parsed.courses.length > 0) {
-                attributionError = 'NO_CHILD_ATTRIBUTION';
-                parseWarnings.push(
-                  `Grade report courses could not be attributed to ${name} — per-child verdict withheld rather than guessed.`,
-                );
-              } else {
-                parseWarnings.push(`Parent grade report PARSE_EMPTY for ${name}`);
-              }
-            } else {
-              parseWarnings.push(`Parent grade report PARSE_EMPTY for ${name}`);
+              source.attribution = 'view-child-confirmed';
             }
-          } else if (!report.loggedIn) {
-            parseWarnings.push(`Logged out while fetching parent grade report for ${name}`);
           }
-        } catch (e) {
-          parseWarnings.push(`grade report failed for ${name}: ${e.message || e}`);
         }
+      } catch (e) {
+        error = 'FETCH_FAILED';
+        parseWarnings.push(`Reading ${child.name}'s grades failed: ${errMsg(e)}`);
       }
 
-      const turnedInIds = turnedInIdsByStudent ? turnedInIdsByStudent[uid] : undefined;
+      const turnedInIds = turnedInIdsByStudent ? turnedInIdsByStudent[child.uid] : undefined;
       let summary = summarizeStudent(courses, DEFAULT_SETTINGS, turnedInIds);
-      if (attributionError) {
+      if (error) {
         // Empty courses would recompute to a false GO — mark it UNKNOWN.
-        summary = {
-          ...summary,
-          verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades — courses could not be attributed to this child.'] },
-        };
+        summary = { ...summary, verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades.'] } };
       }
       dashboards.push({
-        studentUid: uid,
-        studentName: name,
-        pictureUrl,
+        studentUid: child.uid,
+        studentName: child.name,
+        pictureUrl: child.pictureUrl,
         courses,
         summary,
-        overdueItems,
         updatedAt,
         source,
         parseWarnings,
-        error: attributionError,
+        error,
       });
+    }
+
+    if (originalChild) {
+      try {
+        await doFetch(`${base}/parent/home?child_uid=${encodeURIComponent(originalChild)}`, { headers: { Accept: 'text/html' } });
+      } catch {
+        // Best effort: the parent's viewed child stays on the last child.
+      }
     }
     return dashboards;
   }
 
-  return { detectAccount, fetchGradesPage, fetchStudentDashboard, fetchParentDashboards, runLiveProbe };
+  return { detectAccount, fetchGradesPage, fetchPage, fetchStudentDashboard, fetchParentDashboards, runLiveProbe };
 }

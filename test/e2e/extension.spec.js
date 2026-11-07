@@ -5,7 +5,7 @@
 // extension at the mock server via settings.schoologyBase, and asserts the
 // popup renders the correct Missing counts and GO/NO-GO verdicts for BOTH
 // personas (student: 1 Missing + a 68% class => NO-GO "Low grades";
-// parent: Luis NO-GO + Emma GO).
+// parent: Sam NO-GO + Jamie GO).
 //
 // The parent test guards the per-child attribution fix in
 // extension/src/schoology.js (each child gets only their own courses).
@@ -195,10 +195,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // American Literature has 1 Missing item. Correct verdict: NO-GO with
       // reason "Low grades" (one Missing alone would be GO).
       // NOTE: the student display name now comes from the home page
-      // ("Welcome, Alex Student"), so the popup shows the real name.
+      // (data-user-name on the home page), so the popup shows the real name.
       await expect(popup.getByRole('heading', { name: 'Alex Student', exact: true })).toBeVisible({ timeout: 15000 });
       await expect(popup.getByText('Missing · 1')).toBeVisible();
-      await expect(popup.getByText('Propaganda Script')).toBeVisible();
+      await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
       await expect(popup.getByText('NO-GO', { exact: true })).toBeVisible();
       await expect(popup.getByText('NO-GO — Low grades')).toBeVisible();
       await expect(popup.getByText('Algebra 2').first()).toBeVisible();
@@ -210,7 +210,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
-  test('parent persona: TWO child dashboards — Luis NO-GO, Emma GO', async () => {
+  test('parent persona: TWO child dashboards — Sam NO-GO, Jamie GO', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     try {
@@ -220,19 +220,19 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
 
       const popup = await openPopup(context, extensionId);
       // Both children render as their own section.
-      const luisSection = popup.locator('section.student', { hasText: 'Luis Hirt' });
-      const emmaSection = popup.locator('section.student', { hasText: 'Emma Hirt' });
-      await expect(luisSection).toBeVisible({ timeout: 15000 });
-      await expect(emmaSection).toBeVisible({ timeout: 15000 });
-      // Luis: 2 Missing + lowest class 55% => NO-GO.
-      await expect(luisSection.getByText('Missing · 2')).toBeVisible();
-      await expect(luisSection.getByText('NO-GO', { exact: true })).toBeVisible();
-      await expect(luisSection.getByText('Propaganda Script')).toBeVisible();
-      await expect(luisSection.getByText('Unit 2 Contexts Essay')).toBeVisible();
-      // Emma: 1 Missing, all classes >= 90 => GO.
-      await expect(emmaSection.getByText('Missing · 1')).toBeVisible();
-      await expect(emmaSection.getByText('GO', { exact: true })).toBeVisible();
-      await expect(emmaSection.getByText('Poetry Analysis Essay')).toBeVisible();
+      const samSection = popup.locator('section.student', { hasText: 'Sam Rivera' });
+      const jamieSection = popup.locator('section.student', { hasText: 'Jamie Rivera' });
+      await expect(samSection).toBeVisible({ timeout: 15000 });
+      await expect(jamieSection).toBeVisible({ timeout: 15000 });
+      // Sam: 2 Missing + lowest class 55% => NO-GO.
+      await expect(samSection.getByText('Missing · 2')).toBeVisible();
+      await expect(samSection.getByText('NO-GO', { exact: true })).toBeVisible();
+      await expect(samSection.getByText('Persuasive Essay Draft')).toBeVisible();
+      await expect(samSection.getByText('Unit 2 Essay')).toBeVisible();
+      // Jamie: 1 Missing, all classes >= 90 => GO.
+      await expect(jamieSection.getByText('Missing · 1')).toBeVisible();
+      await expect(jamieSection.getByText('GO', { exact: true })).toBeVisible();
+      await expect(jamieSection.getByText('Poetry Analysis Essay')).toBeVisible();
       await popup.close();
     } finally {
       await context.close();

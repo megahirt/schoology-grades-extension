@@ -19,7 +19,10 @@
 
   function scrapeGradesPage() {
     var bodyText = document.body ? document.body.innerText || '' : '';
-    var domHasMissing = /missing/i.test(bodyText);
+    // Live Schoology marks Missing as .exception-icon.missing on the row
+    // (verified 2026-11-06). Rows in collapsed periods are hidden, so a
+    // visible-text search would miss them; check the markup instead.
+    var domHasMissing = !!document.querySelector('.exception-icon.missing');
 
     // One sample assignment title from the rendered DOM. Try the most
     // specific selectors first, then fall back to the first plausible
@@ -27,7 +30,8 @@
     // the probe does not depend on any one selector being right.
     var sampleTitle = null;
     var candidates = document.querySelectorAll(
-      '.assignment-title, ' +
+      'tr.item-row .title a, ' +
+        '.assignment-title, ' +
         'td.assignment-title, ' +
         'a[href*="assignment"], ' +
         'table.grades-table tbody tr td:first-child, ' +
@@ -44,7 +48,7 @@
 
     var urlLooksLikeGrades = /grade/i.test(window.location.href);
     var domLooksLikeGrades =
-      !!document.querySelector('table.grades-table, .gradebook, .course-grades, .course-grade') ||
+      !!document.querySelector('.gradebook-course, tr.item-row') ||
       /grade report|grades/i.test(bodyText.slice(0, 2000));
 
     return {

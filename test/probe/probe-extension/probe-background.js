@@ -49,8 +49,10 @@ function buildEvidence(response, body, gradesUrl, assignmentTitle, fetchContext)
     bodyLength: body.length,
     containsAssignmentTitle: assignmentTitle ? body.includes(assignmentTitle) : false,
     // Heuristic: a grade-like value (a percent) or a grades-table marker.
-    containsGrade: /\b\d{1,3}(\.\d+)?\s*%/.test(body) || /grades-table|course-grade|gradebook/i.test(body),
-    containsMissing: /missing/i.test(body),
+    containsGrade: /class=["'][^"']*\bitem-row\b/.test(body),
+    // Translation strings on every page contain "missing"; only the
+        // row marker counts (verified live 2026-11-06).
+        containsMissing: /exception-icon missing/.test(body),
     assignmentTitleChecked: assignmentTitle || null,
     checkedAt: new Date().toISOString(),
     fetchContext: fetchContext

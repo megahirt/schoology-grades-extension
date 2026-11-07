@@ -1,144 +1,154 @@
-// parser.test.js — unit tests for extension/src/parser.js (SPEC: Grades HTML
-// parser). Parses the fixture HTML files in test/mock-server/fixtures/.
-// Fixtures are MODELLED on the known Schoology Grades structure — NOT verified
-// live Schoology DOM (see SPEC.md and each fixture's header comment).
+// parser.test.js — unit tests for extension/src/parser.js + parser-core.js.
+//
+// The static fixture below copies the LIVE Schoology Grades markup verified
+// on app.schoology.com (2026-11-06) — element structure, classes and
+// screen-reader labels are exact; titles, ids and grades are made up.
+// Here node-html-parser is the DOM; the browser-DOM path of the same core is
+// exercised by the e2e tests and was run against live Schoology.
 
 import { describe, it, expect } from 'vitest';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseGradesHtml } from '../../extension/src/parser.js';
+import { parseGradesHtml, parseSchoologyDate } from '../../extension/src/parser.js';
+import { renderCourse, renderPage } from '../mock-server/markup.js';
 
-const FIXTURES_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../mock-server/fixtures',
-);
+const LIVE_SHAPE = `<!DOCTYPE html><html><head><title>Literature: Section 4 | Schoology</title></head><body>
+<div id="s-js-gradebook-course-9100" class="gradebook-course hierarchical-grading-report show-title interactive">
+<div class="gradebook-course-title">Literature: Section 4<span class="visually-hidden">Course</span></div>
+<div class="gradebook-course-grades"><table role="presentation"><tbody>
+<tr data-id="9100" data-parent-id="" class="report-row course-row has-children"><th scope="row" class="title-column clickable" tabindex="0"><div class="reportSpacer-0"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><span class="course-grade-text">Course Grade</span><span class="visually-hidden">Course</span></span></div></div></th><td class="grade-column"><div class="td-content-wrapper"></div></td><td class="comment-column"><div class="td-content-wrapper"><span class="visually-hidden">No comment</span></div></td></tr>
+<tr tabindex="0" data-id="801" data-parent-id="9100" class="report-row period-row has-children"><th scope="row" class="title-column clickable" tabindex="0"><div class="reportSpacer-1"><div class="td-content-wrapper"><img src="/x.png" class="expandable-icon-grading-report" alt=""><span class="title" role="button" tabindex="0">Semester 1: 8/24/26 - 12/19/26<span class="visually-hidden">Grading Period</span></span> <span class="percentage-contrib">(50%)</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="66.25%">66.25%</span></span></span></div></td><td class="comment-column"></td></tr>
+<tr tabindex="0" data-id="802" data-parent-id="801" class="report-row period-row has-children childrenCollapsed"><th scope="row" class="title-column clickable"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">Quarter 1: 8/24/2026 - 10/14/2026<span class="visually-hidden">Grading Period</span></span></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="77%">77%</span></span></span></div></td><td class="comment-column"></td></tr>
+<tr data-id="802-1" data-parent-id="802" class="report-row category-row hidden has-children childrenCollapsed last-row-of-tier"><th scope="row" class="title-column clickable"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">Work<span class="visually-hidden">Category</span></span></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="76.9%">76.9%</span></span></span></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7001" data-parent-id="802-1" class="report-row item-row hidden"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7001" target="_blank">Warm-up 1<span class="visually-hidden">assignment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>8/25/26 10:00am</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="rounded-grade" title="4.25">4.25</span></span><span class="max-grade"> / 5</span><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7002" data-parent-id="802-1" class="report-row item-row hidden"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7002" target="_blank">Worksheet 4.2<span class="visually-hidden">assignment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>9/30/26 11:59pm</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><div class="exception-grade-wrapper"><span class='no-grade'>0</span><span class="exception"><span class="exception-icon missing"></span><span class="exception-text">Missing</span></span></div><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7003" data-parent-id="802-1" class="report-row item-row hidden"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7003" target="_blank">Mini-Project<span class="visually-hidden">assignment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>10/13/26 11:00am</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="rounded-grade" title="0">0</span></span><span class="max-grade"> / 10</span><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7004" data-parent-id="802-1" class="report-row item-row hidden"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7004" target="_blank">Response to Talk<span class="visually-hidden">discussion</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>10/01/26 12:30pm</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="rounded-grade" title="5">5</span></span><span class="max-grade"> / 5</span><div class="grade-wrapper"><span class="has-discussion-comment discussion-comment-inline-icon-wrapper"><img src="/d.png" alt="Discussion icon"><span class="visually-hidden">This student has posted in the discussion</span></span></div></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7005" data-parent-id="801" class="report-row item-row"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7005" target="_blank">Script Draft<span class="visually-hidden">assignment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>11/03/26 11:25am</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><div class="exception-grade-wrapper"><span class='no-grade'>0</span><span class="exception"><span class="exception-icon missing"></span><span class="exception-text">Missing</span></span></div><div class="grade-wrapper"><span class="has-dropbox-icon grade-pending-icon"><span class="visually-hidden">This student has made a submission that has not been graded.</span></span></div></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7006" data-parent-id="801" class="report-row item-row"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7006" target="_blank">Practice Quiz (optional)<span class="visually-hidden">assessment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>10/29/26 11:59pm</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><div class="exception-grade-wrapper"><span class='no-grade'>—</span><span class="exception"><span class="exception-icon excused"></span><span class="exception-text">Exempt</span></span></div><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7007" data-parent-id="801" class="report-row item-row"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/course/9100/preview/2000001/parent?url=assignment/7007" target="_blank">Final Project &amp; Reflection</a></span> <span class="due-date"><span class="visually-hidden">Due </span>11/05/26 8:00am</span></div></div></th><td class="grade-column"><div class="td-content-wrapper">—</div></td><td class="comment-column"></td></tr>
+<tr data-id="I-7008" data-parent-id="801" class="report-row item-row"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7008" target="_blank">Map Project</a></span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade">A</span><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
+</tbody></table></div></div></body></html>`;
 
-async function loadFixture(name) {
-  return readFile(path.join(FIXTURES_DIR, name), 'utf8');
-}
+const NOW = new Date(2026, 10, 6, 21, 0); // Nov 6 2026, 9 p.m. local
 
-describe('parseGradesHtml — student fixtures (Alex Student)', () => {
-  it('parses American Literature: 1 course, grade 82, 5 assignments, exactly 1 Missing', async () => {
-    const html = await loadFixture('student-grades-american-literature.html');
-    const { courses, parseWarnings } = parseGradesHtml(html);
+describe('parseSchoologyDate', () => {
+  it('reads M/DD/YY h:mmam|pm as local time', () => {
+    const d = parseSchoologyDate('11/03/26 11:25am');
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([2026, 10, 3, 11, 25]);
+    const p = parseSchoologyDate('9/30/26 11:59pm');
+    expect([p.getMonth(), p.getDate(), p.getHours(), p.getMinutes()]).toEqual([8, 30, 23, 59]);
+    expect(parseSchoologyDate('10/01/26 12:30pm').getHours()).toBe(12);
+    expect(parseSchoologyDate('10/01/26 12:05am').getHours()).toBe(0);
+  });
+
+  it('treats a date with no time as due at the end of that day', () => {
+    const d = parseSchoologyDate('10/27/26');
+    expect([d.getDate(), d.getHours(), d.getMinutes()]).toEqual([27, 23, 59]);
+  });
+
+  it('returns null for text that is not a date', () => {
+    expect(parseSchoologyDate('')).toBeNull();
+    expect(parseSchoologyDate('soon')).toBeNull();
+  });
+});
+
+describe('parseGradesHtml — live Schoology markup', () => {
+  const { courses, parseWarnings, error } = parseGradesHtml(LIVE_SHAPE, { now: NOW });
+  const [course] = courses;
+  const byTitle = Object.fromEntries(course.assignments.map((a) => [a.title, a]));
+
+  it('parses one course with every item row, including rows in collapsed periods', () => {
+    expect(error).toBeUndefined();
     expect(parseWarnings).toEqual([]);
     expect(courses).toHaveLength(1);
-    const [course] = courses;
-    expect(course.id).toBe('1002');
-    expect(course.name).toBe('American Literature');
-    expect(course.grade).toBe(82);
-    expect(course.assignments).toHaveLength(5);
+    expect(course.id).toBe('9100');
+    expect(course.name).toBe('Literature');
+    expect(course.sectionTitle).toBe('Literature: Section 4');
+    expect(course.assignments).toHaveLength(8);
+  });
 
-    const missing = course.assignments.filter((a) => a.status === 'missing');
-    expect(missing).toHaveLength(1);
-    expect(missing[0].title).toBe('Propaganda Script');
-    // data-due has no offset, so it is read as the browser's local time (the
-    // family's own timezone) and stored as UTC ISO, which can roll to the next
-    // calendar day. Check the local calendar date instead of the raw string.
-    expect(new Date(missing[0].due).toLocaleDateString('en-CA')).toBe('2026-11-03');
+  it('uses the current semester grade when the course row is empty', () => {
+    expect(course.grade).toBe(66.25);
+    expect(course.gradeSource).toMatch(/^Semester 1/);
+  });
 
-    const graded = course.assignments.filter((a) => a.status === 'graded');
-    expect(graded.map((a) => a.title)).toEqual(
-      expect.arrayContaining(['Rhetoric Analysis', 'Vocabulary Quiz 7']),
+  it('flags ONLY teacher-marked Missing items, including one in a collapsed quarter', () => {
+    const missing = course.assignments.filter((a) => a.status === 'missing').map((a) => a.title);
+    expect(missing).toEqual(['Worksheet 4.2', 'Script Draft']);
+    expect(byTitle['Worksheet 4.2'].score).toBeNull();
+  });
+
+  it('never infers Missing from a real 0 score', () => {
+    expect(byTitle['Mini-Project'].status).toBe('graded');
+    expect(byTitle['Mini-Project'].score).toBe(0);
+    expect(byTitle['Mini-Project'].maxPoints).toBe(10);
+  });
+
+  it('keeps the submission note (teacher lag: Missing but a submission exists)', () => {
+    const a = byTitle['Script Draft'];
+    expect(a.status).toBe('missing');
+    expect(a.submitted).toBe(true);
+    expect(a.gradePending).toBe(true);
+    expect(a.submissionNote).toMatch(/submission that has not been graded/);
+  });
+
+  it('reads scores, titles without screen-reader labels, kinds, ids and links', () => {
+    const a = byTitle['Warm-up 1'];
+    expect(a).toMatchObject({ id: '7001', score: 4.25, maxPoints: 5, status: 'graded', kind: 'assignment' });
+    expect(a.url).toBe('https://app.schoology.com/assignment/7001');
+    expect(byTitle['Response to Talk'].kind).toBe('discussion');
+    expect(byTitle['Final Project & Reflection'].url).toBe(
+      'https://app.schoology.com/course/9100/preview/2000001/parent?url=assignment/7007',
     );
-    const rhetoric = graded.find((a) => a.title === 'Rhetoric Analysis');
-    expect(rhetoric.score).toBe(42);
-    expect(rhetoric.maxPoints).toBe(50);
-
-    expect(course.assignments.find((a) => a.title === 'Discussion Post: Week 9').status).toBe('incomplete');
-    expect(course.assignments.find((a) => a.title === 'Poetry Response Draft').status).toBe('pending');
   });
 
-  it('parses Algebra 2: grade 68 (below 75), graded scores, and a 0/10 is NOT Missing', async () => {
-    const html = await loadFixture('student-grades-algebra2.html');
-    const { courses } = parseGradesHtml(html);
-    expect(courses).toHaveLength(1);
-    expect(courses[0].grade).toBe(68);
-    expect(courses[0].assignments).toHaveLength(4);
-    expect(courses[0].assignments.filter((a) => a.status === 'missing')).toHaveLength(0);
-    // A plain numeric 0 is NEVER Missing (SPEC) — the 0/10 homework is graded.
-    const zero = courses[0].assignments.find((a) => a.title === 'Polynomials Homework');
-    expect(zero.status).toBe('graded');
-    expect(zero.score).toBe(0);
-    expect(zero.maxPoints).toBe(10);
+  it('maps Exempt to excused, "—" to no grade, and letter grades to graded', () => {
+    expect(byTitle['Practice Quiz (optional)'].status).toBe('excused');
+    expect(byTitle['Final Project & Reflection'].status).toBe('overdue');
+    expect(byTitle['Final Project & Reflection'].score).toBeNull();
+    expect(byTitle['Map Project']).toMatchObject({ status: 'graded', letterGrade: 'A', score: null, due: null });
   });
 
-  it('parses US History: grade 95, excused status detected', async () => {
-    const html = await loadFixture('student-grades-us-history.html');
-    const { courses } = parseGradesHtml(html);
-    expect(courses).toHaveLength(1);
-    expect(courses[0].grade).toBe(95);
-    const excused = courses[0].assignments.find((a) => a.title === 'Primary Source Analysis');
-    expect(excused.status).toBe('excused');
-    expect(excused.score).toBeNull();
-  });
-
-  it('parses the advisory course: no period grade (null), no graded items', async () => {
-    const html = await loadFixture('student-grades-advisory.html');
-    const { courses } = parseGradesHtml(html);
-    expect(courses).toHaveLength(1);
-    expect(courses[0].name).toBe('BPL Advisory 11');
-    expect(courses[0].grade).toBeNull();
-    expect(courses[0].assignments.filter((a) => a.status === 'graded')).toHaveLength(0);
-    expect(courses[0].assignments).toHaveLength(1);
+  it('stores due dates as ISO strings of the local due time', () => {
+    const due = new Date(byTitle['Script Draft'].due);
+    expect([due.getMonth(), due.getDate(), due.getHours(), due.getMinutes()]).toEqual([10, 3, 11, 25]);
+    expect(byTitle['Script Draft'].dueText).toBe('11/03/26 11:25am');
   });
 });
 
-describe('parseGradesHtml — parent fixtures', () => {
-  it('parses Luis: 2 courses, exactly 2 Missing, lowest class grade 55', async () => {
-    const html = await loadFixture('parent-grades-luis.html');
-    const { courses } = parseGradesHtml(html);
-    expect(courses).toHaveLength(2);
-    const lit = courses.find((c) => c.name === 'BPL American Literature');
-    expect(lit.grade).toBe(55);
-    const missing = courses.flatMap((c) => c.assignments).filter((a) => a.status === 'missing');
-    expect(missing.map((a) => a.title).sort()).toEqual(
-      ['Propaganda Script', 'Unit 2 Contexts Essay'],
-    );
-    const history = courses.find((c) => c.name === 'United States History');
-    expect(history.grade).toBe(88);
-    expect(Math.min(...courses.map((c) => c.grade))).toBe(55);
-  });
-
-  it('parses Emma: 2 courses, exactly 1 Missing, lowest class grade >= 90', async () => {
-    const html = await loadFixture('parent-grades-emma.html');
-    const { courses } = parseGradesHtml(html);
-    expect(courses).toHaveLength(2);
-    const missing = courses.flatMap((c) => c.assignments).filter((a) => a.status === 'missing');
-    expect(missing).toHaveLength(1);
-    expect(missing[0].title).toBe('Poetry Analysis Essay');
-    expect(Math.min(...courses.map((c) => c.grade))).toBe(92);
-  });
-
-  it('parses the combined parent report: 4 courses, 3 Missing total', async () => {
-    const html = await loadFixture('parent-grades-all.html');
-    const { courses } = parseGradesHtml(html);
-    expect(courses).toHaveLength(4);
-    const missing = courses.flatMap((c) => c.assignments).filter((a) => a.status === 'missing');
-    expect(missing).toHaveLength(3);
+describe('parseGradesHtml — multi-course report (mock markup)', () => {
+  it('parses every .gradebook-course block on a grade report page', () => {
+    const page = renderPage('Grades', [
+      renderCourse({ id: '1', title: 'Algebra 2: Section 5', courseGrade: 91, periods: [] }),
+      renderCourse({
+        id: '2',
+        title: 'Chemistry: Section 1',
+        courseGrade: null,
+        periods: [{ id: '21', title: 'Semester 1: 8/24/26 - 12/19/26', grade: 74.5, items: [
+          { id: '9', title: 'Lab Notebook Check', due: '10/21/26 11:59pm', exception: 'missing' },
+        ] }],
+      }),
+    ].join(''));
+    const { courses } = parseGradesHtml(page, { now: NOW });
+    expect(courses.map((c) => [c.name, c.grade])).toEqual([['Algebra 2', 91], ['Chemistry', 74.5]]);
+    expect(courses[1].assignments[0].status).toBe('missing');
   });
 });
 
-describe('parseGradesHtml — PARSE_EMPTY self-check', () => {
-  it('returns error PARSE_EMPTY for a grades-looking page with no parseable rows', () => {
-    const html = `<!doctype html><html><body>
-      <div class="gradebook">
-        <section class="course-grades" data-course-id="9999" data-course-name="Empty Course">
-          <h2 class="course-name">Empty Course</h2>
-          <table class="grades-table"><tbody></tbody></table>
-        </section>
-      </div>
-    </body></html>`;
+describe('parseGradesHtml — self-check', () => {
+  it('returns PARSE_EMPTY when grade rows exist but no course block parses', () => {
+    const html = '<table><tr class="report-row item-row"><td>x</td></tr></table>';
     const result = parseGradesHtml(html);
-    expect(result.courses).toEqual([]);
     expect(result.error).toBe('PARSE_EMPTY');
-    expect(result.parseWarnings.length).toBeGreaterThan(0);
+    expect(result.courses).toEqual([]);
   });
 
-  it('does NOT return PARSE_EMPTY for a page that is not a grades page at all', () => {
-    const result = parseGradesHtml('<!doctype html><html><body><h1>Welcome</h1></body></html>');
+  it('returns no courses and no error for a page that is not a grades page', () => {
+    const result = parseGradesHtml('<html><body><h1>Home</h1></body></html>');
     expect(result.error).toBeUndefined();
     expect(result.courses).toEqual([]);
+  });
+
+  it('handles empty input', () => {
+    expect(parseGradesHtml('').courses).toEqual([]);
   });
 });

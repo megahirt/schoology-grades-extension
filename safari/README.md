@@ -50,12 +50,12 @@ Review: plan 1–7 days, submit 2–3 weeks early (Oct 2026 reports show
 bump `CFBundleShortVersionString` per release and `CFBundleVersion`
 per upload.
 
-Full pipeline, Chris's personal checklist, and CI notes:
+Full pipeline, Account owner's checklist, and CI notes:
 see [`docs/safari.md`](../docs/safari.md) in the repo root.
 
 ## Bundle ID
 
 Placeholder: `com.example.schoology-dashboard` — **TO BE REPLACED**
-with Chris's real bundle ID (e.g. `com.<familyname>.schoology-dashboard`)
+with the publisher's real bundle ID (e.g. `com.<familyname>.schoology-dashboard`)
 before any App Store submission. Bundle IDs can never be reused or
 changed later.

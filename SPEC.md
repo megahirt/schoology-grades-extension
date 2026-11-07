@@ -1,13 +1,13 @@
 # Schoology Dashboard Extension — build contract (SPEC)
 
-Repo: `schoology-grades-extension` (public, @sabaisnoopy). Local working copy:
-`~/workspace/schoology-dashboard-extension/`. This file is the interface contract
+Repo: `schoology-grades-extension` (public, @sabaisnoopy).
+This file is the interface contract
 between the three build workstreams. Do not change an exported function name or a
 storage key without updating this file and every caller.
 
 ## Platform priority: SAFARI FIRST, Chrome second (decision 2026-11-06)
 
-Students at North Point Christian use Safari, so the Safari version is what
+Many students use Safari (school Macs and iPhones), so the Safari version is what
 matters most. Chrome (Web Store, $5 one-time, Unlisted) is second.
 - Shared codebase must be Safari-compatible from day one: use the
   `webextension-polyfill` and the `browser.*` namespace with Promise-based APIs
@@ -46,7 +46,7 @@ matters most. Chrome (Web Store, $5 one-time, Unlisted) is second.
   ride with app updates: bump CFBundleShortVersionString per release and
   CFBundleVersion per upload. Apple Developer Program $99/year; a free Apple ID
   (Personal Team) cannot distribute at all and its profiles expire in 7 days.
-  Chris must personally: Apple ID + 2FA, enrol as Individual, verify identity,
+  The account owner must personally: Apple ID + 2FA, enrol as Individual, verify identity,
   pay $99, accept the licence, create API key/certs, add a helper via App Store
   Connect roles (never share his Apple ID password/2FA). CI can build/submit on
   macOS runners (secrets: base64 .p12 + password, provisioning profiles, App
@@ -83,7 +83,7 @@ matters most. Chrome (Web Store, $5 one-time, Unlisted) is second.
 
 ## Rules engine (deterministic, customizable)
 
-Defaults (the Hirt family rules — defaults, NOT hard-coded for everyone):
+Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
 - `gradeThreshold: 75` (75 passes, below 75 is NO-GO)
 - `missingThreshold: 2` (NO-GO if missingCount >= 2; one Missing alone is GO)
 - Badge states the reason: "NO-GO — Missing work", "NO-GO — Low grades",
@@ -126,96 +126,52 @@ Defaults (the Hirt family rules — defaults, NOT hard-coded for everyone):
 
 ## Grades HTML parser
 
-`extension/src/parser.js` (pure JS; uses `node-html-parser` so it runs in a
-service worker with no DOM):
-- `parseGradesHtml(html, { courseId, courseName } = {})` ->
-  `{ courses: [{ id, name, grade (number|null, percent), assignments: [...] }],
+`extension/src/parser-core.js` is DOM-agnostic (browser DOM in the content
+script, `node-html-parser` via `extension/src/parser.js` in the service worker
+and tests). The markup it reads was **verified against live Schoology on
+2026-11-06** (parent account, `/parent/grades_attendance/grades` and
+`/course/<id>/student_grades`); the full annotated structure is in the
+parser-core.js header.
+
+- `parseGradesHtml(html, { courseId, courseName, sourceUrl, baseUrl, now } = {})` ->
+  `{ courses: [{ id, name, sectionTitle, grade, gradeSource, periods, assignments, url }],
     parseWarnings: string[] }`.
-- Assignment: `{ id, title, due (ISO string|null), dueText, score (number|null),
-  maxPoints (number|null), status: 'missing'|'incomplete'|'excused'|'graded'|'pending'|'overdue',
-  sourceUrl }`.
-- Missing detection, multi-signal, in order: (1) an element inside the grade cell
-  whose `title` or `aria-label` contains "missing" (case-insensitive); (2) a class
-  name containing "missing" on the grade cell or its children; (3) cell text
-  exactly "Missing". NEVER infer Missing from a 0 score or from overdue alone.
-- SELF-CHECK: if the HTML looks like a grades page (contains a grades table or
-  course heading) but zero courses/assignments were parsed, return
-  `{ courses: [], parseWarnings: [...], error: 'PARSE_EMPTY' }` — callers must
-  surface "Schoology page changed — could not read grades" instead of a green GO.
-- The parser must ALSO handle the fixture HTML defined below. Fixture structure
-  is MODELLED on the known Schoology Grades structure (grades table, Missing
-  markers) — it is NOT verified live Schoology DOM. The README and parser header
-  must say so, and selectors must be re-validated against live pages.
-
-### Fixture HTML structure (the contract between parser and mock server)
-
-```html
-<div class="gradebook">
-  <section class="course-grades" data-course-id="8508768642" data-course-name="BPL American Literature">
-    <h2 class="course-name">BPL American Literature</h2>
-    <span class="course-grade">55%</span>
-    <table class="grades-table"><tbody>
-      <tr class="assignment-row" data-assignment-id="8631342075">
-        <td class="assignment-title">Propaganda Script</td>
-        <td class="assignment-due" data-due="2026-11-03T23:59:00">Nov 3</td>
-        <td class="assignment-grade">
-          <span class="grade-score">0</span>
-          <span class="exception-icon exception-missing" title="Missing"></span>
-        </td>
-      </tr>
-      <!-- graded: <span class="grade-score">42/50</span>, no exception icon -->
-      <!-- incomplete: <span class="exception-icon exception-incomplete" title="Incomplete"></span> -->
-      <!-- excused: <span class="exception-icon exception-excused" title="Excused"></span> -->
-      <!-- pending: <span class="grade-score">—</span>, no exception icon -->
-    </tbody></table>
-  </section>
-</div>
-```
+- One course per `.gradebook-course` block; one assignment per `tr.item-row`,
+  **including rows with class `hidden`** (items in collapsed grading periods).
+- Assignment: `{ id, title, kind, due (ISO|null), dueText, score, maxPoints,
+  letterGrade, status: 'missing'|'incomplete'|'excused'|'graded'|'pending'|'overdue',
+  submitted, submissionNote, gradePending, periodId, url, sourceUrl }`.
+- Missing = ONLY the teacher's Missing exception (`.exception-icon.missing` /
+  `.exception-text` "Missing"). NEVER inferred from a 0 score, from overdue, or
+  from a missing submission. A Missing row can also carry "This student has
+  made a submission that has not been graded" (teacher lag) — kept as
+  `submitted: true`, still Missing.
+- Class grade: the course-row grade when shown, else the top-level grading
+  period (semester) containing today, else the latest graded one.
+- SELF-CHECK: grade rows present but nothing parsed -> `error: 'PARSE_EMPTY'`;
+  callers show "could not read grades", never a green GO.
 
 ## Schoology fetch layer
 
-`extension/src/schoology.js` (uses global `fetch`; no chrome APIs except via
-injected `fetchImpl` for tests):
-- `createClient({ baseUrl, fetchImpl = fetch })` ->
-  `{ detectAccount(), fetchGradesPage(url), fetchStudentDashboard(),
-    fetchParentDashboards(), runLiveProbe(gradesUrl) }`.
-- `baseUrl` default `https://app.schoology.com`. All requests use
-  `{ credentials: 'include' }`.
-- `detectAccount()` -> `{ type: 'parent'|'student'|'loggedOut'|'unknown',
-  children: [{ uid, name, pictureUrl }], studentName, evidence }`.
-  Implementation: `GET {base}/iapi/parent/info`; if it returns child profiles,
-  type='parent'. Otherwise fetch `{base}/home` and treat a logged-in page as
-  student (record evidence). A redirect to /login or a login form means loggedOut.
-  For student accounts `studentName` is extracted from the home page
-  ("Welcome, <name>" heading or a data-user-name attribute); 'Student' when
-  nothing matches. Never guessed from a URL or cookie.
-- `fetchGradesPage(url)` -> `{ status, finalUrl, html, loggedIn }`. loggedIn=false
-  if finalUrl contains '/login' or html contains a login form marker.
-- `fetchStudentDashboard()` also returns `studentName`.
-- `runLiveProbe(gradesUrl)` -> evidence object:
-  `{ status, finalUrl, loggedIn, bodyLength, containsAssignmentTitle,
-    containsGrade, containsMissing, assignmentTitleChecked, checkedAt }`.
-  This is what the probe extension records. It must NEVER guess the grades URL:
-  the URL comes from the logged-in UI (content script captures it) or from
-  storage set by the user.
-- Parent flow: `fetchParentDashboards()` fetches `/iapi/parent/info`, then for
-  each child fetches per-child data (`/iapi/parent/overdue_submissions/<uid>`,
-  `/home/feed?children=<uid>`). Grades come from the child's OWN course pages
-  first: the parent home page groups each child's course Grades links in a
-  `<section class="child" data-child-uid="...">` block, and the extension
-  fetches those per-child links. FALLBACK ONLY: the combined parent grade
-  report (`{base}/parent/grades_attendance/grades`), filtered by the
-  per-section attribution the parser captures (`data-child-uid` /
-  `data-student` on each course section). If report courses cannot be
-  attributed to a child, they are NEVER assigned to that child: the dashboard
-  is returned with empty courses, `error: 'NO_CHILD_ATTRIBUTION'`, a parse
-  warning, and verdict UNKNOWN — a missing verdict is honest, a guessed one
-  is not. The popup renders the UNKNOWN badge + warnings and suppresses the
-  "Nothing missing" line. Each dashboard is labelled with which source
-  supplied it (`source: { overdue, feed, childCoursePages, gradesReport,
-  attribution }`).
-- Parser course objects also carry `childUid` / `studentName` (null when the
-  page does not attribute the section) — see parser.js.
+`extension/src/schoology.js` (global `fetch`, injectable `fetchImpl`; all
+requests `{ credentials: 'include' }`; endpoints verified live 2026-11-06):
+- `createClient({ baseUrl, fetchImpl })` -> `{ detectAccount(), fetchPage(url),
+  fetchGradesPage(url), fetchStudentDashboard(), fetchParentDashboards(),
+  runLiveProbe(url) }`.
+- `detectAccount()`: `GET /iapi/parent/info` -> `{ response_code, body: {
+  session: { view_mode, view_child }, children: { "<uid>": { uid, username,
+  profile_tiny } } } }`. Children present => parent; else a logged-in `/home`
+  => student; a login page => loggedOut.
+- Parent flow, per child: `GET /parent/home?child_uid=<uid>` (switches the
+  session's viewed child), confirm `view_child` via `/iapi/parent/info`,
+  `GET /parent/grades_attendance/grades` (all of that child's courses), confirm
+  `view_child` again. Any mismatch => verdict UNKNOWN, never another child's
+  grades. The originally viewed child is restored afterwards.
+- Student flow (NOT verified live — no student account was available):
+  `GET /grades/grades`, falling back to `/course/<id>/student_grades` for the
+  courses linked from `/home`.
+- Not used: `/iapi/parent/overdue_submissions` (omits teacher-marked Missing
+  items, includes non-Missing ones) and `/home/feed` (submission events only).
 
 ## Storage keys (chrome.storage.local)
 
@@ -262,30 +218,19 @@ injected `fetchImpl` for tests):
 
 ## Mock Schoology server (test/)
 
-`test/mock-server/server.js` — plain Node `http` server, no framework. Port from
-`PORT` env (default 8123).
-- Login: `GET /login` returns a login form; `POST /login` sets cookie
-  `mock-session=1` and redirects to `/home`. Any request without the cookie
-  redirects to `/login` (mirrors real Schoology).
-- `GET /home` — student home listing courses with links to `/course/<id>/grades`.
-- `GET /course/<id>/grades` — fixture Grades HTML for that course (fixture
-  structure above). Student mode serves one student's courses.
-- `GET /parent/grades_attendance/grades` — parent grade report HTML.
-- `GET /iapi/parent/info` — JSON `{ view_mode: 1, view_child, children: [...] }`.
-- `GET /iapi/parent/overdue_submissions/<uid>` — JSON overdue list for that child.
-- `GET /home/feed?children=<uid>` — JSON activity for that child.
-- Two personas, chosen by query `?as=student` / `?as=parent` on /login (sets a
-  second cookie `mock-persona`). Student persona: one student ("Alex Student")
-  with 3 courses (one below 75, one Missing item, one clean). Parent persona:
-  two children ("Luis Hirt" with 2 Missing + a class at 55% = NO-GO, and "Emma
-  Hirt" with 1 Missing and all classes >= 90 = GO).
-- Fixtures live in `test/mock-server/fixtures/` and are labelled as fixtures
-  modelled on the known Schoology Grades structure — NOT verified live DOM.
+`test/mock-server/server.js` serves the live endpoint shapes above, with HTML
+rendered in the live Grades markup by `test/mock-server/markup.js`. All people
+and data are made up. Personas via `POST /login?as=student|parent`:
+- student "Alex Student": Algebra 2 (68%), American Literature (82%, 1 Missing),
+  United States History (95%), Advisory 11 (no grades);
+- parent with "Sam Rivera" (2 Missing + a 55% class = NO-GO) and "Jamie Rivera"
+  (1 Missing, all classes >= 90 = GO); the viewed child is a cookie switched by
+  `/parent/home?child_uid=`.
 
 ## Tests
 
 - Unit (vitest, `test/unit/`): `rules.test.js`, `classifier.test.js`,
-  `parser.test.js` (parses the fixture HTML files), `schoology.test.js`
+  `parser.test.js` (live-markup fixture + mock markup), `schoology.test.js`
   (fetch layer against the mock server with a stub fetch).
 - E2E (Playwright, `test/e2e/extension.spec.js`): launches Chromium with the
   unpacked DEV build, starts the mock server, sets `settings.schoologyBase` to

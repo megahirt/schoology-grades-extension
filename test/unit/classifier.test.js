@@ -22,7 +22,7 @@ describe('classifySection', () => {
 
   it('advisory / study-hall with no grades => skip', () => {
     const result = classifySection({
-      name: 'BPL Advisory 11',
+      name: 'Advisory 11',
       gradedItemCount: 0,
       hasPeriodGrade: false,
       assignmentCount: 1,
@@ -43,7 +43,7 @@ describe('classifySection', () => {
   });
 
   it('house group and homeroom names are penalised (case-insensitive)', () => {
-    for (const name of ['House Group 3', 'HOUSE GROUP 1', 'Homeroom', 'BPL Communication']) {
+    for (const name of ['House Group 3', 'HOUSE GROUP 1', 'Homeroom', 'Communications Block']) {
       const result = classifySection({
         name,
         gradedItemCount: 0,
