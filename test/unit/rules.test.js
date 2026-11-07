@@ -320,3 +320,41 @@ describe('Submitted work and Doing well', () => {
   });
 });
 
+
+describe('Missing work from an earlier grading period', () => {
+  const at = (m, d) => new Date(2026, m - 1, d, 12).toISOString();
+  const periods = [
+    { id: 'S1', title: 'Semester 1: 8/24/26 - 12/19/26', topLevel: true, start: at(8, 24), end: at(12, 19) },
+    { id: 'Q1', title: 'Quarter 1: 8/24/2026 - 10/14/2026', topLevel: false, start: at(8, 24), end: at(10, 14) },
+    { id: 'Q2', title: 'Quarter 2: 10/19/2026 - 12/15/2026', topLevel: false, start: at(10, 19), end: at(12, 15) },
+    { id: 'E1', title: 'Exam 1: 12/16/2026 - 12/18/2026', topLevel: false, start: at(12, 16), end: at(12, 18) },
+  ];
+  const settings = { ...DEFAULT_SETTINGS, now: new Date(2026, 10, 7, 12) };
+  const course = (assignments, extra = {}) => [{ id: '1', name: 'Algebra 2', grade: 90, periods, assignments, ...extra }];
+
+  it('hides Missing work due before the current quarter (it can no longer be turned in)', () => {
+    const s = summarizeStudent(course([
+      { id: 'old', title: 'Q1 Worksheet', status: 'missing', score: null, due: at(9, 30) },
+      { id: 'new', title: 'Q2 Quiz', status: 'missing', score: null, due: at(11, 2) },
+    ]), settings);
+    expect(s.missingItems.map((a) => a.title)).toEqual(['Q2 Quiz']);
+    expect(s.missingCount).toBe(1);
+  });
+
+  it('keeps submitted work from last quarter waiting on the teacher', () => {
+    const s = summarizeStudent(course([
+      { id: 'old', title: 'Q1 Essay', status: 'missing', score: null, due: at(10, 1), submitted: true },
+    ]), settings);
+    expect(s.waiting.map((a) => a.title)).toEqual(['Q1 Essay']);
+  });
+
+  it('uses the semester start when a class has no quarters, and keeps everything without dates', () => {
+    const noQuarters = [{ id: '1', name: 'Band', grade: 90, periods: [periods[0]], assignments: [
+      { id: 'a', title: 'September Log', status: 'missing', score: null, due: at(9, 30) },
+      { id: 'b', title: 'Undated', status: 'missing', score: null, due: null },
+    ] }];
+    expect(summarizeStudent(noQuarters, settings).missingCount).toBe(2);
+    const noPeriods = [{ id: '1', name: 'Band', grade: 90, assignments: [{ id: 'a', title: 'Old', status: 'missing', score: null, due: at(9, 1) }] }];
+    expect(summarizeStudent(noPeriods, settings).missingCount).toBe(1);
+  });
+});

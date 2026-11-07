@@ -73,6 +73,21 @@ export function computeVerdict({ missingCount = 0, lowestClassGrade = null, sett
   return { verdict: 'GO', reasons: [] };
 }
 
+// When the current grading period began: the latest quarter (a period
+// nested under a semester, not an exam) that has started, else the latest
+// semester that has started. Null when the course lists no dated periods.
+export function currentPeriodStart(course, now) {
+  const periods = (course && course.periods) || [];
+  const started = (list) => list
+    .map((p) => Date.parse(p.start || ''))
+    .filter((t) => !Number.isNaN(t) && t <= now.getTime())
+    .sort((a, b) => b - a)[0];
+  const quarter = started(periods.filter((p) => !p.topLevel && !/^\s*(final\s+)?exam\b/i.test(p.title || '')));
+  if (quarter !== undefined) return new Date(quarter);
+  const semester = started(periods.filter((p) => p.topLevel));
+  return semester !== undefined ? new Date(semester) : null;
+}
+
 function startOfDay(d) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -135,9 +150,16 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       if (lowestClassGrade === null || g < lowestClassGrade) lowestClassGrade = g;
       if (g < s.gradeThreshold) lowClasses.push({ id: course.id, name: course.name, grade: g });
     }
+    // Work from an earlier grading period can no longer be turned in, so
+    // Missing work due before the current quarter began is left out
+    // (submitted work still waits on the teacher).
+    const periodStart = currentPeriodStart(course, now);
     for (const a of course.assignments || []) {
       const item = { ...a, courseId: course.id, courseName: course.name };
       const idKey = a.id !== undefined && a.id !== null ? String(a.id) : null;
+      const dueAt = a.due ? new Date(a.due) : null;
+      const pastPeriod = periodStart && dueAt && !Number.isNaN(dueAt.getTime()) && dueAt < periodStart;
+      if (a.status === 'missing' && pastPeriod && a.submitted !== true) continue;
       if (a.status === 'missing') {
         if (a.submitted === true) {
           // Schoology shows a submission: the work is in, the teacher just

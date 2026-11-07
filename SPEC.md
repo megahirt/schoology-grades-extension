@@ -89,6 +89,10 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
 - Badge states the reason: "NO-GO — Missing work", "NO-GO — Low grades",
   "NO-GO — Missing work + Low grades", otherwise "GO".
 - "Missing" = ONLY items explicitly marked Missing on the Schoology Grades page.
+  Missing work due before the current grading period began (the latest
+  quarter that has started, else the semester) is left out entirely: it can
+  no longer be turned in, so it neither shows nor counts toward NO-GO.
+  Submitted work from an earlier period still waits on the teacher.
   Ungraded + not-Missing = in-between, OK, not counted. To Do overdue flags ignored.
 - "Not so good" section: graded items below the grade threshold from the past
   7 days only (by the date shown on the row).
