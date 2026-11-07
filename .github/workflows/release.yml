@@ -1,0 +1,226 @@
+# Release — Schoology Dashboard Extension
+#
+# Trigger: version tags (v*, e.g. v0.1.0). The tag version should match
+# package.json / extension/manifest.json.
+#
+# Order is SAFARI FIRST, Chrome second — many students use Safari.
+#
+# Jobs:
+#   1. build      (ubuntu)  — prod build -> extension ZIP artifact.
+#   2. safari     (macOS)   — runs scripts/build-safari.mjs (packager;
+#                              on Linux CI the Xcode converter is
+#                              unavailable, so the script produces the
+#                              converter script + source ZIP instead —
+#                              that is NOT a failure). The Xcode archive /
+#                              App Store Connect upload runs ONLY when the
+#                              Apple secrets below are set; otherwise the
+#                              job skips that step gracefully and the
+#                              release still ships the ZIP + convert.sh.
+#   3. chrome     (ubuntu)  — Chrome Web Store upload, guarded: SKIPS
+#                              GRACEFULLY with a clear echo when the
+#                              CWS_* secrets are not set. The account owner has NOT
+#                              done Chrome Web Store developer setup yet;
+#                              do not invent store credentials.
+#   4. release              — creates the GitHub Release with the ZIP(s)
+#                              attached (softprops/action-gh-release).
+#
+# Apple secrets (set only after the account owner enrols in the Apple Developer
+# Program, $99/yr — see docs/safari.md; never commit them):
+#   APPLE_TEAM_ID, APPLE_API_KEY_ID, APPLE_API_ISSUER_ID,
+#   APPLE_API_KEY_P8_BASE64 (.p8 private key, base64),
+#   APPLE_DIST_CERT_P12_BASE64 (.p12, base64),
+#   APPLE_DIST_CERT_PASSWORD, APPLE_PROVISIONING_PROFILE_BASE64
+#   (one profile per target; add more APPLE_PROVISIONING_PROFILE_* vars
+#   if the project grows targets).
+# Versioning for Apple uploads: bump CFBundleShortVersionString
+# (MARKETING_VERSION) per public release and CFBundleVersion
+# (CURRENT_PROJECT_VERSION, build number) per upload — a re-upload with
+# the same build number is rejected. The archive step below is a
+# scaffold: the first archive/upload/submission should be done manually
+# in Xcode (see docs/safari.md) before relying on this job.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (production)
+        run: npm run build
+
+      - name: Package extension ZIP
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          cd dist
+          zip -r "../schoology-grades-extension-${VERSION}.zip" .
+          cd ..
+          ls -l "schoology-grades-extension-${VERSION}.zip"
+
+      - name: Upload extension ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: schoology-grades-extension-*.zip
+
+  safari:
+    # SAFARI FIRST. macOS runner so xcrun / Xcode are available.
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (production)
+        run: npm run build
+
+      - name: Check Apple signing secrets
+        id: apple-secrets
+        run: |
+          if [ -n "${{ secrets.APPLE_TEAM_ID }}" ] && [ -n "${{ secrets.APPLE_API_KEY_P8_BASE64 }}" ] && [ -n "${{ secrets.APPLE_DIST_CERT_P12_BASE64 }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Apple signing secrets are not set — the Xcode archive / App Store Connect upload will be skipped (see docs/safari.md). The Safari packaging step below still runs."
+          fi
+
+      - name: Run Safari packager
+        # On a macOS runner this runs xcrun safari-web-extension-packager
+        # (falling back to safari-web-extension-converter on older Xcode)
+        # and generates safari/*.xcodeproj. If Xcode/the packager is
+        # unavailable, build-safari.mjs exits 0 having written
+        # safari/convert.sh + a source ZIP instead — the release does
+        # NOT fail for lack of macOS tooling.
+        run: node scripts/build-safari.mjs
+
+      - name: Package Safari source ZIP (for the App Store Connect web packager)
+        # iOS 26 era: App Store Connect's web Safari Web Extension
+        # Packager accepts a ZIP of the extension with no Mac/Xcode.
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd dist
+          zip -r "../schoology-grades-extension-safari-source-${VERSION}.zip" .
+          cd ..
+
+      - name: Archive and upload to App Store Connect (guarded)
+        if: steps.apple-secrets.outputs.configured == 'true'
+        run: |
+          echo "Apple secrets are configured — archive/upload step is a scaffold."
+          echo "Until the first manual Xcode archive/upload succeeds (see docs/safari.md),"
+          echo "this step intentionally does nothing but record that signing is available."
+          echo "Wire in: import .p12 + provisioning profiles, xcodebuild archive,"
+          echo "then upload with xcrun altool / fastlane deliver, bumping"
+          echo "CFBundleVersion per upload. Team ID: ${{ secrets.APPLE_TEAM_ID }}"
+
+      - name: Skip Apple upload (no secrets)
+        if: steps.apple-secrets.outputs.configured != 'true'
+        run: |
+          echo "SKIPPED: Xcode archive / App Store Connect upload — Apple Developer secrets are not set."
+          echo "The account owner has not completed Apple Developer Program enrolment yet (see docs/safari.md)."
+          echo "The release still ships the extension ZIP, the Safari source ZIP, and safari/convert.sh"
+          echo "so the manual Mac path stays open. This is not a failure."
+
+      - name: Upload Safari artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: safari-artifacts
+          path: |
+            schoology-grades-extension-safari-source-*.zip
+            safari/convert.sh
+            safari/README.md
+
+  chrome:
+    # Chrome Web Store upload — SECOND, after Safari.
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Download extension ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+
+      - name: Check Chrome Web Store secrets
+        id: cws-secrets
+        run: |
+          if [ -n "${{ secrets.CWS_CLIENT_ID }}" ] && [ -n "${{ secrets.CWS_CLIENT_SECRET }}" ] && [ -n "${{ secrets.CWS_REFRESH_TOKEN }}" ] && [ -n "${{ secrets.CWS_EXTENSION_ID }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to Chrome Web Store
+        if: steps.cws-secrets.outputs.configured == 'true'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npx -y chrome-webstore-upload-cli upload \
+            --source "schoology-grades-extension-${VERSION}.zip" \
+            --extension-id "${{ secrets.CWS_EXTENSION_ID }}" \
+            --client-id "${{ secrets.CWS_CLIENT_ID }}" \
+            --client-secret "${{ secrets.CWS_CLIENT_SECRET }}" \
+            --refresh-token "${{ secrets.CWS_REFRESH_TOKEN }}"
+
+      - name: Skip Chrome Web Store upload (no secrets)
+        if: steps.cws-secrets.outputs.configured != 'true'
+        run: |
+          echo "SKIPPED: Chrome Web Store upload — CWS_CLIENT_ID / CWS_CLIENT_SECRET / CWS_REFRESH_TOKEN / CWS_EXTENSION_ID are not set."
+          echo "The account owner has NOT done Chrome Web Store developer setup yet (see docs/chrome-web-store-setup.md)."
+          echo "Upload manually from the Developer Dashboard (Unlisted listing) until the secrets are configured."
+          echo "This is not a failure — the release still ships the extension ZIP."
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build, safari, chrome]
+    steps:
+      - name: Download extension ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+
+      - name: Download Safari artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: safari-artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            schoology-grades-extension-*.zip
+          body: |
+            Schoology Dashboard Extension ${{ github.ref_name }} — Safari-first release.
+            - `schoology-grades-extension-<version>.zip`: the shared MV3 extension (Chrome: load unpacked or upload to the Web Store; Safari: package via `safari/convert.sh` / App Store Connect web packager).
+            - `schoology-grades-extension-safari-source-<version>.zip`: source ZIP for the App Store Connect web Safari Web Extension Packager.
+            - `safari/convert.sh`: exact `xcrun safari-web-extension-packager` command for a Mac with Xcode.
+            Safari distribution is App Store only (see docs/safari.md). Chrome Web Store upload runs in CI only once the CWS_* secrets are configured; otherwise upload manually (Unlisted).

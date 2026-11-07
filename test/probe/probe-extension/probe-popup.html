@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Schoology Live Probe</title>
+    <style>
+      body { width: 420px; margin: 0; padding: 12px; font: 13px/1.45 system-ui, sans-serif; color: #1a1a1a; }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      h2 { font-size: 13px; margin: 14px 0 4px; }
+      p { margin: 4px 0; }
+      .muted { color: #666; font-size: 12px; }
+      button { display: block; width: 100%; margin: 6px 0; padding: 8px; font-size: 13px; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      #verdict { font-weight: 700; padding: 8px; margin: 8px 0; border: 1px solid #999; }
+      #verdict.proven { background: #d9f2d9; border-color: #2e7d32; }
+      #verdict.failed { background: #fbe3e3; border-color: #b3261e; }
+      #verdict.inconclusive { background: #fff4cf; border-color: #8a6d00; }
+      pre { white-space: pre-wrap; word-break: break-word; background: #f4f4f4; padding: 8px; font-size: 11px; max-height: 260px; overflow: auto; }
+      .row { display: flex; gap: 6px; }
+      .row button { flex: 1; }
+    </style>
+  </head>
+  <body>
+    <h1>Schoology Live Probe</h1>
+    <p class="muted">Test only. Fetches the Grades page you already visited, using your
+      logged-in Schoology session. Nothing is uploaded anywhere.</p>
+
+    <h2>Captured Grades page</h2>
+    <p id="context">No Grades page captured yet. Open a Schoology Grades page in a tab first, wait a few seconds, then reopen this popup.</p>
+
+    <h2>Run the probes (in order)</h2>
+    <button id="btn-sw">1. Probe from service worker (primary test)</button>
+    <button id="btn-popup">2. Probe from popup</button>
+    <button id="btn-hidden-tab">3. Hidden tab scrape</button>
+
+    <div id="verdict" class="inconclusive">Verdict: not run yet.</div>
+
+    <h2>Latest result</h2>
+    <pre id="latest">No probe results yet.</pre>
+
+    <div class="row">
+      <button id="btn-copy">Copy all results (JSON)</button>
+      <button id="btn-clear">Clear results</button>
+    </div>
+    <p class="muted">Copy the JSON into test/probe/LIVE-TEST-RESULTS.md after the run.</p>
+
+    <script src="vendor/browser-polyfill.min.js"></script>
+    <script src="probe-popup.js"></script>
+  </body>
+</html>

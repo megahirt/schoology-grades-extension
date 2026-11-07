@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Schoology Dashboard — Settings</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<main>
+<h1>📚 Schoology Dashboard — Setup</h1>
+<p class="muted">Everything is stored in this browser only. No Schoology password is ever stored; the extension uses your logged-in Schoology session.</p>
+
+<nav id="steps">
+  <button type="button" data-step="1" class="step-btn active">1 Connect</button>
+  <button type="button" data-step="2" class="step-btn">2 Profile</button>
+  <button type="button" data-step="3" class="step-btn">3 Classes</button>
+  <button type="button" data-step="4" class="step-btn">4 Icons</button>
+  <button type="button" data-step="5" class="step-btn">5 Rules</button>
+  <button type="button" data-step="6" class="step-btn">6 Review</button>
+</nav>
+
+<section id="step-1" class="step active">
+  <h2>Connect to Schoology</h2>
+  <p>Log in to Schoology in this browser, then visit a Grades page. The extension reads the grades you can already see — nothing else.</p>
+  <p id="account-line" class="muted">Account: not checked yet.</p>
+  <button id="check-account-btn" type="button">Check connection</button>
+  <button id="refresh-btn" type="button">Refresh grades now</button>
+  <p id="connect-status" class="muted" role="status"></p>
+</section>
+
+<section id="step-2" class="step">
+  <h2>Profile</h2>
+  <p>Your Schoology profile picture is used by default. You can upload a different picture or pick one from the list instead (fallback only).</p>
+  <div id="profile-preview"></div>
+  <label>Avatar override (upload a picture)
+    <input id="avatar-upload" type="file" accept="image/*">
+  </label>
+  <p>Or pick one:</p>
+  <div id="avatar-choices"></div>
+</section>
+
+<section id="step-3" class="step">
+  <h2>Classes — which are real?</h2>
+  <p>Real classes have real grades posted; advisory, study hall, house group and similar sections have very little grade information. The recommendation is a hint — you make the final call.</p>
+  <div id="class-list"><p class="muted">No classes loaded yet — refresh grades first, or load the demo data from the popup.</p></div>
+</section>
+
+<section id="step-4" class="step">
+  <h2>Class icons</h2>
+  <p>Pick an icon for each class. These show in the popup next to the class name.</p>
+  <div id="icon-list"></div>
+</section>
+
+<section id="step-5" class="step">
+  <h2>Rules</h2>
+  <label>Grade threshold (75 passes; below is NO-GO)
+    <input id="grade-threshold" type="number" min="0" max="100" value="75">
+  </label>
+  <label>Missing threshold (NO-GO when Missing count reaches this)
+    <input id="missing-threshold" type="number" min="1" max="20" value="2">
+  </label>
+  <label>"Not so good" window (days)
+    <input id="notsogood-days" type="number" min="1" max="30" value="7">
+  </label>
+  <label><input id="show-gonogo" type="checkbox" checked> Show GO/NO-GO badge</label>
+  <label>Who sees grades
+    <select id="grade-visibility">
+      <option value="both">Both parent and student</option>
+      <option value="parent">Parents only</option>
+      <option value="student">Students only</option>
+    </select>
+  </label>
+  <label>Grade display
+    <select id="grade-display">
+      <option value="percent">Percent</option>
+      <option value="points">Points (e.g. 42/50)</option>
+    </select>
+  </label>
+</section>
+
+<section id="step-6" class="step">
+  <h2>Review &amp; save</h2>
+  <div id="review"></div>
+  <button id="save-btn" type="button">Save settings</button>
+  <p id="save-status" class="muted" role="status"></p>
+</section>
+
+<div class="nav-row">
+  <button id="prev-btn" type="button">← Back</button>
+  <button id="next-btn" type="button">Next →</button>
+</div>
+
+<hr>
+<section id="advanced">
+  <h2>Advanced</h2>
+  <label>Schoology base URL
+    <input id="schoology-base" type="url" value="https://app.schoology.com">
+  </label>
+  <p class="muted">For testing against a mock server, set this to the mock URL (dev build only).</p>
+  <button id="live-test-btn" type="button">Run live connection test</button>
+  <pre id="live-test-result" class="result"></pre>
+</section>
+</main>
+<script src="options.js"></script>
+</body>
+</html>
