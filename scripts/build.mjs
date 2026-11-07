@@ -1,6 +1,8 @@
 // build.mjs — `node scripts/build.mjs [--dev]`
 // Bundles the extension with esbuild into dist/ and copies static assets.
-//   --dev : adds http://localhost:*/* to host_permissions (mock server for
+//   --dev : shows a "Data: Real Schoology / Mock server" switch in the
+//           dashboard footer (default: real Schoology), adds
+//           http://localhost:*/* to host_permissions (mock server for
 //           Playwright e2e) and renames the extension "Schoology Dashboard
 //           (Dev)". Prod builds NEVER contain localhost permissions.
 import { build } from 'esbuild';
@@ -36,6 +38,8 @@ async function main() {
       target: ['safari16', 'chrome109'],
       outfile: path.join(distDir, `${outName}.js`),
       sourcemap: isDev,
+      // __DEV__ turns on dev-only UI (the real/mock data source switch).
+      define: { __DEV__: JSON.stringify(isDev) },
       loader: { '.css': 'text' },
       logLevel: 'info',
     });
