@@ -18,7 +18,7 @@
 
 import { chromium } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,6 +37,12 @@ if (!existsSync(path.join(DIST, 'manifest.json'))) {
   process.exit(1);
 }
 mkdirSync(PROFILE, { recursive: true });
+// Chromium caches an extension's background service worker in the profile
+// and can keep running a stale copy after dist/ is rebuilt. Clear that cache
+// on every launch so the window always runs the build just made. Sign-ins
+// live in cookies, which this does not touch.
+rmSync(path.join(PROFILE, 'Default', 'Service Worker'), { recursive: true, force: true });
+const builtName = JSON.parse(readFileSync(path.join(DIST, 'manifest.json'), 'utf8')).version_name || '';
 
 let context;
 try {
@@ -62,7 +68,15 @@ try {
 
 const page = context.pages()[0] || (await context.newPage());
 await page.goto(START_URL).catch(() => {});
-console.log('Dev Chromium is open with "Schoology Dashboard (Dev)" loaded.');
+console.log(`Dev Chromium is open with "Schoology Dashboard (Dev)" ${builtName} loaded.`);
+// Confirm the running background script is this build, not a cached one.
+try {
+  const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker', { timeout: 10000 }));
+  const running = await worker.evaluate(() => chrome.runtime.getManifest().version_name || '');
+  console.log(running === builtName ? `Running build: ${running}` : `WARNING: running build ${running || '(unknown)'} is not the new build ${builtName}.`);
+} catch {
+  console.log('Could not confirm the running build (the extension background did not start).');
+}
 console.log('Sign in to Schoology in that window if asked; the panel is on the right edge.');
 console.log(`DevTools protocol: http://127.0.0.1:${DEBUG_PORT} (this machine only).`);
 console.log('Close the window or press Ctrl-C to stop.');

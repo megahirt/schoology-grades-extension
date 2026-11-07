@@ -124,25 +124,49 @@ function plural(n, one, many) {
 }
 
 // The one-line reason under the child's name.
-export function reasonLine(summary, settings) {
+export function reasonLine(summary, settings, period = null) {
   const parts = [];
+  const when = period && /^quarter/i.test(period) ? ' this quarter' : '';
   parts.push(summary.missingCount ? `${summary.missingCount} missing` : 'Nothing missing');
   if (summary.lowClasses.length === 1) {
-    parts.push(`${summary.lowClasses[0].name} below ${settings.gradeThreshold}%`);
+    parts.push(`${summary.lowClasses[0].name} below ${settings.gradeThreshold}%${when}`);
   } else if (summary.lowClasses.length > 1) {
-    parts.push(`${summary.lowClasses.length} classes below ${settings.gradeThreshold}%`);
+    parts.push(`${summary.lowClasses.length} classes below ${settings.gradeThreshold}%${when}`);
   } else if (summary.lowestClassGrade !== null) {
-    parts.push(`every class ${settings.gradeThreshold}% or above`);
+    parts.push(`every class ${settings.gradeThreshold}% or above${when}`);
   }
   return parts.join(' · ');
 }
 
+function mostCommon(values) {
+  const counts = new Map();
+  for (const v of values) if (v) counts.set(v, (counts.get(v) || 0) + 1);
+  let best = null;
+  for (const [v, n] of counts) if (!best || n > counts.get(best)) best = v;
+  return best;
+}
+
+// Column labels for a child's class list: the quarter the verdict uses
+// ("Quarter 2") and the second column ("Semester", or "Overall" once a later
+// semester has grades). Courses without quarters fall back individually.
+export function gradeColumns(courses) {
+  const list = courses || [];
+  return {
+    quarter: mostCommon(list.filter((c) => c.quarterGrade !== null && c.quarterGrade !== undefined).map((c) => c.gradeLabel)),
+    overall: mostCommon(list.map((c) => c.overallLabel)),
+  };
+}
+
+function pctText(n) {
+  return typeof n === 'number' ? `${Math.round(n * 10) / 10}%` : '—';
+}
+
 // The student view's "what to do first" line.
-function studentNote(summary, settings) {
+function studentNote(summary, settings, period = null) {
   const todo = [];
   if (summary.missingCount === 1) todo.push(`turn in ${summary.missingItems[0].title}`);
   else if (summary.missingCount > 1) todo.push(`turn in ${summary.missingCount} missing assignments`);
-  for (const c of summary.lowClasses.slice(0, 2)) todo.push(`bring ${c.name} up past ${settings.gradeThreshold}%`);
+  for (const c of summary.lowClasses.slice(0, 2)) todo.push(`bring ${c.name} up past ${settings.gradeThreshold}%${period && /^quarter/i.test(period) ? ' this quarter' : ''}`);
   if (!todo.length) return null;
   const n = summary.missingCount + summary.lowClasses.length;
   const text = todo.join(' and ');
@@ -194,17 +218,37 @@ function renderClasses(courses, settings, showGrades, uid) {
   const list = visibleCourses(courses, settings, uid);
   if (!list.length) return '';
   const t = settings.gradeThreshold;
+  const cols = gradeColumns(list);
+  const qHead = cols.quarter || 'Grade';
+  const oHead = cols.overall;
+  const head = showGrades
+    ? `<div class="class-cols"><h2 class="sec-h grow">Classes</h2><span class="col-h col-q">${escapeHtml(qHead)}</span>` +
+      (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '') + '</div>'
+    : '<h2 class="sec-h">Classes</h2>';
   const rows = list.map((c) => {
     const pct = typeof c.grade === 'number' ? c.grade : null;
     const low = pct !== null && pct < t;
-    const grade = showGrades && pct !== null ? `<span class="class-grade${low ? ' low' : ''}">${Math.round(pct * 10) / 10}%</span>` : '';
+    // A course without a graded quarter uses another period: say which.
+    const usesOther = showGrades && cols.quarter && pct !== null && c.gradeLabel && c.gradeLabel !== cols.quarter;
+    const using = c.gradeLabel === 'Course grade' ? 'the course grade' : c.gradeLabel;
+    const note = usesOther ? `<div class="class-note">No ${escapeHtml(cols.quarter)} grade yet, using ${escapeHtml(using)}</div>` : '';
+    const grades = showGrades
+      ? `<span class="class-grade col-q${low ? ' low' : ''}">${pctText(pct)}</span>` +
+        (oHead ? `<span class="class-overall col-o">${pctText(c.overallGrade)}</span>` : '')
+      : '';
     const bar = showGrades && pct !== null
       ? `<div class="bar" aria-hidden="true"><div class="bar-fill${low ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
-    return `<div class="class"><div class="class-head"><span class="grow">${escapeHtml(c.name)}</span>${grade}</div>${bar}</div>`;
+    return `<div class="class"><div class="class-head"><span class="grow">${escapeHtml(c.name)}${note}</span>${grades}</div>${bar}</div>`;
   });
-  const legend = showGrades ? `<p class="legend">Line marks ${t}%, the passing grade.</p>` : '';
-  return section('Classes', rows.join('') + legend);
+  let legend = '';
+  if (showGrades) {
+    const second = oHead === 'Overall'
+      ? ' Overall is the grade for the whole year so far.'
+      : oHead === 'Semester' ? ' Semester is the grade so far this semester.' : '';
+    legend = `<p class="legend">GO/NO-GO and the bars use the ${escapeHtml(cols.quarter || 'class')} grade. The line marks ${t}%, the passing grade.${second}</p>`;
+  }
+  return `<section class="sec">${head}${rows.join('')}${legend}</section>`;
 }
 
 function renderGradedList(title, items, settings, showGrades) {
@@ -259,23 +303,24 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
       `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${verdictPill('UNKNOWN')}</div></div>`;
   } else if (isParentView || settings.showGoNoGo) {
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
+    const quarterLabel = gradeColumns(visibleCourses(d.courses, settings, uid)).quarter;
     const good = verdict === 'GO';
     const pill = settings.showGoNoGo ? verdictPill(verdict) : '';
     const lowest = summary.lowestClassGrade;
     const lowestBad = lowest !== null && lowest < settings.gradeThreshold;
     const stats = [
       { value: String(summary.missingCount), label: 'Missing', bad: summary.missingCount >= settings.missingThreshold },
-      { value: lowest !== null && showGrades ? `${Math.round(lowest)}%` : '—', label: 'Lowest class', bad: lowestBad && showGrades },
+      { value: lowest !== null && showGrades ? `${Math.round(lowest)}%` : '—', label: quarterLabel ? `Lowest, ${quarterLabel}` : 'Lowest class', bad: lowestBad && showGrades },
       { value: String(summary.dueToday.length + summary.dueTomorrow.length), label: 'Due soon', bad: false },
     ];
     const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
-    const reason = partial ? 'Only part of the grades loaded, so no verdict yet. Press Refresh.' : reasonLine(summary, settings);
+    const reason = partial ? 'Only part of the grades loaded, so no verdict yet. Press Refresh.' : reasonLine(summary, settings, quarterLabel);
     html += `<div class="card ${cardTone}">` +
       `<div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `<div class="card-reason">${escapeHtml(reason)}</div></div>${pill}</div>` +
       `<div class="stats">${stats.map((s) => `<div class="stat"><div class="stat-v${s.bad ? ' low' : ''}">${escapeHtml(s.value)}</div><div class="stat-l">${s.label}</div></div>`).join('')}</div></div>`;
   } else {
-    const note = studentNote(summary, settings);
+    const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses, settings, uid)).quarter);
     html += note
       ? `<div class="card nogo"><div class="card-name">${escapeHtml(note.title)}</div><div class="card-body">${escapeHtml(note.body)}</div></div>`
       : '<div class="card go"><div class="card-name">All caught up</div><div class="card-body">Nothing missing and every class is passing.</div></div>';
@@ -420,9 +465,17 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (refreshState && refreshState.ok && statusText.startsWith('Couldn’t refresh')) statusText = '';
 
     const usingMock = settings.schoologyBase === MOCK_SCHOOLOGY;
+    let buildStamp = '';
+    try {
+      const v = browser.runtime.getManifest().version_name || '';
+      buildStamp = v.includes('-dev.') ? v.split('-dev.')[1].replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2}).*$/, '$2/$3 $4:$5') : '';
+    } catch {
+      buildStamp = '';
+    }
     const devSwitch = IS_DEV
       ? '<div class="dev-row"><span class="dev-tag">DEV</span><span class="grow">Data: ' +
-        `<b>${usingMock ? 'Mock server (localhost:8123)' : 'Real Schoology'}</b></span>` +
+        `<b>${usingMock ? 'Mock server (localhost:8123)' : 'Real Schoology'}</b>` +
+        (buildStamp ? `<span class="dev-build"> · built ${escapeHtml(buildStamp)} UTC</span>` : '') + '</span>' +
         `<button class="btn btn-sm" type="button" data-act="switch-source">${usingMock ? 'Use real Schoology' : 'Use mock server'}</button></div>`
       : '';
     const footer = '<footer class="foot">' + devSwitch +

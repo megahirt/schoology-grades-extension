@@ -84,12 +84,18 @@
 
 .sgd .class { display: flex; flex-direction: column; gap: 5px; }
 .sgd .class-head { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
-.sgd .class-grade { font-weight: 600; }
+.sgd .class-grade { font-weight: 700; }
+.sgd .class-cols { display: flex; align-items: baseline; gap: 8px; }
+.sgd .col-q, .sgd .col-o { width: 66px; flex: 0 0 auto; text-align: right; white-space: nowrap; }
+.sgd .col-h { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.sgd .col-h.col-q { color: var(--ink-2); }
+.sgd .class-overall { font-size: 13px; color: var(--muted); }
+.sgd .class-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .sgd .bar { height: 6px; border-radius: 3px; background: var(--line-2); position: relative; overflow: hidden; }
 .sgd .bar-fill { height: 6px; border-radius: 3px; background: var(--ink-2); }
 .sgd .bar-fill.low { background: var(--nogo); }
 .sgd .bar-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #9aa4b1; }
-.sgd .legend { margin: 0; font-size: 11px; color: var(--muted); }
+.sgd .legend { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 .sgd .waiting { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #f6f7f9; border-radius: 10px; }
 .sgd .waiting-icon { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; background: #e3e6ea; color: var(--muted); display: flex; align-items: center; justify-content: center; }
@@ -102,6 +108,7 @@
 
 /* Dev builds only: real/mock data source switch. */
 .sgd .dev-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); background: #f3f0ff; border: 1px dashed #b9a8f0; border-radius: 8px; padding: 6px 8px; }
+.sgd .dev-build { color: var(--muted); }
 .sgd .dev-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: #fff; background: #5b3fd1; border-radius: 4px; padding: 2px 5px; }
 
 /* Footer */

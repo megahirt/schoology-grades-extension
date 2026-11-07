@@ -6,6 +6,7 @@
 // Course data shape:
 //   { id, title ("Algebra 2: Section 5"), courseGrade (number|null),
 //     periods: [{ id, title ("Semester 1: 8/24/26 - 12/19/26"), grade,
+//                 parentId (another period's id: a quarter inside a semester),
 //                 items: [{ id, title, kind, due ("11/03/26 11:25am"|null),
 //                           score, max, letter, exception ('missing'|'excused'|'incomplete'),
 //                           note (screen-reader submission label), pending (bool),
@@ -65,7 +66,7 @@ export function renderCourse(course, { href = (item) => `/assignment/${item.id}`
   ];
   for (const period of course.periods || []) {
     rows.push(
-      `<tr tabindex="0" data-id="${period.id}" data-parent-id="${course.id}" class="report-row period-row has-children"><th scope="row" class="title-column clickable" tabindex="0"><div class="reportSpacer-1"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">${esc(period.title)}<span class="visually-hidden">Grading Period</span></span></div></div></th><td class="grade-column"><div class="td-content-wrapper">${gradeSpan(period.grade)}</div></td>${comment}</tr>`,
+      `<tr tabindex="0" data-id="${period.id}" data-parent-id="${period.parentId || course.id}" class="report-row period-row has-children"><th scope="row" class="title-column clickable" tabindex="0"><div class="reportSpacer-1"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">${esc(period.title)}<span class="visually-hidden">Grading Period</span></span></div></div></th><td class="grade-column"><div class="td-content-wrapper">${gradeSpan(period.grade)}</div></td>${comment}</tr>`,
     );
     const catId = `${period.id}-1`;
     rows.push(

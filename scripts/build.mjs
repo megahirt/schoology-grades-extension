@@ -49,6 +49,9 @@ async function main() {
   const manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
   if (isDev) {
     manifest.name = 'Schoology Dashboard (Dev)';
+    // Build stamp, so a running dev build can be identified (version_name is
+    // display-only; Chrome and Safari keep using `version`).
+    manifest.version_name = `${manifest.version}-dev.${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;
     manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost:*/*'];
     // Run the content script (grades scrape + panel) on the mock server too.
     for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost:*/*'];

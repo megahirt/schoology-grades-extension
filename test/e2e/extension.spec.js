@@ -202,9 +202,17 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(card.getByText('1 missing · Algebra 2 below 75%')).toBeVisible();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
+      // Algebra 2 has real nested quarters: GO/NO-GO uses Quarter 2 (68%),
+      // with the Semester 1 grade (74%) shown beside it.
+      await expect(card.getByText('1 missing · Algebra 2 below 75% this quarter')).toBeVisible();
+      await expect(card.getByText('Lowest, Quarter 2')).toBeVisible();
+      await expect(popup.locator('.class-cols .col-q')).toHaveText('Quarter 2');
+      await expect(popup.locator('.class-cols .col-o')).toHaveText('Semester');
       const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
-      await expect(algebra).toBeVisible();
-      await expect(algebra.getByText('68%')).toBeVisible();
+      await expect(algebra.locator('.class-grade')).toHaveText('68%');
+      await expect(algebra.locator('.class-overall')).toHaveText('74%');
+      // A class without quarters says which grade it uses instead.
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.class-note')).toHaveText('No Quarter 2 grade yet, using Semester 1');
 
       // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
       await popup.getByRole('button', { name: 'Turned in' }).click();

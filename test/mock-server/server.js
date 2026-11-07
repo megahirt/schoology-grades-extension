@@ -23,7 +23,8 @@
 //   GET  /parent/grades_attendance/grades    parent: every course of the viewed child
 //
 // Personas:
-//   student — "Alex Student": Algebra 2 (68%, below 75), American
+//   student — "Alex Student": Algebra 2 (Quarter 2 68%, below 75; Semester
+//             1 74%, with real nested quarters), American
 //             Literature (82%, 1 Missing), United States History (95%),
 //             Advisory 11 (no grades — classifier bait).
 //   parent  — "Sam Rivera" (2 Missing + a class at 55% => NO-GO) and
@@ -40,8 +41,22 @@ const S1 = 'Semester 1: 8/24/26 - 12/19/26';
 const SUBMITTED = 'This student has completed assignment submission';
 const PENDING = 'This student has made a submission that has not been graded.';
 
-function course(id, title, grade, items, { courseGrade = null } = {}) {
-  return { id, title, courseGrade, periods: [{ id: `${id}1`, title: S1, grade, items }] };
+const Q1 = 'Quarter 1: 8/24/2026 - 10/14/2026';
+const Q2 = 'Quarter 2: 10/19/2026 - 12/15/2026';
+
+// quarters: { semester, q1 } — nest Quarter 1 and Quarter 2 inside Semester 1
+// like live Schoology. `grade` is then the Quarter 2 grade (what GO/NO-GO
+// uses) and `semester` the Semester 1 grade shown beside it.
+function course(id, title, grade, items, { courseGrade = null, quarters = null } = {}) {
+  if (!quarters) return { id, title, courseGrade, periods: [{ id: `${id}1`, title: S1, grade, items }] };
+  return {
+    id, title, courseGrade,
+    periods: [
+      { id: `${id}1`, title: S1, grade: quarters.semester, items: [] },
+      { id: `${id}2`, title: Q1, grade: quarters.q1, parentId: `${id}1`, items: [] },
+      { id: `${id}3`, title: Q2, grade, parentId: `${id}1`, items },
+    ],
+  };
 }
 
 const STUDENT = {
@@ -51,7 +66,7 @@ const STUDENT = {
       { id: '5001', title: 'Quadratics Quiz', kind: 'assessment', due: '10/20/26 11:59pm', score: 6, max: 10 },
       { id: '5002', title: 'Factoring Worksheet', kind: 'assignment', due: '10/27/26 11:59pm', score: 7, max: 10, note: SUBMITTED },
       { id: '5003', title: 'Practice Set (optional)', kind: 'assignment', due: '10/29/26 11:59pm', exception: 'excused' },
-    ]),
+    ], { quarters: { semester: 74, q1: 80 } }),
     course('1002', 'American Literature: Section 4', 82, [
       { id: '5101', title: 'Persuasive Essay Draft', kind: 'assignment', due: '11/03/26 11:25am', exception: 'missing' },
       { id: '5102', title: 'Rhetoric Analysis', kind: 'assignment', due: '10/22/26 11:00am', score: 42, max: 50, note: SUBMITTED },

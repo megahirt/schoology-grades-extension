@@ -139,5 +139,8 @@ stays signed in; your everyday Chrome is not touched. Rerun the command after
 a code change (`-- --no-build` skips the rebuild). Chromium's DevTools
 protocol listens on `127.0.0.1:9333` (this machine only), so tools such as
 Playwright's `chromium.connectOverCDP('http://127.0.0.1:9333')` can attach to
-the same window. Safari still needs its own manual check.
+the same window. Each launch clears the profile's cached extension service
+worker (Chromium otherwise kept running a stale background script) and checks
+that the running build matches the new one; the DEV row shows the build time.
+Safari still needs its own manual check.
 

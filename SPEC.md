@@ -120,6 +120,14 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
 - Service-worker HTML parsing uses parse5 (spec-compliant). Live Schoology
   leaves `<span class="has-dropbox-icon grade-pending-icon">` unclosed on
   ungraded submissions; the earlier non-spec parser dropped every later row.
+- Class grades (`parser-core.js`): `grade` (what GO/NO-GO uses) is the
+  current quarter: a grading period nested under a semester, not an exam,
+  whose dates include today; between quarters, the latest one that has
+  started. A quarter that has started with no grade yet, or a course with no
+  quarters, falls back to the semester or course grade (`gradeLabel` says
+  which, and the dashboard notes it). `overallGrade` / `overallLabel` is the
+  second column: "Semester" (the current semester) until a later semester
+  has any grade, then "Overall" (the course grade, or the semesters' average).
 - The class list leaves out sections with no grade data (no course grade and
   no graded assignment, e.g. advisory or house group): `hasGradeData()`.
   Their teacher-marked Missing items, if any, still count.

@@ -17,6 +17,7 @@ const LIVE_SHAPE = `<!DOCTYPE html><html><head><title>Literature: Section 4 | Sc
 <tr data-id="9100" data-parent-id="" class="report-row course-row has-children"><th scope="row" class="title-column clickable" tabindex="0"><div class="reportSpacer-0"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><span class="course-grade-text">Course Grade</span><span class="visually-hidden">Course</span></span></div></div></th><td class="grade-column"><div class="td-content-wrapper"></div></td><td class="comment-column"><div class="td-content-wrapper"><span class="visually-hidden">No comment</span></div></td></tr>
 <tr tabindex="0" data-id="801" data-parent-id="9100" class="report-row period-row has-children"><th scope="row" class="title-column clickable" tabindex="0"><div class="reportSpacer-1"><div class="td-content-wrapper"><img src="/x.png" class="expandable-icon-grading-report" alt=""><span class="title" role="button" tabindex="0">Semester 1: 8/24/26 - 12/19/26<span class="visually-hidden">Grading Period</span></span> <span class="percentage-contrib">(50%)</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="66.25%">66.25%</span></span></span></div></td><td class="comment-column"></td></tr>
 <tr tabindex="0" data-id="802" data-parent-id="801" class="report-row period-row has-children childrenCollapsed"><th scope="row" class="title-column clickable"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">Quarter 1: 8/24/2026 - 10/14/2026<span class="visually-hidden">Grading Period</span></span></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="77%">77%</span></span></span></div></td><td class="comment-column"></td></tr>
+<tr tabindex="0" data-id="803" data-parent-id="801" class="report-row period-row has-children childrenCollapsed"><th scope="row" class="title-column clickable"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">Quarter 2: 10/19/2026 - 12/15/2026<span class="visually-hidden">Grading Period</span></span></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="55.5%">55.5%</span></span></span></div></td><td class="comment-column"></td></tr>
 <tr data-id="802-1" data-parent-id="802" class="report-row category-row hidden has-children childrenCollapsed last-row-of-tier"><th scope="row" class="title-column clickable"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0">Work<span class="visually-hidden">Category</span></span></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="numeric-grade primary-grade"><span class="rounded-grade" title="76.9%">76.9%</span></span></span></div></td><td class="comment-column"></td></tr>
 <tr data-id="I-7001" data-parent-id="802-1" class="report-row item-row hidden"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7001" target="_blank">Warm-up 1<span class="visually-hidden">assignment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>8/25/26 10:00am</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><span class="awarded-grade"><span class="rounded-grade" title="4.25">4.25</span></span><span class="max-grade"> / 5</span><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
 <tr data-id="I-7002" data-parent-id="802-1" class="report-row item-row hidden"><th scope="row" class="title-column clickable"><div class="reportSpacer-4"><div class="td-content-wrapper"><span class="title" role="button" tabindex="0"><a href="/assignment/7002" target="_blank">Worksheet 4.2<span class="visually-hidden">assignment</span></a></span> <span class="due-date"><span class="visually-hidden">Due </span>9/30/26 11:59pm</span></div></div></th><td class="grade-column"><div class="td-content-wrapper"><div class="exception-grade-wrapper"><span class='no-grade'>0</span><span class="exception"><span class="exception-icon missing"></span><span class="exception-text">Missing</span></span></div><div class="grade-wrapper"></div></div></td><td class="comment-column"></td></tr>
@@ -66,9 +67,13 @@ describe('parseGradesHtml — live Schoology markup', () => {
     expect(course.assignments).toHaveLength(8);
   });
 
-  it('uses the current semester grade when the course row is empty', () => {
-    expect(course.grade).toBe(66.25);
-    expect(course.gradeSource).toMatch(/^Semester 1/);
+  it('uses the current quarter for the verdict grade, and the semester alongside', () => {
+    expect(course.grade).toBe(55.5);
+    expect(course.gradeLabel).toBe('Quarter 2');
+    expect(course.gradeSource).toMatch(/^Quarter 2/);
+    expect(course.quarterGrade).toBe(55.5);
+    expect(course.overallGrade).toBe(66.25);
+    expect(course.overallLabel).toBe('Semester');
   });
 
   it('flags ONLY teacher-marked Missing items, including one in a collapsed quarter', () => {
@@ -197,3 +202,55 @@ describe('parseGradesHtml — Schoology unclosed grade-pending span', () => {
     expect(missing).toEqual(['Essay Draft', 'Unit Quiz']);
   });
 });
+
+describe('parseGradesHtml — quarter, semester and overall grades', () => {
+  const S1 = 'Semester 1: 8/24/26 - 12/19/26';
+  const Q1 = 'Quarter 1: 8/24/2026 - 10/14/2026';
+  const Q2 = 'Quarter 2: 10/19/2026 - 12/15/2026';
+  const EX1 = 'Exam 1: 12/16/2026 - 12/18/2026';
+  const S2 = 'Semester 2: 1/11/27 - 5/29/27';
+  const Q3 = 'Quarter 3: 1/11/2027 - 3/19/2027';
+  const item = { id: '1', title: 'Item', score: 9, max: 10 };
+  const page = (periods, courseGrade = null) => renderPage('Grades', renderCourse({
+    id: '900', title: 'Spanish 2: Section 1', courseGrade,
+    periods: periods.map(([id, title, grade, parentId], i) => ({ id, title, grade, parentId, items: i === 0 ? [item] : [] })),
+  }));
+  const fall = [['1', S1, 84], ['2', Q1, 96, '1'], ['3', Q2, 71, '1'], ['4', EX1, null, '1'], ['5', S2, null], ['6', Q3, null, '5']];
+
+  it('fall: the verdict uses Quarter 2 (71) even though the semester passes (84)', () => {
+    const [c] = parseGradesHtml(page(fall), { now: new Date(2026, 10, 7, 12) }).courses;
+    expect([c.grade, c.gradeLabel, c.overallGrade, c.overallLabel]).toEqual([71, 'Quarter 2', 84, 'Semester']);
+  });
+
+  it('exam week (between quarters): the latest quarter that has started, never the exam', () => {
+    const withExam = fall.map((p) => (p[0] === '4' ? ['4', EX1, 40, '1'] : p));
+    const [c] = parseGradesHtml(page(withExam), { now: new Date(2026, 11, 17, 12) }).courses;
+    expect([c.grade, c.gradeLabel]).toEqual([71, 'Quarter 2']);
+  });
+
+  it('a new quarter with no grades yet falls back to the semester grade, not last quarter', () => {
+    const early = [['1', S1, 90], ['2', Q1, 96, '1'], ['3', Q2, null, '1']];
+    const [c] = parseGradesHtml(page(early), { now: new Date(2026, 9, 20, 12) }).courses;
+    expect([c.grade, c.gradeLabel, c.quarterGrade]).toEqual([90, 'Semester 1', null]);
+  });
+
+  it('spring: once Semester 2 has a grade the second column becomes Overall', () => {
+    const spring = [['1', S1, 84], ['2', Q2, 71, '1'], ['5', S2, 78], ['6', Q3, 74, '5']];
+    const [c] = parseGradesHtml(page(spring, 81), { now: new Date(2027, 1, 10, 12) }).courses;
+    expect([c.grade, c.gradeLabel, c.overallGrade, c.overallLabel]).toEqual([74, 'Quarter 3', 81, 'Overall']);
+    const [noRow] = parseGradesHtml(page(spring, null), { now: new Date(2027, 1, 10, 12) }).courses;
+    expect(noRow.overallGrade).toBe(81); // average of 84 and 78
+  });
+
+  it('a new quarter with no grade falls back to the course-row grade, labelled as such', () => {
+    const early = [['1', S1, 99], ['2', Q1, 99, '1'], ['3', Q2, null, '1']];
+    const [c] = parseGradesHtml(page(early, 99.5), { now: new Date(2026, 10, 7, 12) }).courses;
+    expect([c.grade, c.gradeLabel]).toEqual([99.5, 'Course grade']);
+  });
+
+  it('a course with no quarters keeps its semester grade for the verdict', () => {
+    const [c] = parseGradesHtml(page([['1', S1, 88]]), { now: new Date(2026, 10, 7, 12) }).courses;
+    expect([c.grade, c.gradeLabel, c.overallGrade, c.overallLabel]).toEqual([88, 'Semester 1', 88, 'Semester']);
+  });
+});
+

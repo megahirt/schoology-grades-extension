@@ -206,9 +206,10 @@ function parseItemRow(row, ctx) {
   };
 }
 
-// The class grade the family rule uses: the course-row grade when Schoology
-// shows one, otherwise the top-level grading period (semester) that contains
-// today, otherwise the latest top-level period that has a grade.
+// The semester-level grade (the fallback when a course has no quarters):
+// the course-row grade when Schoology shows one, otherwise the top-level
+// grading period (semester) that contains today, otherwise the latest
+// top-level period that has a grade.
 function pickCourseGrade(courseRowGrade, periods, now) {
   if (courseRowGrade !== null) return { grade: courseRowGrade, gradeSource: 'course' };
   const top = periods.filter((p) => p.topLevel && p.grade !== null);
@@ -217,6 +218,44 @@ function pickCourseGrade(courseRowGrade, periods, now) {
   const latest = top.filter((p) => p.range && p.range.start <= now).sort((a, b) => b.range.start - a.range.start)[0]
     || top[0];
   return latest ? { grade: latest.grade, gradeSource: latest.title } : { grade: null, gradeSource: null };
+}
+
+// The current quarter: a grading period nested under a semester (not an
+// exam), with a grade, whose dates include today; between quarters, the
+// latest one that has started; failing dates, the last one with a grade.
+// Live titles: "Quarter 2: 10/19/2026 - 12/15/2026", "Exam 1: 12/16/2026 - …".
+// A quarter that has started but has no grade yet (Schoology shows "—")
+// yields null, so the caller falls back to the semester grade rather than
+// reaching back to last quarter's grade.
+function pickQuarter(periods, now) {
+  const all = periods.filter((p) => !p.topLevel && !/^\s*(final\s+)?exam\b/i.test(p.title || ''));
+  const current = all.find((p) => p.range && p.range.start <= now && now <= p.range.end);
+  if (current) return current.grade !== null ? current : null;
+  const quarters = all.filter((p) => p.grade !== null);
+  if (!quarters.length) return null;
+  const started = quarters.filter((p) => p.range && p.range.start <= now).sort((a, b) => b.range.start - a.range.start);
+  return started[0] || quarters[quarters.length - 1];
+}
+
+// The second column: "Semester" (the current semester's grade) until a later
+// semester has any grade, then "Overall" (Schoology's whole-course grade, or
+// the average of the semester grades when the course row shows none).
+function pickOverall(courseRowGrade, periods, now) {
+  const semesters = periods.filter((p) => p.topLevel && p.range).sort((a, b) => a.range.start - b.range.start);
+  const laterStarted = semesters.slice(1).some((p) => p.grade !== null);
+  if (laterStarted) {
+    const graded = semesters.filter((p) => p.grade !== null).map((p) => p.grade);
+    const avg = graded.length ? Math.round((graded.reduce((a, b) => a + b, 0) / graded.length) * 100) / 100 : null;
+    return { grade: courseRowGrade !== null ? courseRowGrade : avg, label: 'Overall' };
+  }
+  const current = semesters.find((p) => p.range.start <= now && now <= p.range.end && p.grade !== null)
+    || semesters.find((p) => p.grade !== null);
+  if (current) return { grade: current.grade, label: 'Semester' };
+  return { grade: courseRowGrade, label: courseRowGrade !== null ? 'Overall' : null };
+}
+
+function periodName(title) {
+  return String(title || '').replace(/:.*$/, '').trim() || null;
 }
 
 function parseCourse(block, ctx) {
@@ -233,6 +272,7 @@ function parseCourse(block, ctx) {
     const title = visibleText(row.querySelector('.title'));
     periods.push({
       id: row.getAttribute('data-id'),
+      parentId: row.getAttribute('data-parent-id') || null,
       title,
       grade: rowGrade(row),
       topLevel: (row.getAttribute('data-parent-id') || '') === String(id),
@@ -244,14 +284,33 @@ function parseCourse(block, ctx) {
     const a = parseItemRow(row, courseCtx);
     if (a) assignments.push(a);
   }
-  const { grade, gradeSource } = pickCourseGrade(courseRow ? rowGrade(courseRow) : null, periods, ctx.now);
+  const courseRowGrade = courseRow ? rowGrade(courseRow) : null;
+  const fallback = pickCourseGrade(courseRowGrade, periods, ctx.now);
+  const quarter = pickQuarter(periods, ctx.now);
+  const overall = pickOverall(courseRowGrade, periods, ctx.now);
+  // `grade` is what the family rule (GO/NO-GO) uses: the current quarter,
+  // or the semester-level grade when the course has no graded quarters.
   return {
     id,
     name,
     sectionTitle,
-    grade,
-    gradeSource,
-    periods: periods.map(({ id: pid, title, grade: g, topLevel }) => ({ id: pid, title, grade: g, topLevel })),
+    grade: quarter ? quarter.grade : fallback.grade,
+    gradeSource: quarter ? quarter.title : fallback.gradeSource,
+    gradeLabel: quarter
+      ? periodName(quarter.title)
+      : fallback.grade === null ? null : fallback.gradeSource === 'course' ? 'Course grade' : periodName(fallback.gradeSource) || 'Course grade',
+    quarterGrade: quarter ? quarter.grade : null,
+    overallGrade: overall.grade,
+    overallLabel: overall.label,
+    periods: periods.map(({ id: pid, parentId, title, grade: g, topLevel, range }) => ({
+      id: pid,
+      parentId,
+      title,
+      grade: g,
+      topLevel,
+      start: range ? range.start.toISOString() : null,
+      end: range ? range.end.toISOString() : null,
+    })),
     assignments,
     url: id ? absoluteUrl(`/course/${id}/student_grades`, ctx.baseUrl) : null,
   };
