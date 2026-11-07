@@ -224,6 +224,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const journal = popup.locator('.waiting', { hasText: 'Poetry Journal' });
       await expect(journal).toContainText('Submitted, not graded yet');
       await expect(journal.getByRole('button', { name: /Undo/ })).toHaveCount(0);
+      await expect(journal.locator('.missing-tag')).toHaveCount(0); // submitted, but not marked Missing
 
       // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
       await popup.getByRole('button', { name: 'Turned in' }).click();
@@ -237,7 +238,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.getByText('Waiting on teacher · 1')).toBeVisible();
       await expect(popup.getByText(/nobody is notified/)).toHaveCount(0);
       // Each section heading carries its emoji.
-      await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('.sec-emoji')).toHaveText('❗');
+      await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('img.missing-icon')).toBeVisible(); // Schoology's icon
       await expect(popup.locator('.sec-h', { hasText: 'Classes' }).locator('.sec-emoji')).toHaveText('🏛️');
       await popup.close();
     } finally {
@@ -410,7 +411,11 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Parent class links open that child's class grades via Schoology's preview link.
       await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.class-name'))
         .toHaveAttribute('href', /\/course\/\d+\/preview\/2000001\/parent\?url=course\/\d+\/student_grades$/);
-      await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toContainText('Submitted, not graded yet');
+      const samEssay = popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' });
+      await expect(samEssay).toContainText('Submitted, not graded yet');
+      // Still marked Missing on Schoology: Schoology's Missing icon + "Missing".
+      await expect(samEssay.locator('.missing-tag')).toHaveText('Missing');
+      await expect(samEssay.locator('.missing-tag img.missing-icon')).toBeVisible();
       // Classes leave out sections with no grade data (House Group 1).
       await expect(popup.locator('.class', { hasText: 'United States History' })).toBeVisible();
       await expect(popup.locator('.class', { hasText: 'House Group 1' })).toHaveCount(0);
@@ -420,6 +425,11 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(card.getByText('GO', { exact: true })).toBeVisible();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
+      // The picked child is remembered: a fresh popup (or a page load) stays on Jamie.
+      const again = await openPopup(context, extensionId);
+      await expect(again.getByRole('tab', { name: 'Jamie' })).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });
+      await expect(again.locator('.card').getByText('Jamie Rivera', { exact: true })).toBeVisible();
+      await again.close();
       await popup.close();
     } finally {
       await context.close();
