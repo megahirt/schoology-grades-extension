@@ -5,7 +5,7 @@
 // "NO-GO — Missing work + Low grades", otherwise "GO".
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent } from '../../extension/src/rules.js';
+import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData } from '../../extension/src/rules.js';
 
 describe('DEFAULT_SETTINGS', () => {
   it('uses the shipped defaults (75 / 2)', () => {
@@ -187,5 +187,85 @@ describe('summarizeStudent', () => {
     expect(summary.doingWell.map((a) => a.title)).toEqual(['Map Project']);
     expect(summary.notSoGood.map((a) => a.title)).toEqual(['Sketchbook']);
     expect(summary.dueToday).toEqual([]);
+  });
+});
+
+describe('Waiting on teacher (turned-in and done marks)', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T23:59:00`;
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const lastWeek = new Date(today);
+  lastWeek.setDate(today.getDate() - 7);
+  const course = (assignments) => [{ id: '10', name: 'Algebra 2', grade: 90, assignments }];
+
+  it('a Missing item marked turned in waits on the teacher and stops counting as Missing', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Worksheet', status: 'missing', score: null, due: iso(lastWeek) },
+      { id: '2', title: 'Quiz', status: 'missing', score: null, due: iso(lastWeek) },
+    ]), DEFAULT_SETTINGS, ['1']);
+    expect(s.missingCount).toBe(1);
+    expect(s.waiting.map((a) => [a.title, a.waitingReason])).toEqual([['Worksheet', 'turnedIn']]);
+    expect(s.verdict.verdict).toBe('GO');
+  });
+
+  it('a turned-in item drops out of Waiting once graded, or once the Missing mark is removed', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Graded Now', status: 'graded', score: 8, maxPoints: 10, due: iso(lastWeek) },
+      { id: '2', title: 'Missing Removed', status: 'pending', score: null, due: iso(lastWeek) },
+    ]), DEFAULT_SETTINGS, ['1', '2']);
+    expect(s.waiting).toEqual([]);
+    expect(s.doingWell.map((a) => a.title)).toEqual(['Graded Now']);
+  });
+
+  it('a Due soon item marked done leaves Due soon and waits on the teacher', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Due Today', status: 'pending', score: null, due: iso(today) },
+      { id: '2', title: 'Due Tomorrow', status: 'pending', score: null, due: iso(tomorrow) },
+    ]), DEFAULT_SETTINGS, [], ['1']);
+    expect(s.dueToday).toEqual([]);
+    expect(s.dueTomorrow.map((a) => a.title)).toEqual(['Due Tomorrow']);
+    expect(s.waiting.map((a) => [a.title, a.waitingReason])).toEqual([['Due Today', 'done']]);
+  });
+
+  it('a done item stays in Waiting after its due date passes, until graded', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Past Due Done', status: 'pending', score: null, due: iso(lastWeek) },
+    ]), DEFAULT_SETTINGS, [], ['1']);
+    expect(s.waiting.map((a) => a.title)).toEqual(['Past Due Done']);
+  });
+
+  it('a done item the teacher marks Missing counts as Missing again', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Marked Missing Later', status: 'missing', score: null, due: iso(lastWeek) },
+      { id: '2', title: 'Also Missing', status: 'missing', score: null, due: iso(lastWeek) },
+    ]), DEFAULT_SETTINGS, [], ['1']);
+    expect(s.missingCount).toBe(2);
+    expect(s.waiting).toEqual([]);
+    expect(s.verdict.verdict).toBe('NO-GO');
+  });
+
+  it('a done item that gets graded leaves Waiting', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Graded', status: 'graded', score: 9, maxPoints: 10, due: iso(today) },
+    ]), DEFAULT_SETTINGS, [], ['1']);
+    expect(s.waiting).toEqual([]);
+    expect(s.doingWell.map((a) => a.title)).toEqual(['Graded']);
+  });
+});
+
+describe('hasGradeData', () => {
+  it('is true for a course grade or any graded assignment', () => {
+    expect(hasGradeData({ grade: 88, assignments: [] })).toBe(true);
+    expect(hasGradeData({ grade: null, assignments: [{ status: 'graded', score: 9, maxPoints: 10 }] })).toBe(true);
+    expect(hasGradeData({ grade: null, assignments: [{ status: 'graded', letterGrade: 'A' }] })).toBe(true);
+  });
+
+  it('is false for sections with no grades (advisory, house group)', () => {
+    expect(hasGradeData({ grade: null, assignments: [] })).toBe(false);
+    expect(hasGradeData({ grade: null, assignments: [{ status: 'pending', score: null }] })).toBe(false);
+    expect(hasGradeData({ grade: null, assignments: [{ status: 'missing', score: null }] })).toBe(false);
+    expect(hasGradeData(null)).toBe(false);
   });
 });

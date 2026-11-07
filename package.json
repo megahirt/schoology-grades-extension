@@ -1,1 +1,27 @@
-{"dependencies":{"node-html-parser":"^6.1.13","webextension-polyfill":"^0.12.0"},"description":"Browser extension (Safari-first, then Chrome) that turns Schoology Grades into a clean homework dashboard with a GO/NO-GO verdict — local data only, no server, no Schoology password stored.","devDependencies":{"@playwright/test":"^1.49.0","esbuild":"^0.24.0","vitest":"^2.1.8"},"name":"schoology-grades-extension","private":true,"scripts":{"build":"node scripts/build.mjs","build:dev":"node scripts/build.mjs --dev","build:safari":"node scripts/build-safari.mjs","lint":"node --check extension/src/rules.js && node --check extension/src/classifier.js && node --check extension/src/parser.js && node --check extension/src/parser-core.js && node --check extension/src/schoology.js && node --check extension/background.js && node --check extension/content.js","mock-server":"node test/mock-server/server.js","test":"vitest run","test:e2e":"playwright test","test:watch":"vitest"},"type":"module","version":"0.1.0"}
+{
+  "dependencies": {
+    "node-html-parser": "^6.1.13",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "description": "Browser extension (Safari-first, then Chrome) that turns Schoology Grades into a clean homework dashboard with a GO/NO-GO verdict \u2014 local data only, no server, no Schoology password stored.",
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "esbuild": "^0.24.0",
+    "vitest": "^2.1.8"
+  },
+  "name": "schoology-grades-extension",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build.mjs --dev",
+    "build:safari": "node scripts/build-safari.mjs",
+    "lint": "node --check extension/src/rules.js && node --check extension/src/classifier.js && node --check extension/src/parser.js && node --check extension/src/parser-core.js && node --check extension/src/schoology.js && node --check extension/src/panel.js && node --check extension/src/dashboard-view.js && node --check extension/background.js && node --check extension/content.js",
+    "mock-server": "node test/mock-server/server.js",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:watch": "vitest",
+    "screenshots": "node test/screenshots/capture.mjs"
+  },
+  "type": "module",
+  "version": "0.1.0"
+}

@@ -105,3 +105,13 @@ npx playwright install --no-shell chromium
 Playwright 1.49 headless launches use the headless shell; if that download
 fails but the full Chromium build is present, `playwright.config.js` falls
 back to the full binary automatically (same engine, `--headless=new`).
+
+## Screenshots (visual check against the design)
+
+`npm run build:dev && npm run screenshots` loads the DEV build into local
+Chromium, fills it with the made-up demo data, shows the panel on a fake
+Schoology page (served by Playwright, no network) and saves the popup, the
+open panel, a NO-GO child, Waiting on teacher, the closed tab, the student
+view and the iPhone bottom sheet to `test/screenshots/out/` (gitignored).
+Compare them with the "Schoology Dashboard Panel" design.
+
