@@ -92,6 +92,39 @@
 
 .sgd .class { display: flex; flex-direction: column; gap: 5px; }
 .sgd .class-head { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+/* Class name and bar open the grade chart. */
+.sgd .class-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: none; background: none; color: var(--ink); font-size: 14px; text-align: left; }
+.sgd .class-toggle:hover .class-name { text-decoration: underline; color: #1d4ed8; }
+.sgd .chev { display: inline-flex; color: #8a94a1; transition: transform 0.15s; }
+.sgd .chev.open { transform: rotate(90deg); }
+.sgd .bar-toggle { display: block; width: 100%; padding: 4px 0; margin: -4px 0; border: none; background: none; }
+.sgd .chart-box { margin: 6px 0 4px; padding: 10px 10px 8px; background: #f6f7f9; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
+.sgd .gchart { width: 100%; height: auto; display: block; overflow: visible; }
+.sgd .gchart .gc-grid { stroke: #e3e6ea; stroke-width: 1; }
+.sgd .gchart .gc-pass { stroke: #9aa4b1; stroke-width: 1.5; stroke-dasharray: 4 4; }
+.sgd .gchart .gc-ylab { font-size: 9px; fill: var(--muted); text-anchor: end; }
+.sgd .gchart .gc-ylab.pass { font-weight: 700; fill: var(--ink-2); }
+.sgd .gchart .gc-xlab { font-size: 9px; fill: var(--muted); text-anchor: middle; }
+.sgd .gchart .gc-tick { stroke: #c9ced5; }
+.sgd .gchart .gc-line { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sgd .gchart .gc-line-dot { fill: var(--ink-2); }
+.sgd .gchart .gc-dot { stroke: #fff; stroke-width: 1.5; }
+.sgd .gchart .gc-dot.ok { fill: var(--go); }
+.sgd .gchart .gc-dot.low { fill: var(--nogo); }
+.sgd .gchart .gc-hit { fill: transparent; cursor: crosshair; }
+.sgd .gchart .gc-hline { stroke: #8a94a1; stroke-width: 1; }
+.sgd .gchart .gc-hdot { fill: var(--ink-2); stroke: #fff; stroke-width: 2; }
+.sgd .gchart .gc-tipbg { fill: var(--ink); }
+.sgd .gchart .gc-tip { font-size: 10px; fill: #fff; }
+.sgd .gchart .gc-hover { pointer-events: none; }
+.sgd .chart-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); }
+.sgd .chart-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.sgd .lg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.sgd .lg-dot.ok { background: var(--go); } .sgd .lg-dot.low { background: var(--nogo); }
+.sgd .lg-line { width: 14px; height: 2px; background: var(--ink-2); display: inline-block; }
+.sgd .lg-pass { width: 14px; border-top: 2px dashed #9aa4b1; display: inline-block; }
+.sgd a.chart-link { font-size: 12px; color: #1d4ed8; text-decoration: none; }
+.sgd a.chart-link:hover { text-decoration: underline; }
 .sgd .class-grade { font-weight: 700; }
 .sgd a.class-name { color: var(--ink); text-decoration: none; }
 .sgd a.class-name:hover, .sgd a.class-name:focus-visible { text-decoration: underline; color: #1d4ed8; }

@@ -148,6 +148,17 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   ("07 English" -> "English") is dropped, and a short all-caps code
   ("BPL ") is dropped when it starts two or more of the child's classes.
   A code on one class only ("US History") stays.
+- Grade chart: clicking a class name or its bar opens (and closes) a chart
+  under it: each graded assignment as a dot (green at/above the passing
+  grade, red below), the class grade over time as a line from the first
+  day of school to today (one line per grading period, each starting
+  fresh), and a dashed passing line; desktop hover shows the class grade at
+  that date. The line is rebuilt from the graded assignments
+  (`src/grade-history.js`): points earned / possible, or category weights
+  ("(35%)" on the grades page, parsed into `course.categories`). Missing
+  work counts as zero; its points are worked out from the period grade
+  Schoology shows, so the line ends on Schoology's number. The class's
+  Schoology link sits under the chart. Drawn by `src/grade-chart.js`.
 - The class list leaves out sections with no grade data (no course grade and
   no graded assignment, e.g. advisory or house group): `hasGradeData()`.
   Their teacher-marked Missing items, if any, still count.

@@ -28,6 +28,8 @@ import {
   storageSet,
 } from './storage.js';
 import { cleanCourseNames } from './names.js';
+import { gradeHistory } from './grade-history.js';
+import { renderGradeChart, chartHover, chartUnhover } from './grade-chart.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -242,7 +244,11 @@ export function visibleCourses(courses) {
   return (courses || []).filter((c) => hasGradeData(c));
 }
 
-function renderClasses(courses, settings, showGrades, uid) {
+// Grade histories of the charts currently drawn, for hover: key -> history.
+const drawnCharts = new Map();
+const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+
+function renderClasses(courses, settings, showGrades, uid, openClass = null) {
   const list = visibleCourses(courses);
   if (!list.length) return '';
   const t = settings.gradeThreshold;
@@ -272,10 +278,26 @@ function renderClasses(courses, settings, showGrades, uid) {
     const bar = showGrades && barGrade !== null
       ? `<div class="bar" aria-hidden="true"><div class="bar-fill${barLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, barGrade))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
-    const name = c.url
-      ? `<a class="class-name" href="${escapeHtml(c.url)}" title="Open ${escapeHtml(c.name)} grades in Schoology">${escapeHtml(c.name)}</a>`
+    // Clicking the class name or its bar opens the grade chart; again closes it.
+    const key = `${uid}:${c.id || c.name}`;
+    const open = showGrades && openClass === key;
+    const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
+    const name = showGrades
+      ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle')
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
-    return `<div class="class"><div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}</div>`;
+    const barBtn = bar ? toggle(bar, 'bar-toggle', `${open ? 'Hide' : 'Show'} ${c.name} grade chart`) : '';
+    let chart = '';
+    if (open) {
+      const history = gradeHistory(c);
+      const svg = renderGradeChart(history, { threshold: t, name: c.name });
+      if (svg) drawnCharts.set(key, history);
+      const link = c.url ? `<a class="chart-link" href="${escapeHtml(c.url)}">Open ${escapeHtml(c.name)} in Schoology</a>` : '';
+      chart = `<div class="chart-box" data-key="${escapeHtml(key)}">` +
+        (svg || '<p class="empty">No graded assignments with dates yet.</p>') +
+        (svg ? `<div class="chart-legend"><span><i class="lg-dot ok"></i>${t}% or above</span><span><i class="lg-dot low"></i>below ${t}%</span><span><i class="lg-line"></i>class grade</span><span><i class="lg-pass"></i>${t}%</span></div>` : '') +
+        link + '</div>';
+    }
+    return `<div class="class${open ? ' open' : ''}"><div class="class-head"><span class="grow">${name}</span>${grades}</div>${barBtn}${chart}</div>`;
   });
   const dates = showGrades ? quarterDatesLine(list) : '';
   return `<section class="sec">${head}${rows.join('')}${dates ? `<p class="legend">${escapeHtml(dates)}</p>` : ''}</section>`;
@@ -354,7 +376,7 @@ function avatarHtml(d) {
 }
 
 // One child's (or the student's own) dashboard body.
-export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
+export function renderStudentBody(d, uid, settings, marks, { isParentView, openClass = null }) {
   // Tidy class names ("07 English" -> "English") for everything below.
   const courses = cleanCourseNames(d.courses || []);
   const summary = summarizeStudent(courses, settings, marks.turnedIn, marks.done);
@@ -407,7 +429,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
   if (!failed) {
     html += renderMissing(summary, uid);
     html += renderDue(summary, uid);
-    html += renderClasses(courses, settings, showGrades, uid);
+    html += renderClasses(courses, settings, showGrades, uid, openClass);
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderDoingWell(summary.doingWell, settings, showGrades);
     html += renderWaiting(summary, uid);
@@ -479,6 +501,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   root.className = 'sgd';
   container.replaceChildren(root);
   let pickedUid = null;
+  let openClass = null; // "<uid>:<courseId>" whose grade chart is open
   let statusText = '';
 
   async function render() {
@@ -529,7 +552,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       body = `<p class="empty">No Schoology data yet. Sign in to Schoology in this browser and press Refresh${showDemo ? ', or load the demo data to see how the dashboard looks' : ''}.</p>`;
     } else {
       const marks = { turnedIn: turnedIn[pickedUid], done: done[pickedUid] };
-      body = renderStudentBody(current, pickedUid, settings, marks, { isParentView }).html;
+      drawnCharts.clear();
+      body = renderStudentBody(current, pickedUid, settings, marks, { isParentView, openClass }).html;
     }
     if (stale && !running) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
     if (running) {
@@ -603,6 +627,11 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
     const { act, uid, aid } = btn.dataset;
+    if (act === 'toggle-chart') {
+      openClass = openClass === btn.dataset.key ? null : btn.dataset.key;
+      await render();
+      return;
+    }
     if (act === 'pick') {
       pickedUid = uid;
       await render();
@@ -655,6 +684,18 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     // Mark changes re-render through storage.onChanged below.
   }
   root.addEventListener('click', onClick);
+  // Desktop hover on a grade chart: the class grade at that moment.
+  root.addEventListener('pointermove', (e) => {
+    const svg = e.target.closest && e.target.closest('svg.gchart');
+    if (!svg || e.pointerType === 'touch') return;
+    const box = svg.closest('.chart-box');
+    const history = box && drawnCharts.get(box.dataset.key);
+    if (history) chartHover(svg, history, e.clientX);
+  });
+  root.addEventListener('pointerout', (e) => {
+    const svg = e.target.closest && e.target.closest('svg.gchart');
+    if (svg && !svg.contains(e.relatedTarget)) chartUnhover(svg);
+  });
   if (openLinksInActiveTab) root.addEventListener('auxclick', onClick); // middle-click
 
   const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild'];
