@@ -170,10 +170,12 @@ describe('summarizeStudent', () => {
     expect(summary.dueTomorrow.map((a) => a.title)).toContain('Due Tomorrow Item');
     expect(summary.dueToday.map((a) => a.title)).not.toContain('Graded Item');
   });
-  it('counts letter grades as graded: A/B/C doing well, D/F not so good, never due soon', () => {
+  it('counts letter grades as graded: A/B doing well, D/F not so good, never due soon', () => {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
-    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T23:59:00`;
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const today = `${yesterday.getFullYear()}-${pad(yesterday.getMonth() + 1)}-${pad(yesterday.getDate())}T08:00:00`;
     const summary = summarizeStudent(
       [{
         id: '1', name: 'Art', grade: 95,
@@ -251,7 +253,7 @@ describe('Waiting on teacher (turned-in and done marks)', () => {
       { id: '1', title: 'Graded', status: 'graded', score: 9, maxPoints: 10, due: iso(today) },
     ]), DEFAULT_SETTINGS, [], ['1']);
     expect(s.waiting).toEqual([]);
-    expect(s.doingWell.map((a) => a.title)).toEqual(['Graded']);
+    expect(s.dueToday).toEqual([]);
   });
 });
 
@@ -269,3 +271,52 @@ describe('hasGradeData', () => {
     expect(hasGradeData(null)).toBe(false);
   });
 });
+
+describe('Submitted work and Doing well', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const at = (daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T08:00:00`;
+  };
+  const course = (assignments, grade = 90) => [{ id: '10', name: 'History', grade, assignments }];
+
+  it('a submitted item still marked Missing waits on the teacher and is not Missing', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Script', status: 'missing', score: null, submitted: true, due: at(4) },
+      { id: '2', title: 'Essay', status: 'missing', score: null, submitted: true, due: at(9) },
+    ]), DEFAULT_SETTINGS);
+    expect(s.missingCount).toBe(0);
+    expect(s.waiting.map((a) => [a.title, a.waitingReason])).toEqual([['Script', 'submitted'], ['Essay', 'submitted']]);
+    expect(s.verdict.verdict).toBe('GO');
+  });
+
+  it('a submitted, ungraded item that is not Missing also waits (not Due soon)', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Lab', status: 'pending', score: null, submitted: true, due: at(-1) },
+    ]), DEFAULT_SETTINGS);
+    expect(s.dueTomorrow).toEqual([]);
+    expect(s.waiting.map((a) => a.waitingReason)).toEqual(['submitted']);
+  });
+
+  it('a Missing item without a submission still counts as Missing', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Quiz', status: 'missing', score: null, submitted: null, due: at(3) },
+    ]), DEFAULT_SETTINGS);
+    expect(s.missingCount).toBe(1);
+    expect(s.waiting).toEqual([]);
+  });
+
+  it('Doing well: graded B (80%) or higher in the past 10 days', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'A recent', status: 'graded', score: 9, maxPoints: 10, due: at(2) },
+      { id: '2', title: 'B edge', status: 'graded', score: 8, maxPoints: 10, due: at(10) },
+      { id: '3', title: 'C recent', status: 'graded', score: 7.9, maxPoints: 10, due: at(1) },
+      { id: '4', title: 'A old', status: 'graded', score: 10, maxPoints: 10, due: at(11) },
+      { id: '5', title: 'Letter B', status: 'graded', score: null, letterGrade: 'B+', due: at(3) },
+      { id: '6', title: 'Letter C', status: 'graded', score: null, letterGrade: 'C', due: at(3) },
+    ]), DEFAULT_SETTINGS);
+    expect(s.doingWell.map((a) => a.title)).toEqual(['A recent', 'B edge', 'Letter B']);
+  });
+});
+

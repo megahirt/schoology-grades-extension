@@ -92,12 +92,22 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   Ungraded + not-Missing = in-between, OK, not counted. To Do overdue flags ignored.
 - "Not so good" section: graded items below the grade threshold from the past
   7 days only (by the date shown on the row).
+- "Doing well" section (every view): graded B or higher (80%+, or a letter
+  A/B) from the past 10 days (`doingWellPercent`, `doingWellDays`).
+- GO/NO-GO is shown in the parent view only. A student's own view shows a
+  "things to finish first" note instead.
+- Class list: a class with no grade yet for the current quarter shows "—"
+  there; its semester grade stands (and is what GO/NO-GO uses).
 - Due soon: outstanding (not yet graded) items due today / tomorrow. Items past
   their due date AND time with no grade and NOT Missing disappear entirely
   (may be noted in fine print only). No due time given = due at end of day.
   Missing items always stay in Missing.
-- "Waiting on teacher" (near the bottom of the dashboard) holds items the
-  family marked, each with Undo:
+- "Waiting on teacher" (near the bottom of the dashboard) holds:
+  - Submitted work Schoology hasn't graded yet, whether or not the teacher
+    marked it Missing. It does NOT count as Missing (no Undo: Schoology
+    reported it). It leaves Waiting once graded.
+  - Items the family marked, each with Undo, plus the note "Marking
+    something done or turned in is for your own use — nobody is notified.":
   - "Turned in" on a Missing item: while Schoology still shows it Missing it
     waits here and does NOT count as Missing. Once Schoology grades it or
     removes the Missing mark it drops out on its own.

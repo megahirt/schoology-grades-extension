@@ -138,7 +138,10 @@ describe('fetchParentDashboards', () => {
     expect(sam.studentName).toBe('Sam Rivera');
     expect(sam.courses.map((c) => c.name)).toEqual(['American Literature', 'United States History', 'House Group 1']);
     expect(jamie.courses.map((c) => c.name)).toEqual(['07 English', '07 Math']);
-    expect(sam.summary.missingCount).toBe(2);
+    // Sam's Persuasive Essay Draft is Missing but has a submission, so it
+    // waits on the teacher instead of counting as Missing.
+    expect(sam.summary.missingCount).toBe(1);
+    expect(sam.summary.waiting.map((a) => a.title)).toEqual(['Persuasive Essay Draft']);
     expect(jamie.summary.missingCount).toBe(1);
     expect(sam.summary.verdict.verdict).toBe('NO-GO');
     expect(jamie.summary.verdict.verdict).toBe('GO');

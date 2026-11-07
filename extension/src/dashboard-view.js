@@ -226,29 +226,23 @@ function renderClasses(courses, settings, showGrades, uid) {
       (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '') + '</div>'
     : '<h2 class="sec-h">Classes</h2>';
   const rows = list.map((c) => {
-    const pct = typeof c.grade === 'number' ? c.grade : null;
-    const low = pct !== null && pct < t;
-    // A course without a graded quarter uses another period: say which.
-    const usesOther = showGrades && cols.quarter && pct !== null && c.gradeLabel && c.gradeLabel !== cols.quarter;
-    const using = c.gradeLabel === 'Course grade' ? 'the course grade' : c.gradeLabel;
-    const note = usesOther ? `<div class="class-note">No ${escapeHtml(cols.quarter)} grade yet, using ${escapeHtml(using)}</div>` : '';
+    const grade = typeof c.grade === 'number' ? c.grade : null;
+    // With quarters, the first column is the quarter grade, or a dash while
+    // the quarter has no grades (the semester grade then stands).
+    const first = cols.quarter ? (typeof c.quarterGrade === 'number' ? c.quarterGrade : null) : grade;
+    const firstLow = first !== null && first < t;
+    const overallIsVerdict = cols.quarter && first === null && grade !== null;
+    const overallLow = overallIsVerdict && grade < t;
     const grades = showGrades
-      ? `<span class="class-grade col-q${low ? ' low' : ''}">${pctText(pct)}</span>` +
-        (oHead ? `<span class="class-overall col-o">${pctText(c.overallGrade)}</span>` : '')
+      ? `<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
+        (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
-    const bar = showGrades && pct !== null
-      ? `<div class="bar" aria-hidden="true"><div class="bar-fill${low ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
+    const bar = showGrades && first !== null
+      ? `<div class="bar" aria-hidden="true"><div class="bar-fill${firstLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, first))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
-    return `<div class="class"><div class="class-head"><span class="grow">${escapeHtml(c.name)}${note}</span>${grades}</div>${bar}</div>`;
+    return `<div class="class"><div class="class-head"><span class="grow">${escapeHtml(c.name)}</span>${grades}</div>${bar}</div>`;
   });
-  let legend = '';
-  if (showGrades) {
-    const second = oHead === 'Overall'
-      ? ' Overall is the grade for the whole year so far.'
-      : oHead === 'Semester' ? ' Semester is the grade so far this semester.' : '';
-    legend = `<p class="legend">GO/NO-GO and the bars use the ${escapeHtml(cols.quarter || 'class')} grade. The line marks ${t}%, the passing grade.${second}</p>`;
-  }
-  return `<section class="sec">${head}${rows.join('')}${legend}</section>`;
+  return `<section class="sec">${head}${rows.join('')}</section>`;
 }
 
 function renderGradedList(title, items, settings, showGrades) {
@@ -263,18 +257,32 @@ function renderGradedList(title, items, settings, showGrades) {
   return section(title, rows.join(''));
 }
 
+const WAITING_HOW = {
+  submitted: 'Submitted, not graded yet',
+  turnedIn: 'Marked turned in',
+  done: 'Marked done',
+};
+
 function renderWaiting(summary, uid) {
   const n = summary.waiting.length;
   if (!n) {
-    return section('Waiting on teacher · 0', '<p class="empty">Nothing waiting. Items marked turned in or done show here until the teacher grades them.</p>');
+    return section('Waiting on teacher · 0', '<p class="empty">Nothing waiting. Submitted work, and anything you mark turned in or done, shows here until the teacher grades it.</p>');
   }
-  const rows = summary.waiting.map((a) => {
-    const how = a.waitingReason === 'done' ? 'Marked done' : 'Marked turned in';
+  // Schoology-reported submissions first, then the family's own marks.
+  const order = { submitted: 0, turnedIn: 1, done: 2 };
+  const items = [...summary.waiting].sort((a, b) => order[a.waitingReason] - order[b.waitingReason]);
+  const rows = items.map((a) => {
+    const how = WAITING_HOW[a.waitingReason] || 'Waiting on teacher';
+    const sub = [a.courseName, dueLabel(a), how].filter(Boolean).map(escapeHtml).join(' · ');
+    const undo = a.waitingReason === 'submitted'
+      ? ''
+      : `<button class="link-btn" type="button" data-act="undo" data-reason="${a.waitingReason}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Undo: ${escapeHtml(a.title)}">Undo</button>`;
     return `<div class="waiting"><span class="waiting-icon">${ICON.checkSmall}</span>` +
-      `<div class="grow"><div class="waiting-title">${escapeHtml(a.title)}</div><div class="sub">${escapeHtml(a.courseName || '')} · ${how}</div></div>` +
-      `<button class="link-btn" type="button" data-act="undo" data-reason="${a.waitingReason}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Undo: ${escapeHtml(a.title)}">Undo</button></div>`;
+      `<div class="grow">${titleLink(a, 'waiting-title')}<div class="sub">${sub}</div></div>${undo}</div>`;
   });
-  return section(`Waiting on teacher · ${n}`, rows.join(''));
+  const manual = items.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
+  const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
+  return section(`Waiting on teacher · ${n}`, rows.join('') + disclaimer);
 }
 
 function verdictPill(verdict) {
@@ -300,8 +308,9 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
 
   if (failed) {
     html += `<div class="card unknown"><div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
-      `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${verdictPill('UNKNOWN')}</div></div>`;
-  } else if (isParentView || settings.showGoNoGo) {
+      `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${isParentView ? verdictPill('UNKNOWN') : ''}</div></div>`;
+  } else if (isParentView) {
+    // GO/NO-GO is for parents only; students get the "finish first" note.
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
     const quarterLabel = gradeColumns(visibleCourses(d.courses, settings, uid)).quarter;
     const good = verdict === 'GO';
@@ -334,7 +343,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     html += renderDue(summary, uid);
     html += renderClasses(d.courses, settings, showGrades, uid);
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades);
-    if (!isParentView) html += renderGradedList('Doing well', summary.doingWell.slice(0, 5), settings, showGrades);
+    html += renderGradedList('Doing well', summary.doingWell, settings, showGrades);
     html += renderWaiting(summary, uid);
   }
   return { html, summary };

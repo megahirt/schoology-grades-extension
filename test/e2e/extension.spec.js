@@ -182,7 +182,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     return page;
   }
 
-  test('student persona: 1 Missing, NO-GO (68% class below 75)', async () => {
+  test('student persona: 1 Missing, no verdict shown to students, quarter grades', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     try {
@@ -196,32 +196,39 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // low grades (one Missing alone would be GO). The student's name comes
       // from the home page (data-user-name).
       await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
+      // GO/NO-GO is for parents only: a student sees what to finish first.
       const card = popup.locator('.card');
-      await expect(card.getByText('Alex Student', { exact: true })).toBeVisible();
-      await expect(card.getByText('NO-GO', { exact: true })).toBeVisible();
-      await expect(card.getByText('1 missing · Algebra 2 below 75%')).toBeVisible();
+      await expect(card.getByText('2 things to finish first')).toBeVisible();
+      await expect(card).toContainText('bring Algebra 2 up past 75% this quarter');
+      await expect(popup.getByText('NO-GO', { exact: true })).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
-      await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
+      await expect(popup.locator('.missing-card', { hasText: 'Persuasive Essay Draft' })).toBeVisible();
       // Algebra 2 has real nested quarters: GO/NO-GO uses Quarter 2 (68%),
       // with the Semester 1 grade (74%) shown beside it.
-      await expect(card.getByText('1 missing · Algebra 2 below 75% this quarter')).toBeVisible();
-      await expect(card.getByText('Lowest, Quarter 2')).toBeVisible();
       await expect(popup.locator('.class-cols .col-q')).toHaveText('Quarter 2');
       await expect(popup.locator('.class-cols .col-o')).toHaveText('Semester');
       const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
       await expect(algebra.locator('.class-grade')).toHaveText('68%');
       await expect(algebra.locator('.class-overall')).toHaveText('74%');
-      // A class without quarters says which grade it uses instead.
-      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.class-note')).toHaveText('No Quarter 2 grade yet, using Semester 1');
+      // A class with no quarter grade shows a dash; its semester grade stands.
+      const lit = popup.locator('.class', { hasText: 'American Literature' });
+      await expect(lit.locator('.class-grade')).toHaveText('—');
+      await expect(lit.locator('.class-overall')).toHaveText('82%');
+      // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).
+      const journal = popup.locator('.waiting', { hasText: 'Poetry Journal' });
+      await expect(journal).toContainText('Submitted, not graded yet');
+      await expect(journal.getByRole('button', { name: /Undo/ })).toHaveCount(0);
 
       // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
       await popup.getByRole('button', { name: 'Turned in' }).click();
       await expect(popup.getByText('Missing · 0')).toBeVisible();
-      await expect(popup.getByText('Waiting on teacher · 1')).toBeVisible();
-      await expect(popup.locator('.waiting').getByText('Persuasive Essay Draft')).toBeVisible();
+      await expect(popup.getByText('Waiting on teacher · 2')).toBeVisible();
+      await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toContainText('Marked turned in');
+      await expect(popup.getByText('Marking something done or turned in is for your own use — nobody is notified.')).toBeVisible();
       await popup.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
-      await expect(popup.getByText('Waiting on teacher · 0')).toBeVisible();
+      await expect(popup.getByText('Waiting on teacher · 1')).toBeVisible();
+      await expect(popup.getByText(/nobody is notified/)).toHaveCount(0);
       await popup.close();
     } finally {
       await context.close();
@@ -244,7 +251,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const tab = page.locator('#sgd-panel-host button.edge-tab');
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
       await expect(panel.getByText('Missing · 1')).toBeVisible();
-      await expect(panel.locator('.card').getByText('NO-GO', { exact: true })).toBeVisible();
+      await expect(panel.locator('.card')).toContainText('things to finish first');
       // The panel hides the demo button (demo data is a popup feature).
       await expect(panel.getByRole('button', { name: /demo/i })).toBeHidden();
       // The page's own grades table is untouched and still on the page.
@@ -258,8 +265,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await page.goto(`${mockBase}/home`);
       await expect(tab).toHaveAttribute('aria-expanded', 'false', { timeout: 15000 });
       await expect(panel).toBeHidden();
-      // The closed tab shows the verdict at a glance.
-      await expect(tab).toHaveAttribute('aria-label', /Alex Student: NO-GO/);
+      // A student's closed tab shows no verdict (GO/NO-GO is for parents).
+      await expect(tab).toHaveAttribute('aria-label', 'Show homework dashboard');
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
       await page.close();
@@ -318,7 +325,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
-  test('parent persona: TWO child dashboards — Sam NO-GO, Jamie GO', async () => {
+  test('parent persona: TWO child dashboards — Sam NO-GO, Jamie GO, submitted work waiting', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     try {
@@ -336,9 +343,11 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Sam: 2 Missing + lowest class 55% => NO-GO.
       await expect(card.getByText('Sam Rivera', { exact: true })).toBeVisible();
       await expect(card.getByText('NO-GO', { exact: true })).toBeVisible();
-      await expect(popup.getByText('Missing · 2')).toBeVisible();
-      await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
-      await expect(popup.getByText('Unit 2 Essay')).toBeVisible();
+      // Sam's essay is marked Missing but has a submission: it waits on the
+      // teacher and does not count as Missing.
+      await expect(popup.getByText('Missing · 1')).toBeVisible();
+      await expect(popup.locator('.missing-card', { hasText: 'Unit 2 Essay' })).toBeVisible();
+      await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toContainText('Submitted, not graded yet');
       // Classes leave out sections with no grade data (House Group 1).
       await expect(popup.locator('.class', { hasText: 'United States History' })).toBeVisible();
       await expect(popup.locator('.class', { hasText: 'House Group 1' })).toHaveCount(0);
