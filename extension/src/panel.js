@@ -49,7 +49,7 @@ const PANEL_CSS = `
 .sheet .sgd > .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .grip { display: none; }
 .backdrop { display: none; }
-.tab {
+.edge-tab {
   position: fixed; right: 0; top: 96px; z-index: 2147483647;
   width: 48px; padding: 10px 0 12px; box-sizing: border-box;
   border: none; border-radius: 12px 0 0 12px;
@@ -60,11 +60,11 @@ const PANEL_CSS = `
   letter-spacing: 0.02em;
   transition: right 0.2s ease;
 }
-.tab:hover { background: #111827; }
-.tab:focus-visible { outline: 3px solid #93b4f5; outline-offset: 2px; }
-.tab.open { right: min(380px, 92vw); padding: 15px 0; }
-.tab.open .kids { display: none; }
-.tab svg { display: block; }
+.edge-tab:hover { background: #111827; }
+.edge-tab:focus-visible { outline: 3px solid #93b4f5; outline-offset: 2px; }
+.edge-tab.open { right: min(380px, 92vw); padding: 15px 0; }
+.edge-tab.open .kids { display: none; }
+.edge-tab svg { display: block; }
 .kids { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .kid { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .kid-i { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; }
@@ -75,9 +75,9 @@ const PANEL_CSS = `
   .grip { display: block; align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #d3d7dc; margin-top: 8px; flex: 0 0 auto; }
   .backdrop { display: block; position: fixed; inset: 0; z-index: 2147483645; background: rgba(15, 23, 42, 0.32); border: none; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
   .backdrop.open { opacity: 1; pointer-events: auto; }
-  .tab.open { display: none; }
+  .edge-tab.open { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .wrap, .tab, .backdrop { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .wrap, .edge-tab, .backdrop { transition: none; } }
 `;
 
 const CHEVRON_LEFT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -110,13 +110,13 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
   shadow.innerHTML =
     `<style>${PANEL_CSS}\n${DASHBOARD_CSS}</style>` +
     '<button class="backdrop" type="button" tabindex="-1" aria-label="Close dashboard panel"></button>' +
-    '<button class="tab" type="button" aria-expanded="false"></button>' +
+    '<button class="edge-tab" type="button" aria-expanded="false"></button>' +
     '<div class="wrap"><aside class="sheet" aria-label="Homework dashboard">' +
     '<div class="grip" aria-hidden="true"></div><div class="body-host"></div></aside></div>';
   document.documentElement.append(host);
 
   const wrap = shadow.querySelector('.wrap');
-  const tab = shadow.querySelector('.tab');
+  const tab = shadow.querySelector('.edge-tab');
   const backdrop = shadow.querySelector('.backdrop');
   const bodyHost = shadow.querySelector('.body-host');
   let dashboard = null;

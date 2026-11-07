@@ -233,7 +233,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await page.goto(`${mockBase}/grades/grades`);
       // Playwright locators pierce the panel's open shadow root.
       const panel = page.locator('#sgd-panel-host aside.sheet');
-      const tab = page.locator('#sgd-panel-host button.tab');
+      const tab = page.locator('#sgd-panel-host button.edge-tab');
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
       await expect(panel.getByText('Missing · 1')).toBeVisible();
       await expect(panel.locator('.card').getByText('NO-GO', { exact: true })).toBeVisible();

@@ -6,3 +6,4 @@ test-results/
 
 # Private planning notes (contain family details) — never commit
 docs/schoology-extension-plan.md
+test/screenshots/out/

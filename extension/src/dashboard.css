@@ -95,7 +95,8 @@
 .sgd .status { font-size: 12px; color: var(--ink-2); }
 .sgd .fineprint { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
-@media (max-width: 600px) {
+/* Touch screens (iPhone, iPad): 44 px tap targets. */
+@media (pointer: coarse) {
   .sgd .icon-btn, .sgd .check-btn { width: 44px; height: 44px; }
   .sgd .tab { height: 44px; font-size: 14px; }
   .sgd .btn { height: 40px; }
