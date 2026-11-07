@@ -93,7 +93,8 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
 - "Not so good" section: graded items below the grade threshold from the past
   7 days only (by the date shown on the row).
 - "Doing well" section (every view): graded B or higher (80%+, or a letter
-  A/B) from the past 10 days (`doingWellPercent`, `doingWellDays`).
+  A/B) from the past 10 days (`doingWellPercent`, `doingWellDays`), newest
+  first, at most 7, one compact line each: "Title (Class) … grade".
 - GO/NO-GO is shown in the parent view only. A student's own view shows a
   "things to finish first" note instead.
 - Class list: a class with no grade yet for the current quarter shows "—"
