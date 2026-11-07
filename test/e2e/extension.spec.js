@@ -210,8 +210,22 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // The quarter's dates, from the grading-period title on the grades page.
       await expect(popup.getByText('Quarter 2 is from Oct 19 to Dec 15.')).toBeVisible();
       const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
-      // Class and assignment titles link to Schoology.
-      await expect(algebra.locator('a.class-name')).toHaveAttribute('href', `${mockBase}/course/1001/student_grades`);
+      // Clicking the class name opens its grade chart (dots + class-grade line),
+      // with the link to the class in Schoology; clicking again closes it.
+      await algebra.locator('button.class-toggle').click();
+      await expect(algebra.locator('button.class-toggle')).toHaveAttribute('aria-expanded', 'true');
+      await expect(algebra.locator('svg.gchart')).toBeVisible();
+      await expect(algebra.locator('svg.gchart .gc-dot')).toHaveCount(2); // the two graded Algebra 2 items
+      await expect(algebra.locator('svg.gchart .gc-pass')).toHaveCount(1); // dashed passing line
+      await expect(algebra.locator('a.chart-link')).toHaveAttribute('href', `${mockBase}/course/1001/student_grades`);
+      // Desktop hover shows the class grade at that moment.
+      const box = await algebra.locator('svg.gchart .gc-hit').boundingBox();
+      await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
+      await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
+      await expect(algebra.locator('svg.gchart .gc-tip')).toContainText('Quarter 2');
+      await algebra.locator('.bar-toggle').click(); // the bar toggles too
+      await expect(algebra.locator('svg.gchart')).toHaveCount(0);
+      // Assignment titles link to Schoology.
       await expect(popup.locator('.missing-card a.item-title', { hasText: 'Persuasive Essay Draft' })).toHaveAttribute('href', /\/assignment\/5101$/);
       await expect(algebra.locator('.class-grade')).toHaveText('68%');
       await expect(algebra.locator('.class-overall')).toHaveText('74%');
@@ -325,7 +339,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
 
       // Class and assignment links open in this same tab, not a new one.
       const pagesBefore = context.pages().length;
-      await panel.locator('.class', { hasText: 'Algebra 2' }).locator('a.class-name').click();
+      await panel.locator('.class', { hasText: 'Algebra 2' }).locator('button.class-toggle').click();
+      await panel.locator('.class', { hasText: 'Algebra 2' }).locator('a.chart-link').click();
       await expect(page).toHaveURL(`${mockBase}/course/1001/student_grades`);
       expect(context.pages().length).toBe(pagesBefore);
       await page.close();
@@ -411,7 +426,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(samStats.filter({ hasText: 'Missing' })).toHaveText(/^1\s*Missing$/);
       await expect(samStats.filter({ hasText: 'American Literature' })).toHaveCount(0);
       // Parent class links open that child's class grades via Schoology's preview link.
-      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.class-name'))
+      await popup.locator('.class', { hasText: 'American Literature' }).locator('button.class-toggle').click();
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.chart-link'))
         .toHaveAttribute('href', /\/course\/\d+\/preview\/2000001\/parent\?url=course\/\d+\/student_grades$/);
       const samEssay = popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' });
       await expect(samEssay).toContainText('Submitted, not graded yet');

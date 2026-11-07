@@ -93,6 +93,17 @@ try {
   await sheet.locator('.card', { hasText: 'Sam Rivera' }).waitFor();
   await shot(page, '03-sam-nogo');
 
+  // Grade chart: open one class, hover near today.
+  const lit = sheet.locator('.class', { hasText: 'American Literature' });
+  await lit.locator('button.class-toggle').click();
+  await lit.locator('svg.gchart').waitFor();
+  await lit.scrollIntoViewIfNeeded();
+  const hit = await lit.locator('svg.gchart .gc-hit').boundingBox();
+  await page.mouse.move(hit.x + hit.width * 0.75, hit.y + hit.height / 2);
+  await page.waitForTimeout(200);
+  await shot(page, '03b-grade-chart');
+  await lit.locator('button.class-toggle').click();
+
   await sheet.getByRole('button', { name: 'Turned in' }).first().click();
   await sheet.locator('.check-btn').first().click();
   await sheet.getByText('Waiting on teacher · 2').waitFor();

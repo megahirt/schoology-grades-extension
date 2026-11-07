@@ -201,6 +201,8 @@ function parseItemRow(row, ctx) {
     status,
     ...submissionOf(gradeCell),
     periodId: row.getAttribute('data-parent-id') || null,
+    // The grading category the item sits in ("<periodId>-<categoryId>").
+    categoryId: row.getAttribute('data-parent-id') || null,
     url: link ? absoluteUrl(link.getAttribute('href'), ctx.baseUrl) : null,
     sourceUrl: ctx.sourceUrl || null,
   };
@@ -279,6 +281,18 @@ function parseCourse(block, ctx) {
       range: parsePeriodRange(title),
     });
   }
+  // Grading categories (Homework, Tests…) with their weight within the
+  // period, e.g. "(35%)"; null when the class is points-based.
+  const categories = [];
+  for (const row of block.querySelectorAll('tr.category-row')) {
+    const contrib = row.querySelector('.percentage-contrib');
+    categories.push({
+      id: row.getAttribute('data-id'),
+      parentId: row.getAttribute('data-parent-id') || null,
+      title: visibleText(row.querySelector('.title')) || null,
+      weight: contrib ? toNumber(nodeText(contrib)) : null,
+    });
+  }
   const assignments = [];
   for (const row of block.querySelectorAll('tr.item-row')) {
     const a = parseItemRow(row, courseCtx);
@@ -302,6 +316,7 @@ function parseCourse(block, ctx) {
     quarterGrade: quarter ? quarter.grade : null,
     overallGrade: overall.grade,
     overallLabel: overall.label,
+    categories,
     periods: periods.map(({ id: pid, parentId, title, grade: g, topLevel, range }) => ({
       id: pid,
       parentId,
