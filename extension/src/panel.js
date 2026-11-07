@@ -42,7 +42,7 @@ const PANEL_CSS = `
   height: 100%; overflow: hidden; box-sizing: border-box;
   background: #fff; border-left: 1px solid #d3d7dc;
   /* A deep, layered shadow so the panel's edge stands out over Schoology. */
-  box-shadow: -2px 0 4px rgba(15, 23, 42, 0.10), -10px 0 28px rgba(15, 23, 42, 0.22), -28px 0 64px rgba(15, 23, 42, 0.18);
+  box-shadow: -2px 0 4px rgba(15, 23, 42, 0.20), -10px 0 28px rgba(15, 23, 42, 0.44), -28px 0 64px rgba(15, 23, 42, 0.36);
   display: flex; flex-direction: column;
 }
 .sheet > .body-host { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
@@ -78,7 +78,7 @@ const PANEL_CSS = `
 .kid-unknown { font-size: 10px; font-weight: 800; color: #3d2c00; background: #f2b84b; border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 600px) {
   .wrap { top: auto; left: 0; width: 100%; height: 85vh; transform: translateY(100%); }
-  .sheet { border-left: none; border-radius: 18px 18px 0 0; box-shadow: 0 -2px 4px rgba(15, 23, 42, 0.10), 0 -10px 28px rgba(15, 23, 42, 0.24), 0 -24px 56px rgba(15, 23, 42, 0.18); }
+  .sheet { border-left: none; border-radius: 18px 18px 0 0; box-shadow: 0 -2px 4px rgba(15, 23, 42, 0.20), 0 -10px 28px rgba(15, 23, 42, 0.48), 0 -24px 56px rgba(15, 23, 42, 0.36); }
   .grip { display: block; align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #d3d7dc; margin-top: 8px; flex: 0 0 auto; }
   .backdrop { display: block; position: fixed; inset: 0; z-index: 2147483645; background: rgba(15, 23, 42, 0.32); border: none; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
   .backdrop.open { opacity: 1; pointer-events: auto; }
