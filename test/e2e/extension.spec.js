@@ -422,7 +422,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Jamie: 1 Missing, all classes >= 90 => GO.
       await jamieTab.click();
       await expect(card.getByText('Jamie Rivera', { exact: true })).toBeVisible();
-      await expect(card.getByText('GO', { exact: true })).toBeVisible();
+      // GO gets no badge (only NO-GO does); the tab dot still shows green.
+      await expect(card.locator('.pill')).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
       // The picked child is remembered: a fresh popup (or a page load) stays on Jamie.
