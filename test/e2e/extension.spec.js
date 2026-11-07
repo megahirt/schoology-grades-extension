@@ -424,6 +424,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(card.locator('.pill')).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
+      // Shared "07" prefixes are dropped from class names.
+      await expect(popup.locator('.class .class-name')).toHaveText(['English', 'Math']);
       // The picked child is remembered: a fresh popup (or a page load) stays on Jamie.
       const again = await openPopup(context, extensionId);
       await expect(again.getByRole('tab', { name: 'Jamie' })).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });

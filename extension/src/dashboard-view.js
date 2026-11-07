@@ -27,6 +27,7 @@ import {
   storageGet,
   storageSet,
 } from './storage.js';
+import { cleanCourseNames } from './names.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -335,7 +336,9 @@ function avatarHtml(d) {
 
 // One child's (or the student's own) dashboard body.
 export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
-  const summary = summarizeStudent(d.courses || [], settings, marks.turnedIn, marks.done);
+  // Tidy class names ("07 English" -> "English") for everything below.
+  const courses = cleanCourseNames(d.courses || []);
+  const summary = summarizeStudent(courses, settings, marks.turnedIn, marks.done);
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
     || (settings.gradeVisibility === 'student' && !isParentView);
@@ -373,7 +376,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
           `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
         : '') + '</div>';
   } else {
-    const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses)).quarter);
+    const note = studentNote(summary, settings, gradeColumns(visibleCourses(courses)).quarter);
     html += note
       ? `<div class="card nogo"><div class="card-name">${escapeHtml(note.title)}</div><div class="card-body">${escapeHtml(note.body)}</div></div>`
       : '<div class="card go"><div class="card-name">All caught up</div><div class="card-body">Nothing missing and every class is passing.</div></div>';
@@ -385,7 +388,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
   if (!failed) {
     html += renderMissing(summary, uid);
     html += renderDue(summary, uid);
-    html += renderClasses(d.courses, settings, showGrades, uid);
+    html += renderClasses(courses, settings, showGrades, uid);
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderGradedList('Doing well', summary.doingWell, settings, showGrades, SECTION_EMOJI.doingWell);
     html += renderWaiting(summary, uid);
