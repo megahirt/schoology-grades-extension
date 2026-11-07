@@ -65,7 +65,7 @@ try {
   const settingsPage = await ctx.newPage();
   await settingsPage.setViewportSize({ width: 1280, height: 900 });
   await settingsPage.goto(`chrome-extension://${extId}/options/options.html`);
-  await settingsPage.locator('.class-row').first().waitFor();
+  await settingsPage.locator('.kid').first().waitFor();
   await settingsPage.waitForTimeout(400); // let the switches settle
   await settingsPage.screenshot({ path: path.join(OUT, '08-settings.png'), fullPage: true });
   shots.push(path.join(OUT, '08-settings.png'));

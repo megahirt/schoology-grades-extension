@@ -14,7 +14,7 @@
 // open popup and panel stays in sync. It only uses APIs that also work in
 // content scripts: browser.storage and browser.runtime.sendMessage/getURL.
 
-import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData, withHiddenCourses } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData } from './rules.js';
 import {
   getSettings,
   setSettings,
@@ -235,19 +235,14 @@ function renderDue(summary, uid) {
   return section('Due soon', rows.join(''), SECTION_EMOJI.due);
 }
 
-// Classes: only real classes (with grade data), minus any the family
-// unticked in the setup wizard (settings.realClasses[`${uid}:${id}`] false).
-export function visibleCourses(courses, settings, uid) {
-  const real = settings.realClasses || {};
-  return (courses || []).filter((c) => {
-    const choice = real[`${uid}:${c.id || c.name}`];
-    if (choice === true || choice === false) return choice; // chosen in Settings
-    return hasGradeData(c); // sections with no grades start hidden
-  });
+// Classes: only real classes, i.e. ones with grade data. Sections with no
+// grades posted (advisory, house group) are left out.
+export function visibleCourses(courses) {
+  return (courses || []).filter((c) => hasGradeData(c));
 }
 
 function renderClasses(courses, settings, showGrades, uid) {
-  const list = visibleCourses(courses, settings, uid);
+  const list = visibleCourses(courses);
   if (!list.length) return '';
   const t = settings.gradeThreshold;
   const cols = gradeColumns(list);
@@ -340,7 +335,7 @@ function avatarHtml(d) {
 
 // One child's (or the student's own) dashboard body.
 export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
-  const summary = summarizeStudent(d.courses || [], withHiddenCourses(settings, uid), marks.turnedIn, marks.done);
+  const summary = summarizeStudent(d.courses || [], settings, marks.turnedIn, marks.done);
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
     || (settings.gradeVisibility === 'student' && !isParentView);
@@ -378,7 +373,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
           `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
         : '') + '</div>';
   } else {
-    const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses, settings, uid)).quarter);
+    const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses)).quarter);
     html += note
       ? `<div class="card nogo"><div class="card-name">${escapeHtml(note.title)}</div><div class="card-body">${escapeHtml(note.body)}</div></div>`
       : '<div class="card go"><div class="card-name">All caught up</div><div class="card-body">Nothing missing and every class is passing.</div></div>';
@@ -497,7 +492,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (isParentView && uids.length > 1) {
       const tabs = uids.map((uid) => {
         const d = dashboards[uid];
-        const s = summarizeStudent(d.courses || [], withHiddenCourses(settings, uid), turnedIn[uid], done[uid]);
+        const s = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
         const v = d.error || isPartial(d) ? 'unknown' : s.verdict.verdict === 'GO' ? 'go' : 'nogo';
         const dot = settings.showGoNoGo ? `<span class="dot ${v}" aria-hidden="true"></span>` : '';
         const sel = uid === pickedUid;

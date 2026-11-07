@@ -15,17 +15,6 @@ export const DEFAULT_SETTINGS = {
   autoRefresh: true, // refresh when a Schoology page loads (at most every 5 min)
 };
 
-// withHiddenCourses(settings, uid): settings plus `hiddenCourseIds`, the
-// classes hidden in Settings for that child (settings.realClasses
-// "<uid>:<courseId>" === false). Hidden classes leave the passing-grade
-// check; their teacher-marked Missing work still counts.
-export function withHiddenCourses(settings, uid) {
-  const real = (settings && settings.realClasses) || {};
-  const prefix = `${uid}:`;
-  const hiddenCourseIds = Object.keys(real).filter((k) => k.startsWith(prefix) && real[k] === false).map((k) => k.slice(prefix.length));
-  return { ...(settings || {}), hiddenCourseIds };
-}
-
 function mergeSettings(settings) {
   return { ...DEFAULT_SETTINGS, ...(settings || {}) };
 }
@@ -140,10 +129,8 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
   let lowestClassGrade = null;
   const lowClasses = [];
 
-  const hidden = new Set((s.hiddenCourseIds || []).map(String));
   for (const course of list) {
-    const isHidden = hidden.has(String(course.id ?? course.name));
-    const g = !isHidden && typeof course.grade === 'number' && !Number.isNaN(course.grade) ? course.grade : null;
+    const g = typeof course.grade === 'number' && !Number.isNaN(course.grade) ? course.grade : null;
     if (g !== null) {
       if (lowestClassGrade === null || g < lowestClassGrade) lowestClassGrade = g;
       if (g < s.gradeThreshold) lowClasses.push({ id: course.id, name: course.name, grade: g });
