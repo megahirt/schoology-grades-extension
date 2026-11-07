@@ -28,11 +28,11 @@ not a follow-up — see [docs/safari.md](docs/safari.md).
   (below 75 is NO-GO); **NO-GO if 2+ items are Missing** (one Missing
   alone is GO). The badge states the reason: "NO-GO — Missing work",
   "NO-GO — Low grades", or both.
-- Parent view: one section per child. Student view: just their own
-  dashboard, no GO/NO-GO emphasis unless a parent enabled it.
-- Setup wizard (Connect → Profile → Classes → Icons → Rules →
-  Review) recommends real classes vs advisory/study-hall classes, and
-  lets each family customize thresholds, icons, and avatars.
+- Parent view: tabs per child with a GO/NO-GO verdict. Student view: just
+  their own dashboard and what to finish first (GO/NO-GO is parents only).
+- One settings page (saved automatically): account, family rules,
+  display, which classes count (sections with no grades are hidden
+  automatically), privacy & data.
 - "Demo data" button loads bundled fixture data so the extension works
   out of the box with zero setup.
 

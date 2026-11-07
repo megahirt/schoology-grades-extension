@@ -7,7 +7,7 @@
 import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
 import { parseGradesHtml } from './src/parser.js';
-import { summarizeStudent, DEFAULT_SETTINGS } from './src/rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, withHiddenCourses } from './src/rules.js';
 import {
   getSettings,
   setSettings,
@@ -55,7 +55,7 @@ async function refreshGrades(progress = () => {}) {
     const byUid = {};
     for (const d of dashboards) {
       // Re-summarize with the family's settings (fetch layer used defaults).
-      let summary = summarizeStudent(d.courses, settings, turnedIn[d.studentUid], markedDone[d.studentUid]);
+      let summary = summarizeStudent(d.courses, withHiddenCourses(settings, d.studentUid), turnedIn[d.studentUid], markedDone[d.studentUid]);
       if (d.error) {
         // Keep the UNKNOWN verdict — empty courses would recompute to a false GO.
         summary = { ...summary, verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades.'] } };
@@ -75,7 +75,7 @@ async function refreshGrades(progress = () => {}) {
     if (result.error === 'PARSE_EMPTY' || result.error === 'NO_GRADES') {
       return { ok: false, accountType: 'student', error: result.error, fallback: 'hidden-tab' };
     }
-    const summary = summarizeStudent(result.courses, settings, turnedIn.self, markedDone.self);
+    const summary = summarizeStudent(result.courses, withHiddenCourses(settings, 'self'), turnedIn.self, markedDone.self);
     const uid = account.children?.[0]?.uid || 'self';
     const name = result.studentName || account.studentName || 'Student';
     await writeDashboard(uid, {
@@ -171,6 +171,7 @@ async function maybeAutoRefresh(pageUrl) {
     sameSite = false;
   }
   if (!sameSite) return { started: false, reason: 'other site' };
+  if (settings.autoRefresh === false) return { started: false, reason: 'turned off in Settings' };
   const dashboards = (await getDashboards()) || {};
   let newest = 0;
   for (const d of Object.values(dashboards)) {
@@ -248,7 +249,7 @@ async function handleGradesScraped(message, sender) {
   const byId = new Map((existing && Array.isArray(existing.courses) ? existing.courses : []).map((c) => [String(c.id), c]));
   for (const c of courses) byId.set(String(c.id), c);
   const merged = [...byId.values()];
-  const summary = summarizeStudent(merged, settings, turnedIn.self, markedDone.self);
+  const summary = summarizeStudent(merged, withHiddenCourses(settings, 'self'), turnedIn.self, markedDone.self);
   await writeDashboard(uid, {
     ...(existing || {}),
     studentUid: uid,

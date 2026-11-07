@@ -22,7 +22,7 @@
 // a closed panel costs one small button per page.
 
 import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning } from './dashboard-view.js';
-import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, withHiddenCourses } from './rules.js';
 import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet } from './storage.js';
 
 export const PANEL_HOST_ID = 'sgd-panel-host';
@@ -110,7 +110,7 @@ export async function tabVerdicts() {
   const done = (await getMarkedDone()) || {};
   return Object.entries(dashboards).map(([uid, d]) => ({
     name: d.studentName || 'Student',
-    verdict: d.error || isPartial(d) ? 'UNKNOWN' : summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]).verdict.verdict,
+    verdict: d.error || isPartial(d) ? 'UNKNOWN' : summarizeStudent(d.courses || [], withHiddenCourses(settings, uid), turnedIn[uid], done[uid]).verdict.verdict,
   }));
 }
 

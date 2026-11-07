@@ -174,8 +174,8 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   'advisory','study hall','house group','homeroom','mentor').
   Thresholds: score >= 60 'include', 25–59 'check', < 25 'skip'.
 - Real classes have real grades posted; advisory/study-hall types have very
-  little grade information. The wizard shows the recommendation; the user makes
-  the final call.
+  little grade information. The settings page hides sections with no grade
+  data automatically; the user can show or hide any class.
 
 ## Grades HTML parser
 
@@ -259,10 +259,16 @@ requests `{ credentials: 'include' }`; endpoints verified live 2026-11-06):
   parent enabled it in settings). "Refresh now" button. "Demo data" button that
   loads the bundled fixture snapshot so the extension works out of the box with
   zero setup. Shows `updatedAt` and a stale warning if data is older than 24h.
-- `extension/options/` — settings + 6-step setup wizard (Connect → Profile →
-  Classes → Icons → Rules → Review). Classes step uses classifier.js and shows
-  include/check/skip recommendations. Profile step pulls avatar from Schoology
-  `pictureUrl` by default; upload/pick-from-list is fallback only.
+- `extension/options/` — one settings page, saved on every change:
+  Account (connection, children, Refresh now), Family rules (passing grade,
+  Missing limit, GO/NO-GO badge), Display (Doing well / Not so good windows,
+  panel on Schoology pages, refresh when Schoology opens = `autoRefresh`, who
+  sees grades, percent/points), Classes (show/hide per child, stored in
+  `realClasses` "<uid>:<courseId>"; hidden classes leave the class list and
+  the passing-grade check via `withHiddenCourses`, their Missing work still
+  counts), Privacy & data (clear saved grades and marks), Developer (dev
+  builds: data source, live test, demo data). Profile pictures always come
+  from Schoology (initials when there is none).
 - `scripts/build.mjs` — `node scripts/build.mjs [--dev]`: bundles `src/*.js`
   with esbuild into `dist/`, copies manifest/popup/options/content. `--dev`
   adds `http://localhost:*/*` to host_permissions and renames the extension

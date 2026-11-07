@@ -243,6 +243,46 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('settings page: one auto-saving page; hiding a class and changing a rule take effect', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      await triggerRefresh(context, extensionId);
+
+      const opts = await context.newPage();
+      await opts.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
+      await expect(opts.getByRole('heading', { name: 'Homework Dashboard settings' })).toBeVisible();
+      await expect(opts.locator('#account-title')).toHaveText('Connected as a student');
+      for (const name of ['Account', 'Family rules', 'Display', 'Classes', 'Privacy & data']) {
+        await expect(opts.getByRole('heading', { name, exact: true })).toBeVisible();
+      }
+      await expect(opts.getByRole('heading', { name: 'Developer' })).toBeVisible(); // dev build
+      // Advisory has no grades: hidden automatically.
+      await expect(opts.getByRole('switch', { name: 'Show Advisory 11' })).toHaveAttribute('aria-checked', 'false');
+
+      // Hide Algebra 2 (the only class below 75): it leaves the class list and the finish-first note.
+      await opts.getByRole('switch', { name: 'Show Algebra 2' }).click();
+      await expect(opts.getByRole('switch', { name: 'Show Algebra 2' })).toHaveAttribute('aria-checked', 'false');
+      const popup = await openPopup(context, extensionId);
+      await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(popup.locator('.class', { hasText: 'Algebra 2' })).toHaveCount(0);
+      await expect(popup.locator('.card')).not.toContainText('Algebra 2');
+
+      // Passing grade 85: American Literature (82%) now needs work too. Saved automatically.
+      await opts.locator('#grade-threshold').fill('85');
+      await opts.locator('#grade-threshold').press('Tab');
+      await expect.poll(async () => (await opts.evaluate(() => chrome.storage.local.get('settings'))).settings.gradeThreshold).toBe(85);
+      await expect(popup.locator('.card')).toContainText('bring American Literature up past 85%');
+      await popup.close();
+      await opts.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('in-page panel on Schoology pages: open by default, closes, reopens, remembered', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);

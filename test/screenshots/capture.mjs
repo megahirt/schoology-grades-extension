@@ -7,7 +7,8 @@
 // and saves screenshots of every state the design covers:
 //
 //   popup, panel open (parent), refresh in progress, Sam NO-GO, after "Turned in" + "Mark as done"
-//   (Waiting on teacher), closed tab with verdicts, student view, iPhone.
+//   (Waiting on teacher), closed tab with verdicts, student view, iPhone,
+//   and the settings page.
 //
 // Output: test/screenshots/out/*.png (gitignored). Run `npm run build:dev` first.
 
@@ -59,6 +60,16 @@ try {
   await popup.getByText('Demo data loaded.').waitFor();
   await popup.screenshot({ path: path.join(OUT, '01-popup.png'), fullPage: true });
   shots.push(path.join(OUT, '01-popup.png'));
+
+  // Settings page with the demo families loaded.
+  const settingsPage = await ctx.newPage();
+  await settingsPage.setViewportSize({ width: 1280, height: 900 });
+  await settingsPage.goto(`chrome-extension://${extId}/options/options.html`);
+  await settingsPage.locator('.class-row').first().waitFor();
+  await settingsPage.waitForTimeout(400); // let the switches settle
+  await settingsPage.screenshot({ path: path.join(OUT, '08-settings.png'), fullPage: true });
+  shots.push(path.join(OUT, '08-settings.png'));
+  await settingsPage.close();
 
   const page = await ctx.newPage();
   await page.goto('https://demo.schoology.com/grades/grades');

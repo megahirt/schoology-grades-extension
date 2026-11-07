@@ -5,7 +5,7 @@
 // "NO-GO — Missing work + Low grades", otherwise "GO".
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData } from '../../extension/src/rules.js';
+import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData, withHiddenCourses } from '../../extension/src/rules.js';
 
 describe('DEFAULT_SETTINGS', () => {
   it('uses the shipped defaults (75 / 2)', () => {
@@ -317,6 +317,25 @@ describe('Submitted work and Doing well', () => {
       { id: '6', title: 'Letter C', status: 'graded', score: null, letterGrade: 'C', due: at(3) },
     ]), DEFAULT_SETTINGS);
     expect(s.doingWell.map((a) => a.title)).toEqual(['A recent', 'B edge', 'Letter B']);
+  });
+});
+
+describe('Classes hidden in Settings', () => {
+  const courses = [
+    { id: '1', name: 'Band', grade: 40, assignments: [{ id: 'm', title: 'Practice Log', status: 'missing', score: null }] },
+    { id: '2', name: 'History', grade: 90, assignments: [] },
+  ];
+  it('withHiddenCourses picks the hidden ids for one child only', () => {
+    const s = withHiddenCourses({ realClasses: { 'kid:1': false, 'kid:2': true, 'other:2': false } }, 'kid');
+    expect(s.hiddenCourseIds).toEqual(['1']);
+  });
+  it('a hidden class leaves the passing-grade check, its Missing work still counts', () => {
+    const shown = summarizeStudent(courses, DEFAULT_SETTINGS);
+    expect(shown.lowestClassGrade).toBe(40);
+    const hidden = summarizeStudent(courses, withHiddenCourses({ ...DEFAULT_SETTINGS, realClasses: { 'kid:1': false } }, 'kid'));
+    expect(hidden.lowestClassGrade).toBe(90);
+    expect(hidden.lowClasses).toEqual([]);
+    expect(hidden.missingCount).toBe(1);
   });
 });
 
