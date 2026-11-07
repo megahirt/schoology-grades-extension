@@ -25,11 +25,17 @@ import {
   getMarkedDone,
   setMarkedDone,
   storageGet,
+  storageSet,
 } from './storage.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
 import npcLogo from '../icons/npc_icon_tiny.png';
+// Schoology's own Missing icon (from its asset CDN, 14×12), so "Missing"
+// here looks like Missing on Schoology's grades page.
+import missingIcon from '../icons/schoology-missing.png';
+
+const MISSING_IMG = `<img class="missing-icon" src="${missingIcon}" alt="" width="14" height="12">`;
 
 export const DASHBOARD_CSS = css;
 
@@ -182,7 +188,7 @@ function studentNote(summary, settings, period = null) {
 
 // Section headings carry an emoji; sections with no items are left out.
 export const SECTION_EMOJI = {
-  missing: '❗',
+  missing: MISSING_IMG, // Schoology's Missing icon rather than an emoji
   due: '⌛',
   classes: '🏛️',
   notSoGood: '📉',
@@ -191,6 +197,7 @@ export const SECTION_EMOJI = {
 };
 
 function sectionHeading(title, emoji, extraClass = '') {
+  // `emoji` is trusted markup from SECTION_EMOJI (an emoji, or the icon <img>).
   return `<h2 class="sec-h${extraClass}"><span class="sec-emoji" aria-hidden="true">${emoji}</span>${escapeHtml(title)}</h2>`;
 }
 
@@ -307,11 +314,13 @@ function renderWaiting(summary, uid) {
   const rows = items.map((a) => {
     const how = WAITING_HOW[a.waitingReason] || 'Waiting on teacher';
     const sub = [a.courseName, dueLabel(a), how].filter(Boolean).map(escapeHtml).join(' · ');
+    // Still marked Missing on Schoology (submitted or turned in, not yet graded).
+    const missingTag = a.status === 'missing' ? `<span class="missing-tag">${MISSING_IMG}Missing</span>` : '';
     const undo = a.waitingReason === 'submitted'
       ? ''
       : `<button class="link-btn" type="button" data-act="undo" data-reason="${a.waitingReason}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Undo: ${escapeHtml(a.title)}">Undo</button>`;
     return `<div class="waiting"><span class="waiting-icon">${ICON.checkSmall}</span>` +
-      `<div class="grow">${titleLink(a, 'waiting-title')}<div class="sub">${sub}</div></div>${undo}</div>`;
+      `<div class="grow">${titleLink(a, 'waiting-title')}<div class="sub">${sub}</div>${missingTag}</div>${undo}</div>`;
   });
   const manual = items.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
   const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
@@ -419,6 +428,8 @@ async function loadState() {
     turnedIn: (await getTurnedIn()) || {},
     done: (await getMarkedDone()) || {},
     refreshState: (await storageGet('refreshState', null)) || null,
+    // The child last picked in any popup or panel (storage key dashboardChild).
+    lastChild: (await storageGet('dashboardChild', null)) || null,
   };
 }
 
@@ -452,10 +463,13 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   let statusText = '';
 
   async function render() {
-    const { settings, dashboards, turnedIn, done, refreshState } = await loadState();
+    const { settings, dashboards, turnedIn, done, refreshState, lastChild } = await loadState();
     const running = refreshRunning(refreshState);
     const uids = Object.keys(dashboards);
     const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
+    // Stay on the child picked last (also after a page load or in another
+    // popup/panel); fall back to the first child.
+    if (lastChild && uids.includes(lastChild)) pickedUid = lastChild;
     if (!uids.includes(pickedUid)) pickedUid = uids[0] || null;
     const current = pickedUid ? dashboards[pickedUid] : null;
 
@@ -573,6 +587,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (act === 'pick') {
       pickedUid = uid;
       await render();
+      await storageSet('dashboardChild', uid).catch(() => {});
     } else if (act === 'turned-in' && uid && aid) {
       await toggleMark(getTurnedIn, setTurnedIn, uid, aid, true);
     } else if (act === 'done' && uid && aid) {
@@ -623,7 +638,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   root.addEventListener('click', onClick);
   if (openLinksInActiveTab) root.addEventListener('auxclick', onClick); // middle-click
 
-  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState'];
+  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild'];
   function onStorageChanged(changes, area) {
     if (area === 'local' && WATCHED.some((k) => k in changes)) render();
   }
