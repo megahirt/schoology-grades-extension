@@ -9,4 +9,4 @@ const style = document.createElement('style');
 style.textContent = DASHBOARD_CSS;
 document.head.append(style);
 
-mountDashboard(document.getElementById('dashboard'), { browser });
+mountDashboard(document.getElementById('dashboard'), { browser, openLinksInActiveTab: true });

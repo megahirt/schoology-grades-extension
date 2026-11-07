@@ -198,7 +198,7 @@ function section(title, inner, emoji) {
 
 function titleLink(a, cls = 'item-title') {
   return a.url
-    ? `<a class="${cls}" href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>`
+    ? `<a class="${cls}" href="${escapeHtml(a.url)}">${escapeHtml(a.title)}</a>`
     : `<span class="${cls}">${escapeHtml(a.title)}</span>`;
 }
 
@@ -260,7 +260,7 @@ function renderClasses(courses, settings, showGrades, uid) {
       ? `<div class="bar" aria-hidden="true"><div class="bar-fill${firstLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, first))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
     const name = c.url
-      ? `<a class="class-name" href="${escapeHtml(c.url)}" target="_blank" rel="noopener" title="Open ${escapeHtml(c.name)} grades in Schoology">${escapeHtml(c.name)}</a>`
+      ? `<a class="class-name" href="${escapeHtml(c.url)}" title="Open ${escapeHtml(c.name)} grades in Schoology">${escapeHtml(c.name)}</a>`
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
     return `<div class="class"><div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}</div>`;
   });
@@ -423,8 +423,12 @@ async function toggleMark(get, set, uid, aid, on) {
 //   openOptions — how to open the settings page (content scripts cannot call
 //                 runtime.openOptionsPage, so the panel asks the background).
 //   onClose     — when given, the header gets a close button (the panel).
+//   openLinksInActiveTab — the toolbar popup: assignment and class links
+//                 load in the current browser tab (and close the popup)
+//                 instead of navigating the popup. In the panel, links are
+//                 ordinary same-tab links on the Schoology page.
 // Returns { render, destroy }.
-export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose } = {}) {
+export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose, openLinksInActiveTab = false } = {}) {
   const root = container.ownerDocument.createElement('div');
   root.className = 'sgd';
   container.replaceChildren(root);
@@ -536,6 +540,17 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   }
 
   async function onClick(e) {
+    const link = openLinksInActiveTab && e.target.closest('a[href]');
+    if (link && root.contains(link)) {
+      e.preventDefault();
+      // Cmd/Ctrl/Shift-click or middle-click still opens a new tab.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) await browser.tabs.create({ url: link.href });
+      else {
+        await browser.tabs.update({ url: link.href });
+        container.ownerDocument.defaultView.close();
+      }
+      return;
+    }
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
     const { act, uid, aid } = btn.dataset;
@@ -590,6 +605,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     // Mark changes re-render through storage.onChanged below.
   }
   root.addEventListener('click', onClick);
+  if (openLinksInActiveTab) root.addEventListener('auxclick', onClick); // middle-click
 
   const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState'];
   function onStorageChanged(changes, area) {
@@ -603,6 +619,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     destroy() {
       browser.storage.onChanged.removeListener(onStorageChanged);
       root.removeEventListener('click', onClick);
+      root.removeEventListener('auxclick', onClick);
       root.remove();
     },
   };
