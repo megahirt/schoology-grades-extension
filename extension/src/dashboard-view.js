@@ -240,7 +240,10 @@ function renderClasses(courses, settings, showGrades, uid) {
     const bar = showGrades && first !== null
       ? `<div class="bar" aria-hidden="true"><div class="bar-fill${firstLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, first))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
-    return `<div class="class"><div class="class-head"><span class="grow">${escapeHtml(c.name)}</span>${grades}</div>${bar}</div>`;
+    const name = c.url
+      ? `<a class="class-name" href="${escapeHtml(c.url)}" target="_blank" rel="noopener" title="Open ${escapeHtml(c.name)} grades in Schoology">${escapeHtml(c.name)}</a>`
+      : `<span class="class-name">${escapeHtml(c.name)}</span>`;
+    return `<div class="class"><div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}</div>`;
   });
   return `<section class="sec">${head}${rows.join('')}</section>`;
 }

@@ -294,7 +294,13 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
             parseWarnings.push(...parsed.parseWarnings);
             if (parsed.error) error = parsed.error;
             else {
-              courses = parsed.courses;
+              // A parent can open a child's class grades only through
+              // Schoology's preview link, which also switches the viewed
+              // child (/course/<id>/student_grades is 403 for any other
+              // child). Assignment links on the report already use it.
+              courses = parsed.courses.map((c) => (c.id
+                ? { ...c, url: `${base}/course/${encodeURIComponent(c.id)}/preview/${encodeURIComponent(child.uid)}/parent?url=course/${encodeURIComponent(c.id)}/student_grades` }
+                : c));
               source.gradesReport = true;
               source.attribution = 'view-child-confirmed';
             }

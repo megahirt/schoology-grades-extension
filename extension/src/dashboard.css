@@ -65,7 +65,7 @@
 .sgd .sub { font-size: 12px; color: #4b5563; margin-top: 2px; }
 .sgd .empty { margin: 0; font-size: 13px; color: var(--muted); }
 .sgd a.item-title, .sgd a.row-title { color: var(--ink); text-decoration: none; }
-.sgd a.item-title:hover, .sgd a.row-title:hover { text-decoration: underline; }
+.sgd a.item-title:hover, .sgd a.row-title:hover, .sgd a.waiting-title:hover { text-decoration: underline; color: #1d4ed8; }
 .sgd .item-title { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .sgd .row-title { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
 
@@ -85,6 +85,8 @@
 .sgd .class { display: flex; flex-direction: column; gap: 5px; }
 .sgd .class-head { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
 .sgd .class-grade { font-weight: 700; }
+.sgd a.class-name { color: var(--ink); text-decoration: none; }
+.sgd a.class-name:hover, .sgd a.class-name:focus-visible { text-decoration: underline; color: #1d4ed8; }
 .sgd .class-cols { display: flex; align-items: baseline; gap: 8px; }
 .sgd .col-q, .sgd .col-o { width: 66px; flex: 0 0 auto; text-align: right; white-space: nowrap; }
 .sgd .col-h { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }

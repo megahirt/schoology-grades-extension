@@ -146,6 +146,9 @@ describe('fetchParentDashboards', () => {
     expect(sam.summary.verdict.verdict).toBe('NO-GO');
     expect(jamie.summary.verdict.verdict).toBe('GO');
     expect(sam.source.attribution).toBe('view-child-confirmed');
+    // Class links go through Schoology's parent preview link for that child.
+    const lit = sam.courses.find((c) => c.name === 'American Literature');
+    expect(lit.url).toBe(`${baseUrl}/course/${lit.id}/preview/2000001/parent?url=course/${lit.id}/student_grades`);
     expect(sam.error).toBeNull();
   });
 
