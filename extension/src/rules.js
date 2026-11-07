@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS = {
   gradeVisibility: 'both',
   gradeDisplay: 'percent',
   showPanel: true, // dashboard panel on Schoology pages
+  doingWellPercent: 80, // "Doing well": graded B (80%) or higher ...
+  doingWellDays: 10, //    ... from the past 10 days
 };
 
 function mergeSettings(settings) {
@@ -95,7 +97,10 @@ function endOfDay(d) {
 //   hides teacher-marked Missing work.
 // Returns { missingCount, missingItems, lowestClassGrade, lowClasses,
 //   dueToday, dueTomorrow, doingWell, notSoGood, waiting, verdict }.
-// waiting items carry waitingReason: 'turnedIn' | 'done'.
+// waiting items carry waitingReason: 'submitted' (Schoology shows a
+// submission that isn't graded yet, whether or not it is marked Missing),
+// 'turnedIn' or 'done' (marked by the family). Submitted work does not count
+// as Missing.
 export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) {
   const s = mergeSettings(settings);
   const turnedIn = normalizeTurnedInIds(
@@ -110,6 +115,8 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
   dayAfterStart.setDate(dayAfterStart.getDate() + 2);
   const notSoGoodCutoff = new Date(todayStart);
   notSoGoodCutoff.setDate(notSoGoodCutoff.getDate() - s.notSoGoodDays);
+  const doingWellCutoff = new Date(todayStart);
+  doingWellCutoff.setDate(doingWellCutoff.getDate() - s.doingWellDays);
 
   const list = Array.isArray(courses) ? courses : [];
   const missingItems = [];
@@ -131,7 +138,11 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       const item = { ...a, courseId: course.id, courseName: course.name };
       const idKey = a.id !== undefined && a.id !== null ? String(a.id) : null;
       if (a.status === 'missing') {
-        if (idKey !== null && turnedIn.has(idKey)) {
+        if (a.submitted === true) {
+          // Schoology shows a submission: the work is in, the teacher just
+          // hasn't graded it (or cleared the Missing mark) yet.
+          waiting.push({ ...item, waitingReason: 'submitted' });
+        } else if (idKey !== null && turnedIn.has(idKey)) {
           // Turned in, Schoology still says Missing: waiting on the teacher.
           waiting.push({ ...item, waitingReason: 'turnedIn' });
         } else {
@@ -158,8 +169,16 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
             notSoGood.push(item);
           }
         } else {
-          doingWell.push(item);
+          // "Doing well": B or higher (doingWellPercent; letters A/B) from
+          // the past doingWellDays days, by the date shown on the row.
+          const good = pct !== null ? pct >= s.doingWellPercent : /^[AB]/i.test(letter);
+          if (good && dueValid && due >= doingWellCutoff && due <= now) doingWell.push(item);
         }
+        continue;
+      }
+      if (a.submitted === true) {
+        // Submitted, not graded yet: waiting on the teacher, not Due soon.
+        waiting.push({ ...item, waitingReason: 'submitted' });
         continue;
       }
       if (idKey !== null && done.has(idKey)) {

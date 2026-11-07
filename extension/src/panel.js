@@ -98,11 +98,14 @@ const SPINNER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
 // Per-child verdicts for the closed tab: [{ name, verdict: 'GO'|'NO-GO'|'UNKNOWN' }].
-// Empty when the GO/NO-GO badge is turned off.
+// Empty when the GO/NO-GO badge is turned off, and for a student's own view.
 export async function tabVerdicts() {
   const settings = { ...DEFAULT_SETTINGS, ...((await getSettings()) || {}) };
   if (!settings.showGoNoGo) return [];
   const dashboards = (await getDashboards()) || {};
+  // GO/NO-GO is for parents only: a student's own dashboard is keyed 'self'.
+  const uids = Object.keys(dashboards);
+  if (uids.length === 1 && uids[0] === 'self') return [];
   const turnedIn = (await getTurnedIn()) || {};
   const done = (await getMarkedDone()) || {};
   return Object.entries(dashboards).map(([uid, d]) => ({
