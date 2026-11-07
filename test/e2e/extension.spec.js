@@ -202,8 +202,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(card.getByText('1 missing · Algebra 2 below 75%')).toBeVisible();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
-      await expect(popup.getByText('Algebra 2', { exact: true })).toBeVisible();
-      await expect(popup.getByText('68%').first()).toBeVisible();
+      const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
+      await expect(algebra).toBeVisible();
+      await expect(algebra.getByText('68%')).toBeVisible();
 
       // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
       await popup.getByRole('button', { name: 'Turned in' }).click();
