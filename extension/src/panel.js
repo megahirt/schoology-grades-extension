@@ -21,9 +21,9 @@
 // (dashboard-view.js). It is only built the first time the panel opens, so
 // a closed panel costs one small button per page.
 
-import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials } from './dashboard-view.js';
+import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning } from './dashboard-view.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
-import { getSettings, getDashboards, getTurnedIn, getMarkedDone } from './storage.js';
+import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet } from './storage.js';
 
 export const PANEL_HOST_ID = 'sgd-panel-host';
 
@@ -65,6 +65,8 @@ const PANEL_CSS = `
 .edge-tab.open { right: min(380px, 92vw); padding: 15px 0; }
 .edge-tab.open .kids { display: none; }
 .edge-tab svg { display: block; }
+.tab-spin { display: block; animation: sgd-tab-spin 0.9s linear infinite; }
+@keyframes sgd-tab-spin { to { transform: rotate(360deg); } }
 .kids { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .kid { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .kid-i { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; }
@@ -78,9 +80,21 @@ const PANEL_CSS = `
   .edge-tab.open { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .wrap, .edge-tab, .backdrop { transition: none; } }
+.notice {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2147483647;
+  max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px;
+  background: #1f2933; color: #fff; border-radius: 10px; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
+  font: 14px/1.35 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+.notice[hidden] { display: none; }
+.notice button { font: inherit; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; flex: 0 0 auto; }
+.notice .reload { border: none; background: #fff; color: #1f2933; padding: 7px 12px; }
+.notice .dismiss { border: none; background: transparent; color: #cbd2d9; padding: 4px 6px; font-size: 18px; line-height: 1; }
 `;
 
 const CHEVRON_LEFT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+const SPINNER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>';
 const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
 // Per-child verdicts for the closed tab: [{ name, verdict: 'GO'|'NO-GO'|'UNKNOWN' }].
@@ -93,7 +107,7 @@ export async function tabVerdicts() {
   const done = (await getMarkedDone()) || {};
   return Object.entries(dashboards).map(([uid, d]) => ({
     name: d.studentName || 'Student',
-    verdict: d.error ? 'UNKNOWN' : summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]).verdict.verdict,
+    verdict: d.error || isPartial(d) ? 'UNKNOWN' : summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]).verdict.verdict,
   }));
 }
 
@@ -111,6 +125,8 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     `<style>${PANEL_CSS}\n${DASHBOARD_CSS}</style>` +
     '<button class="backdrop" type="button" tabindex="-1" aria-label="Close dashboard panel"></button>' +
     '<button class="edge-tab" type="button" aria-expanded="false"></button>' +
+    '<div class="notice" role="status" hidden><span class="notice-text">This page loaded while the dashboard was switching between your children, so it may show the wrong child.</span>' +
+    '<button class="reload" type="button">Reload page</button><button class="dismiss" type="button" aria-label="Dismiss">×</button></div>' +
     '<div class="wrap"><aside class="sheet" aria-label="Homework dashboard">' +
     '<div class="grip" aria-hidden="true"></div><div class="body-host"></div></aside></div>';
   document.documentElement.append(host);
@@ -119,9 +135,18 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
   const tab = shadow.querySelector('.edge-tab');
   const backdrop = shadow.querySelector('.backdrop');
   const bodyHost = shadow.querySelector('.body-host');
+  const notice = shadow.querySelector('.notice');
+  // When Schoology's server sent this page (it renders "viewing as" then).
+  // The page that triggers a refresh was sent before the refresh began.
+  const perf = document.defaultView && document.defaultView.performance;
+  const nav = perf && perf.getEntriesByType ? perf.getEntriesByType('navigation')[0] : null;
+  const loadedAt = perf && perf.timeOrigin
+    ? perf.timeOrigin + (nav && nav.responseStart > 0 ? nav.responseStart : 0)
+    : Date.now();
   let dashboard = null;
   let isOpen = false;
   let verdicts = [];
+  let busy = false;
 
   function drawTab() {
     const label = verdicts.map((v) => `${v.name}: ${v.verdict}`).join('. ');
@@ -134,12 +159,15 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
       const first = escapeHtml(initials(v.name).charAt(0));
       return `<span class="kid"><span class="kid-i ${cls}">${first}</span><span>${escapeHtml(v.verdict === 'UNKNOWN' ? '?' : v.verdict)}</span></span>`;
     }).join('');
-    tab.innerHTML = (isOpen ? CHEVRON_RIGHT : CHEVRON_LEFT) + (kids ? `<span class="kids" aria-hidden="true">${kids}</span>` : '');
+    const spinner = busy && !isOpen ? `<span class="tab-spin" aria-hidden="true">${SPINNER}</span>` : '';
+    tab.innerHTML = (isOpen ? CHEVRON_RIGHT : CHEVRON_LEFT) + spinner + (kids ? `<span class="kids" aria-hidden="true">${kids}</span>` : '');
+    if (busy && !isOpen) tab.setAttribute('aria-label', `${tab.getAttribute('aria-label')} Refreshing grades.`);
   }
 
   async function refreshTab() {
     try {
       verdicts = await tabVerdicts();
+      busy = refreshRunning(await storageGet('refreshState', null));
     } catch {
       verdicts = [];
     }
@@ -167,13 +195,33 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     if (onOpenChange) onOpenChange(isOpen);
   }
 
+  notice.querySelector('.reload').addEventListener('click', () => document.defaultView.location.reload());
+  notice.querySelector('.dismiss').addEventListener('click', () => { notice.hidden = true; });
+
+  // A parent refresh briefly switches Schoology's "viewing as" child. If this
+  // page loaded during that window it may show another child: say so once.
+  let noticeShown = false;
+  async function checkLoadedDuringRefresh() {
+    if (noticeShown) return;
+    const state = await storageGet('refreshState', null);
+    if (!state || state.running || !state.finishedAt) return;
+    const start = Date.parse(state.startedAt || '');
+    const end = Date.parse(state.finishedAt);
+    if (!(loadedAt >= start && loadedAt <= end)) return;
+    const account = await storageGet('account', null);
+    if (!account || account.type !== 'parent') return;
+    noticeShown = true;
+    notice.hidden = false;
+  }
+
   tab.addEventListener('click', () => userToggle(!isOpen));
   backdrop.addEventListener('click', () => userToggle(false));
 
   // Keep the tab's verdicts current while the panel is closed.
-  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone'];
+  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState'];
   function onStorageChanged(changes, area) {
     if (area === 'local' && WATCHED.some((k) => k in changes)) refreshTab();
+    if (area === 'local' && 'refreshState' in changes) checkLoadedDuringRefresh().catch(() => {});
   }
   browser.storage.onChanged.addListener(onStorageChanged);
 

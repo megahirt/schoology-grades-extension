@@ -104,13 +104,13 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   }
 
   // Log in to the mock server as the given persona inside the context.
-  async function loginAs(context, persona) {
+  async function loginAs(context, persona, base = mockBase) {
     const page = await context.newPage();
-    await page.goto(`${mockBase}/login?as=${persona}`);
+    await page.goto(`${base}/login?as=${persona}`);
     await page.fill('#username', 'testuser');
     await page.fill('#password', 'testpass');
     await page.click('#login-submit');
-    await expect(page).toHaveURL(`${mockBase}/home`);
+    await expect(page).toHaveURL(`${base}/home`);
     await page.close();
   }
 
@@ -120,7 +120,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   // storage IO error on a fresh profile, so retry a few times; if it keeps
   // failing, write the same settings via the background service worker
   // (same storage, same result) while the options page stays open.
-  async function configureExtension(context, extensionId, worker) {
+  async function configureExtension(context, extensionId, worker, base = mockBase) {
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
     let lastError;
@@ -131,7 +131,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
           await chrome.storage.local.set({
             settings: { ...settings, schoologyBase: base, showGoNoGo: true },
           });
-        }, mockBase);
+        }, base);
         lastError = null;
         break;
       } catch (e) {
@@ -145,7 +145,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
         await chrome.storage.local.set({
           settings: { ...settings, schoologyBase: base, showGoNoGo: true },
         });
-      }, mockBase);
+      }, base);
       lastError = null;
     }
     await page.close();
@@ -257,6 +257,55 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await page.close();
     } finally {
       await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
+  test('refreshes by itself when a Schoology page loads, with banner, progress and a disabled button', async () => {
+    // A slow mock (like real Schoology) so the in-progress state is visible.
+    const slow = await startServer(0, { delayMs: 700 });
+    const slowBase = slow.url.replace('127.0.0.1', 'localhost');
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'parent', slowBase);
+      await configureExtension(context, extensionId, worker, slowBase);
+
+      // Just open Schoology: no Refresh click.
+      const page = await context.newPage();
+      await page.goto(`${slowBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByText('Refreshing grades…')).toBeVisible({ timeout: 15000 });
+      await expect(panel.getByRole('progressbar', { name: 'Refresh progress' })).toBeVisible();
+      const busyButton = panel.getByRole('button', { name: 'Refreshing grades' });
+      await expect(busyButton).toBeDisabled();
+      await expect(panel.locator('.refreshing-step')).toContainText(/of \d/);
+
+      // A second Schoology page that loads mid-refresh may show the wrong
+      // child (the refresh switches "viewing as"): it gets a reload notice.
+      const during = await context.newPage();
+      await during.goto(`${slowBase}/home`);
+
+      // When it finishes: data in, banner gone, button back.
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 30000 });
+      await expect(panel.getByText('Refreshing grades…')).toBeHidden({ timeout: 30000 });
+      await expect(panel.getByRole('button', { name: 'Refresh grades' })).toBeEnabled();
+      await expect(during.locator('#sgd-panel-host .notice')).toBeVisible({ timeout: 10000 });
+      await expect(during.locator('#sgd-panel-host .notice').getByRole('button', { name: 'Reload page' })).toBeVisible();
+      await expect(page.locator('#sgd-panel-host .notice')).toBeHidden(); // loaded before the refresh began
+      await during.close();
+
+      // Fresh data: loading another Schoology page does not refresh again.
+      const before = await worker.evaluate(async () => (await chrome.storage.local.get('refreshState')).refreshState.startedAt);
+      await page.goto(`${slowBase}/home`);
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(1500);
+      const after = await worker.evaluate(async () => (await chrome.storage.local.get('refreshState')).refreshState.startedAt);
+      expect(after).toBe(before);
+      await page.close();
+    } finally {
+      await context.close();
+      await slow.close();
       rmSync(userDataDir, { recursive: true, force: true });
     }
   });

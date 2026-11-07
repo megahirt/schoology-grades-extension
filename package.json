@@ -1,9 +1,9 @@
 {
   "dependencies": {
-    "node-html-parser": "^6.1.13",
+    "parse5": "^7.3.0",
     "webextension-polyfill": "^0.12.0"
   },
-  "description": "Browser extension (Safari-first, then Chrome) that turns Schoology Grades into a clean homework dashboard with a GO/NO-GO verdict \u2014 local data only, no server, no Schoology password stored.",
+  "description": "Browser extension (Safari-first, then Chrome) that turns Schoology Grades into a clean homework dashboard with a GO/NO-GO verdict — local data only, no server, no Schoology password stored.",
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "esbuild": "^0.24.0",

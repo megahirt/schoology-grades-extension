@@ -43,8 +43,18 @@ function reportUrl() {
     .catch(() => {});
 }
 
+// Tell the background a Schoology page loaded, so it can refresh the
+// dashboard automatically when the data is stale (top frame only).
+function reportPageLoaded() {
+  if (window.top !== window) return;
+  browser.runtime
+    .sendMessage({ type: 'schoology-page-loaded', url: window.location.href })
+    .catch(() => {});
+}
+
 function init() {
   reportUrl();
+  reportPageLoaded();
   if (sendScrape()) return;
   // Grades pages load data asynchronously: observe until the table appears.
   // Debounced: re-parse at most every 500 ms, not on every mutation.

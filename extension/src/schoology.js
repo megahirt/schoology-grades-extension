@@ -248,14 +248,25 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
   // before and after the read. Anything unconfirmed gets verdict UNKNOWN —
   // a child is never shown another child's grades. The originally viewed
   // child is restored at the end.
-  async function fetchParentDashboards({ turnedInIdsByStudent } = {}) {
+  // onProgress({ done, total, label }) is called before each child and once
+  // at the end (done === total), so the UI can show a progress bar.
+  async function fetchParentDashboards({ turnedInIdsByStudent, onProgress } = {}) {
     const updatedAt = new Date().toISOString();
     const info = await getParentInfo();
     if (info.children.length === 0) return [];
     const originalChild = info.viewChild;
     const dashboards = [];
+    const total = info.children.length + 1;
+    const progress = (done, label) => {
+      try {
+        if (onProgress) onProgress({ done, total, label });
+      } catch {
+        // Progress reporting must never break a refresh.
+      }
+    };
 
-    for (const child of info.children) {
+    for (const [index, child] of info.children.entries()) {
+      progress(index, `Reading ${child.name.split(' ')[0]}’s grades`);
       const parseWarnings = [];
       let courses = [];
       let error = null;
@@ -313,6 +324,7 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
       });
     }
 
+    progress(info.children.length, 'Finishing up');
     if (originalChild) {
       try {
         await doFetch(`${base}/parent/home?child_uid=${encodeURIComponent(originalChild)}`, { headers: { Accept: 'text/html' } });

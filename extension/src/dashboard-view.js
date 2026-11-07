@@ -24,6 +24,7 @@ import {
   setTurnedIn,
   getMarkedDone,
   setMarkedDone,
+  storageGet,
 } from './storage.js';
 import css from './dashboard.css';
 
@@ -38,6 +39,25 @@ const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line
 export const REAL_SCHOOLOGY = 'https://app.schoology.com';
 export const MOCK_SCHOOLOGY = 'http://localhost:8123';
 const STALE_MS = 24 * 60 * 60 * 1000;
+// A refresh still marked running after this long is treated as dead (the
+// service worker can be stopped mid-refresh).
+const REFRESH_STUCK_MS = 3 * 60 * 1000;
+
+// Only part of the grades loaded (some rows unreadable): never show a GO or
+// NO-GO built on partial data.
+export function isPartial(d) {
+  return Array.isArray(d && d.parseWarnings)
+    && d.parseWarnings.some((w) => /could not be read|did not parse/i.test(String(w)));
+}
+
+export function refreshRunning(state, now = Date.now()) {
+  return Boolean(state && state.running && now - Date.parse(state.startedAt || 0) < REFRESH_STUCK_MS);
+}
+
+function friendlyRefreshError(error) {
+  if (error === 'NOT_LOGGED_IN' || error === 'LOGGED_OUT') return 'Sign in to Schoology in this browser, then refresh.';
+  return `Couldn’t refresh: ${error || 'unknown error'}`;
+}
 
 export function escapeHtml(s) {
   return String(s ?? '')
@@ -53,6 +73,7 @@ const ICON = {
   refresh: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>',
   close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
   checkSmall: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
 };
 
@@ -230,14 +251,16 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     || (settings.gradeVisibility === 'parent' && isParentView)
     || (settings.gradeVisibility === 'student' && !isParentView);
   const failed = Boolean(d.error);
+  const partial = !failed && isPartial(d);
   let html = '';
 
   if (failed) {
     html += `<div class="card unknown"><div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${verdictPill('UNKNOWN')}</div></div>`;
   } else if (isParentView || settings.showGoNoGo) {
-    const good = summary.verdict.verdict === 'GO';
-    const pill = settings.showGoNoGo ? verdictPill(summary.verdict.verdict) : '';
+    const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
+    const good = verdict === 'GO';
+    const pill = settings.showGoNoGo ? verdictPill(verdict) : '';
     const lowest = summary.lowestClassGrade;
     const lowestBad = lowest !== null && lowest < settings.gradeThreshold;
     const stats = [
@@ -245,9 +268,11 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
       { value: lowest !== null && showGrades ? `${Math.round(lowest)}%` : '—', label: 'Lowest class', bad: lowestBad && showGrades },
       { value: String(summary.dueToday.length + summary.dueTomorrow.length), label: 'Due soon', bad: false },
     ];
-    html += `<div class="card ${settings.showGoNoGo ? (good ? 'go' : 'nogo') : 'plain'}">` +
+    const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
+    const reason = partial ? 'Only part of the grades loaded, so no verdict yet. Press Refresh.' : reasonLine(summary, settings);
+    html += `<div class="card ${cardTone}">` +
       `<div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
-      `<div class="card-reason">${escapeHtml(reasonLine(summary, settings))}</div></div>${pill}</div>` +
+      `<div class="card-reason">${escapeHtml(reason)}</div></div>${pill}</div>` +
       `<div class="stats">${stats.map((s) => `<div class="stat"><div class="stat-v${s.bad ? ' low' : ''}">${escapeHtml(s.value)}</div><div class="stat-l">${s.label}</div></div>`).join('')}</div></div>`;
   } else {
     const note = studentNote(summary, settings);
@@ -301,6 +326,7 @@ async function loadState() {
     dashboards: (await getDashboards()) || {},
     turnedIn: (await getTurnedIn()) || {},
     done: (await getMarkedDone()) || {},
+    refreshState: (await storageGet('refreshState', null)) || null,
   };
 }
 
@@ -330,7 +356,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   let statusText = '';
 
   async function render() {
-    const { settings, dashboards, turnedIn, done } = await loadState();
+    const { settings, dashboards, turnedIn, done, refreshState } = await loadState();
+    const running = refreshRunning(refreshState);
     const uids = Object.keys(dashboards);
     const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
     if (!uids.includes(pickedUid)) pickedUid = uids[0] || null;
@@ -348,7 +375,9 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
 
     let header = `<header class="head"><div class="head-row">${headAvatar}<div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
-      `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>` +
+      (running
+        ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
+        : `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>`) +
       (onClose ? `<button class="icon-btn ghost" type="button" data-act="close" aria-label="Close dashboard panel" title="Close">${ICON.close}</button>` : '') +
       '</div>';
 
@@ -356,7 +385,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       const tabs = uids.map((uid) => {
         const d = dashboards[uid];
         const s = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
-        const v = d.error ? 'unknown' : s.verdict.verdict === 'GO' ? 'go' : 'nogo';
+        const v = d.error || isPartial(d) ? 'unknown' : s.verdict.verdict === 'GO' ? 'go' : 'nogo';
         const dot = settings.showGoNoGo ? `<span class="dot ${v}" aria-hidden="true"></span>` : '';
         const sel = uid === pickedUid;
         return `<button class="tab${sel ? ' sel' : ''}" type="button" role="tab" aria-selected="${sel}" data-act="pick" data-uid="${escapeHtml(uid)}">${dot}${escapeHtml(firstName(d.studentName))}</button>`;
@@ -372,7 +401,23 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       const marks = { turnedIn: turnedIn[pickedUid], done: done[pickedUid] };
       body = renderStudentBody(current, pickedUid, settings, marks, { isParentView }).html;
     }
-    if (stale) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
+    if (stale && !running) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
+    if (running) {
+      const total = Math.max(1, Number(refreshState.total) || 1);
+      const doneSteps = Math.min(total, Number(refreshState.done) || 0);
+      // Never show an empty bar: the first step is already under way.
+      const pct = Math.max(8, Math.round(((doneSteps + 0.5) / total) * 100));
+      body = '<div class="refreshing" role="status" aria-live="polite">' +
+        `<div class="refreshing-row">${ICON.spinner}<b>Refreshing grades…</b>` +
+        `<span class="refreshing-step">${escapeHtml(refreshState.label || '')}${total > 1 ? ` · ${Math.min(doneSteps + 1, total)} of ${total}` : ''}</span></div>` +
+        `<div class="progress" role="progressbar" aria-label="Refresh progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="progress-fill" style="width:${pct}%"></div></div>` +
+        '</div>' + body;
+    }
+    // A refresh that failed recently (including an automatic one) explains why.
+    const failedRecently = refreshState && !running && refreshState.ok === false
+      && Date.now() - Date.parse(refreshState.finishedAt || 0) < 10 * 60 * 1000;
+    if (failedRecently && !statusText) statusText = friendlyRefreshError(refreshState.error);
+    if (refreshState && refreshState.ok && statusText.startsWith('Couldn’t refresh')) statusText = '';
 
     const usingMock = settings.schoologyBase === MOCK_SCHOOLOGY;
     const devSwitch = IS_DEV
@@ -420,15 +465,14 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       if (btn.dataset.reason === 'done') await toggleMark(getMarkedDone, setMarkedDone, uid, aid, false);
       else await toggleMark(getTurnedIn, setTurnedIn, uid, aid, false);
     } else if (act === 'refresh') {
-      setStatus('Refreshing…');
-      btn.disabled = true;
+      if (btn.disabled) return;
+      btn.disabled = true; // the banner and progress bar take over from storage
+      statusText = '';
       try {
         const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
-        if (result && result.ok) setStatus('');
-        else if (result && result.fallback === 'hidden-tab') setStatus('Could not fetch in the background (signed out, or Schoology changed its page). Open a Schoology Grades page and the dashboard will update from there.');
-        else setStatus(`Refresh failed: ${result && result.error ? result.error : 'unknown error'}`);
+        if (result && !result.ok) setStatus(friendlyRefreshError(result.error));
       } catch (err) {
-        setStatus(`Refresh failed: ${err.message || err}`);
+        setStatus(friendlyRefreshError(err.message || String(err)));
       }
       await render();
     } else if (act === 'demo') {
@@ -462,7 +506,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   }
   root.addEventListener('click', onClick);
 
-  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone'];
+  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState'];
   function onStorageChanged(changes, area) {
     if (area === 'local' && WATCHED.some((k) => k in changes)) render();
   }

@@ -24,7 +24,19 @@
 .sgd .icon-btn:hover { background: #f6f7f9; }
 .sgd .icon-btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .sgd .icon-btn.ghost:hover { background: #f1f3f5; color: var(--ink); }
-.sgd .icon-btn:disabled { opacity: 0.5; cursor: default; }
+.sgd .icon-btn:disabled { opacity: 0.45; cursor: default; background: #f1f3f5; }
+.sgd .icon-btn.busy:disabled { opacity: 1; color: #8a94a1; }
+
+/* Refresh in progress: banner + progress bar at the top of the body. */
+.sgd .refreshing { border: 1px solid #bcd0f7; background: #eef3fd; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; color: #1e3a8a; }
+.sgd .refreshing-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.sgd .refreshing-row b { font-weight: 700; }
+.sgd .refreshing-step { font-size: 12px; color: #3b5bab; }
+.sgd .progress { height: 6px; border-radius: 3px; background: #d6e2fa; overflow: hidden; }
+.sgd .progress-fill { height: 6px; border-radius: 3px; background: #1d4ed8; transition: width 0.3s ease; }
+.sgd .spin { animation: sgd-spin 0.9s linear infinite; flex: 0 0 auto; }
+@keyframes sgd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sgd .spin { animation-duration: 2.5s; } .sgd .progress-fill { transition: none; } }
 .sgd .tabs { display: grid; gap: 4px; background: #f1f3f5; border-radius: 10px; padding: 4px; }
 .sgd .tab { height: 36px; border: none; border-radius: 8px; background: transparent; color: #4b5563; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .sgd .tab.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }

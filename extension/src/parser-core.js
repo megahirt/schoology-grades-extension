@@ -1,6 +1,6 @@
 // parser-core.js — Schoology Grades parser that works on ANY DOM-like tree:
 // the browser DOM (content script, DOMParser in a page/popup) and
-// node-html-parser (service worker, unit tests). It touches only
+// the parse5-based html-dom.js (service worker, unit tests). It touches only
 // querySelectorAll / querySelector / getAttribute / childNodes / nodeType and
 // text, which both implementations provide. No imports, so this file can also
 // be pasted into a page to verify it against live Schoology.
@@ -46,7 +46,6 @@ function hasClass(el, name) {
 
 function nodeText(node) {
   if (!node) return '';
-  if (typeof node.text === 'string') return node.text; // node-html-parser (decoded)
   return node.textContent || '';
 }
 
@@ -258,7 +257,7 @@ function parseCourse(block, ctx) {
   };
 }
 
-// parseGradesRoot(root, opts) — root is a Document / node-html-parser root.
+// parseGradesRoot(root, opts) — root is a Document or an html-dom.js root.
 // -> { courses, parseWarnings } or { courses: [], parseWarnings, error: 'PARSE_EMPTY' }
 export function parseGradesRoot(root, { courseId, courseName, sourceUrl, baseUrl, now } = {}) {
   const parseWarnings = [];
