@@ -403,13 +403,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // teacher and does not count as Missing.
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.locator('.missing-card', { hasText: 'Unit 2 Essay' })).toBeVisible();
-      // Compact metrics: only non-zero counts, and each class below passing, linked.
+      // Compact metrics: only non-zero counts; no class chips (Classes shows those).
       const samStats = card.locator('.stat');
       await expect(samStats.filter({ hasText: 'Missing' })).toHaveText(/^1\s*Missing$/);
-      const lowStat = samStats.filter({ hasText: 'American Literature' });
-      await expect(lowStat.locator('.stat-v')).toHaveText('55%');
-      await expect(lowStat.locator('a.stat-link')).toHaveAttribute('href', /\/preview\/2000001\/parent\?url=course\//);
-      await expect(samStats.filter({ hasText: 'United States History' })).toHaveCount(0);
+      await expect(samStats.filter({ hasText: 'American Literature' })).toHaveCount(0);
       // Parent class links open that child's class grades via Schoology's preview link.
       await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.class-name'))
         .toHaveAttribute('href', /\/course\/\d+\/preview\/2000001\/parent\?url=course\/\d+\/student_grades$/);
@@ -421,7 +418,6 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await jamieTab.click();
       await expect(card.getByText('Jamie Rivera', { exact: true })).toBeVisible();
       await expect(card.getByText('GO', { exact: true })).toBeVisible();
-      await expect(card.locator('.stat .stat-link')).toHaveCount(0); // no class below passing
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
       await popup.close();

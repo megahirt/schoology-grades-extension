@@ -347,24 +347,14 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
     const good = verdict === 'GO';
     const pill = settings.showGoNoGo ? verdictPill(verdict) : '';
-    // Compact metrics, only the ones that matter: Missing and Due soon when
-    // non-zero, and each class below the passing grade (linked to its grades).
+    // Compact metrics, only when non-zero: Missing and Due soon. (Classes
+    // below the passing grade show in the Classes section, in red.)
     const stats = [];
     if (summary.missingCount > 0) {
       stats.push({ value: String(summary.missingCount), label: 'Missing', bad: summary.missingCount >= settings.missingThreshold });
     }
     const dueCount = summary.dueToday.length + summary.dueTomorrow.length;
     if (dueCount > 0) stats.push({ value: String(dueCount), label: 'Due soon', bad: false });
-    if (showGrades) {
-      const byId = new Map((d.courses || []).map((c) => [String(c.id ?? c.name), c]));
-      for (const low of [...summary.lowClasses].sort((a, b) => a.grade - b.grade)) {
-        const c = byId.get(String(low.id ?? low.name));
-        const name = c && c.url
-          ? `<a class="stat-link" href="${escapeHtml(c.url)}">${escapeHtml(low.name)}</a>`
-          : escapeHtml(low.name);
-        stats.push({ value: `${Math.round(low.grade)}%`, labelHtml: name, bad: true });
-      }
-    }
     const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
@@ -374,7 +364,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
       `${reason}</div>${pill}</div>` +
       (stats.length
         ? `<div class="stats">${stats.map((st) => `<div class="stat"><span class="stat-v${st.bad ? ' low' : ''}">${escapeHtml(st.value)}</span>` +
-          `<span class="stat-l">${st.labelHtml || escapeHtml(st.label)}</span></div>`).join('')}</div>`
+          `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
         : '') + '</div>';
   } else {
     const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses, settings, uid)).quarter);
