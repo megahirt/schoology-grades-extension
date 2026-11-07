@@ -41,7 +41,8 @@
           "gradeLabel": "Quarter 2",
           "quarterGrade": 92,
           "overallGrade": 94,
-          "overallLabel": "Semester"
+          "overallLabel": "Semester",
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
         },
         {
           "assignments": [
@@ -62,7 +63,8 @@
           "gradeLabel": "Quarter 2",
           "quarterGrade": 95,
           "overallGrade": 93,
-          "overallLabel": "Semester"
+          "overallLabel": "Semester",
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
         }
       ],
       "pictureUrl": null,
@@ -142,7 +144,8 @@
           "gradeLabel": "Quarter 2",
           "quarterGrade": 55,
           "overallGrade": 66,
-          "overallLabel": "Semester"
+          "overallLabel": "Semester",
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
         },
         {
           "assignments": [
@@ -173,7 +176,8 @@
           "gradeLabel": "Quarter 2",
           "quarterGrade": 94,
           "overallGrade": 91,
-          "overallLabel": "Semester"
+          "overallLabel": "Semester",
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
         },
         {
           "assignments": [
@@ -194,7 +198,8 @@
           "gradeLabel": "Quarter 2",
           "quarterGrade": 82,
           "overallGrade": 85,
-          "overallLabel": "Semester"
+          "overallLabel": "Semester",
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
         }
       ],
       "pictureUrl": null,

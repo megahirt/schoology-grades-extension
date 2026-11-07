@@ -147,6 +147,23 @@ export function gradeColumns(courses) {
   };
 }
 
+// "Quarter 2 is from Oct 19 to Dec 15." from the grading-period title
+// Schoology shows on the grades page ("Quarter 2: 10/19/2026 - 12/15/2026").
+export function quarterDatesLine(courses) {
+  const titles = (courses || [])
+    .filter((c) => typeof c.quarterGrade === 'number' && c.gradeSource)
+    .map((c) => c.gradeSource);
+  const title = mostCommon(titles);
+  if (!title) return '';
+  const m = String(title).match(/^([^:]+):\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*[-–]\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (!m) return '';
+  const year = (y) => (Number(y) < 100 ? 2000 + Number(y) : Number(y));
+  const start = new Date(year(m[4]), Number(m[2]) - 1, Number(m[3]));
+  const end = new Date(year(m[7]), Number(m[5]) - 1, Number(m[6]));
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${m[1].trim()} is from ${fmt(start)} to ${fmt(end)}.`;
+}
+
 function pctText(n) {
   return typeof n === 'number' ? `${Math.round(n * 10) / 10}%` : '—';
 }
@@ -257,7 +274,8 @@ function renderClasses(courses, settings, showGrades, uid) {
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
     return `<div class="class"><div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}</div>`;
   });
-  return `<section class="sec">${head}${rows.join('')}</section>`;
+  const dates = showGrades ? quarterDatesLine(list) : '';
+  return `<section class="sec">${head}${rows.join('')}${dates ? `<p class="legend">${escapeHtml(dates)}</p>` : ''}</section>`;
 }
 
 function renderGradedList(title, items, settings, showGrades, emoji) {
@@ -327,16 +345,26 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
   } else if (isParentView) {
     // GO/NO-GO is for parents only; students get the "finish first" note.
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
-    const quarterLabel = gradeColumns(visibleCourses(d.courses, settings, uid)).quarter;
     const good = verdict === 'GO';
     const pill = settings.showGoNoGo ? verdictPill(verdict) : '';
-    const lowest = summary.lowestClassGrade;
-    const lowestBad = lowest !== null && lowest < settings.gradeThreshold;
-    const stats = [
-      { value: String(summary.missingCount), label: 'Missing', bad: summary.missingCount >= settings.missingThreshold },
-      { value: lowest !== null && showGrades ? `${Math.round(lowest)}%` : '—', label: quarterLabel ? `Lowest, ${quarterLabel}` : 'Lowest class', bad: lowestBad && showGrades },
-      { value: String(summary.dueToday.length + summary.dueTomorrow.length), label: 'Due soon', bad: false },
-    ];
+    // Compact metrics, only the ones that matter: Missing and Due soon when
+    // non-zero, and each class below the passing grade (linked to its grades).
+    const stats = [];
+    if (summary.missingCount > 0) {
+      stats.push({ value: String(summary.missingCount), label: 'Missing', bad: summary.missingCount >= settings.missingThreshold });
+    }
+    const dueCount = summary.dueToday.length + summary.dueTomorrow.length;
+    if (dueCount > 0) stats.push({ value: String(dueCount), label: 'Due soon', bad: false });
+    if (showGrades) {
+      const byId = new Map((d.courses || []).map((c) => [String(c.id ?? c.name), c]));
+      for (const low of [...summary.lowClasses].sort((a, b) => a.grade - b.grade)) {
+        const c = byId.get(String(low.id ?? low.name));
+        const name = c && c.url
+          ? `<a class="stat-link" href="${escapeHtml(c.url)}">${escapeHtml(low.name)}</a>`
+          : escapeHtml(low.name);
+        stats.push({ value: `${Math.round(low.grade)}%`, labelHtml: name, bad: true });
+      }
+    }
     const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
@@ -344,7 +372,10 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     html += `<div class="card ${cardTone}">` +
       `<div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `${reason}</div>${pill}</div>` +
-      `<div class="stats">${stats.map((s) => `<div class="stat"><div class="stat-v${s.bad ? ' low' : ''}">${escapeHtml(s.value)}</div><div class="stat-l">${s.label}</div></div>`).join('')}</div></div>`;
+      (stats.length
+        ? `<div class="stats">${stats.map((st) => `<div class="stat"><span class="stat-v${st.bad ? ' low' : ''}">${escapeHtml(st.value)}</span>` +
+          `<span class="stat-l">${st.labelHtml || escapeHtml(st.label)}</span></div>`).join('')}</div>`
+        : '') + '</div>';
   } else {
     const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses, settings, uid)).quarter);
     html += note
