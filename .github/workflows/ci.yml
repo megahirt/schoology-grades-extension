@@ -1,0 +1,48 @@
+# CI — Schoology Dashboard Extension (Safari-first, Chrome second)
+#
+# Runs on every push and pull request: lint, unit tests, both builds
+# (prod + dev), then the Playwright end-to-end tests against the mock
+# Schoology server. The live probe against real Schoology is NOT part
+# of CI — it needs a logged-in browser session; see test/probe/.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Caches the npm cache (node_modules is rebuilt by `npm ci`
+          # below, which is the reproducible install for this repo).
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build (production)
+        run: npm run build
+
+      - name: Build (dev, mock-server build)
+        run: npm run build:dev
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
