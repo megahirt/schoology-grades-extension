@@ -355,7 +355,9 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     // GO/NO-GO is for parents only; students get the "finish first" note.
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
     const good = verdict === 'GO';
-    const pill = settings.showGoNoGo ? verdictPill(verdict) : '';
+    // Only a NO-GO earns a badge (GO is the quiet default). UNKNOWN keeps its
+    // badge too, since its line underneath explains why there's no verdict.
+    const pill = settings.showGoNoGo && verdict !== 'GO' ? verdictPill(verdict) : '';
     // Compact metrics, only when non-zero: Missing and Due soon. (Classes
     // below the passing grade show in the Classes section, in red.)
     const stats = [];
