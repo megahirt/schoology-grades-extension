@@ -1,11 +1,12 @@
 // parser.js — parse Schoology Grades HTML from a string (service worker,
 // unit tests). The service worker has no DOMParser, so the HTML is parsed
-// with node-html-parser and handed to the DOM-agnostic core in
-// parser-core.js — the same code the content script runs on the live DOM.
+// with parse5 (spec-compliant: the same tree a browser builds, see
+// html-dom.js) and handed to the DOM-agnostic core in parser-core.js — the
+// same code the content script runs on the live DOM.
 //
 // See parser-core.js for the verified live markup and the Missing rule.
 
-import { parse } from 'node-html-parser';
+import { parseHtml } from './html-dom.js';
 import { parseGradesRoot } from './parser-core.js';
 
 export { parseSchoologyDate, visibleText } from './parser-core.js';
@@ -18,6 +19,6 @@ export function parseGradesHtml(html, options = {}) {
   if (!raw.trim()) {
     return { courses: [], parseWarnings: ['Empty HTML supplied to parser'] };
   }
-  const root = parse(raw, { blockTextElements: { script: false, style: false, noscript: false } });
+  const root = parseHtml(raw);
   return parseGradesRoot(root, options);
 }

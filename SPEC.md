@@ -105,6 +105,21 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
     here until graded, even after its due date. If the teacher marks it
     Missing it counts as Missing again (a "done" mark never hides Missing).
   Stored as `turnedIn` and `markedDone`: `{ [studentUid]: [assignmentId] }`.
+- Refresh: one at a time (`startRefresh` in background.js; a second request
+  joins the running one; gives up after 2 minutes). Progress is stored as
+  `refreshState` `{ running, startedAt, done, total, label, finishedAt, ok,
+  error }`, so every popup and panel shows a "Refreshing grades…" banner
+  with a progress bar and a greyed-out refresh button.
+- Auto-refresh: each Schoology page load (top frame) sends
+  `schoology-page-loaded`. The background refreshes when the stored data is
+  older than 5 minutes and the page is on the configured Schoology site.
+  A parent refresh briefly switches Schoology's "viewing as" child, so a
+  Schoology page that loads during one gets a "Reload page" notice.
+- Partial data: when some grade rows could not be read, the verdict shows
+  UNKNOWN instead of GO/NO-GO.
+- Service-worker HTML parsing uses parse5 (spec-compliant). Live Schoology
+  leaves `<span class="has-dropbox-icon grade-pending-icon">` unclosed on
+  ungraded submissions; the earlier non-spec parser dropped every later row.
 - The class list leaves out sections with no grade data (no course grade and
   no graded assignment, e.g. advisory or house group): `hasGradeData()`.
   Their teacher-marked Missing items, if any, still count.

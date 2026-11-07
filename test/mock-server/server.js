@@ -149,8 +149,14 @@ function viewChild(cookies) {
 
 const parentHref = (child, c) => (item) => `/course/${c.id}/preview/${child.uid}/parent?url=assignment/${item.id}`;
 
-export function createServer() {
+// delayMs: wait this long before answering the grade pages and child
+// switches, like real Schoology, so the refresh banner and progress bar can be
+// seen (MOCK_DELAY_MS env when run directly; 0 in tests).
+export function createServer({ delayMs = 0 } = {}) {
   return http.createServer(async (req, res) => {
+    if (delayMs > 0 && /\/(grades|parent\/home|course\/)/.test(req.url || '')) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
     try {
       const reqUrl = new URL(req.url, 'http://localhost');
       const pathname = reqUrl.pathname;
@@ -244,8 +250,8 @@ export function createServer() {
   });
 }
 
-export function startServer(port = DEFAULT_PORT) {
-  const server = createServer();
+export function startServer(port = DEFAULT_PORT, { delayMs = 0 } = {}) {
+  const server = createServer({ delayMs });
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => {
       const address = server.address();
@@ -259,9 +265,11 @@ export function startServer(port = DEFAULT_PORT) {
   });
 }
 
-// Run directly: `node test/mock-server/server.js` (PORT env, default 8123).
+// Run directly: `node test/mock-server/server.js` (PORT env, default 8123;
+// MOCK_DELAY_MS env, default 0, slows grade pages like real Schoology).
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || DEFAULT_PORT);
-  const { url } = await startServer(port);
-  console.log(`Mock Schoology server listening on ${url}`);
+  const delayMs = Number(process.env.MOCK_DELAY_MS || 0);
+  const { url } = await startServer(port, { delayMs });
+  console.log(`Mock Schoology server listening on ${url}${delayMs ? ` (answers delayed ${delayMs} ms)` : ''}`);
 }

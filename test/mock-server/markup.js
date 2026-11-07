@@ -27,8 +27,14 @@ function gradeCell(item) {
   } else {
     inner = '—';
   }
+  // Live Schoology quirk (seen 2026-11-07): for a submission awaiting a
+  // grade, Schoology never closes the outer <span class="has-dropbox-icon
+  // grade-pending-icon">. Browsers recover; a non-spec HTML parser lost every
+  // row after it. The mock reproduces the unclosed tag on purpose.
   const icon = item.note
-    ? `<span class="has-dropbox-icon${item.pending ? ' grade-pending-icon' : ''}"><span class="visually-hidden">${esc(item.note)}</span></span>`
+    ? (item.pending
+      ? `<span class="has-dropbox-icon grade-pending-icon"><span class="visually-hidden">${esc(item.note)}</span>`
+      : `<span class="has-dropbox-icon"><span class="visually-hidden">${esc(item.note)}</span></span>`)
     : '';
   return `<td class="grade-column"><div class="td-content-wrapper">${inner}<div class="grade-wrapper">${icon}</div></div></td>`;
 }

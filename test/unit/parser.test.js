@@ -152,3 +152,48 @@ describe('parseGradesHtml — self-check', () => {
     expect(parseGradesHtml('').courses).toEqual([]);
   });
 });
+
+// Regression (2026-11-07, live parent report): Schoology leaves
+// <span class="has-dropbox-icon grade-pending-icon"> unclosed on a submission
+// awaiting a grade. The old service-worker parser (node-html-parser) then
+// lost every later row (100 of 136), so a child with a 55% class read as GO.
+// The parse5-based parser must recover exactly like a browser.
+describe('parseGradesHtml — Schoology unclosed grade-pending span', () => {
+  const course = (id, title, grade, items) => renderCourse({
+    id, title, courseGrade: grade,
+    periods: [{ id: `${id}1`, title: 'Semester 1: 8/24/26 - 12/19/26', grade, items }],
+  });
+  const PENDING = 'This student has made a submission that has not been graded.';
+  const page = renderPage('Grades', [
+    course('701', 'Literature: Section 1', 55, [
+      { id: '7011', title: 'Essay Draft', due: '11/03/26 11:25am', exception: 'missing', note: PENDING, pending: true },
+      { id: '7012', title: 'Reading Log', due: '10/20/26', score: 8, max: 10 },
+    ]),
+    course('702', 'Government: Section 4', 63, [
+      { id: '7021', title: 'Bill Project', due: '10/22/26', score: 40, max: 50 },
+      { id: '7022', title: 'Unit Quiz', due: '10/24/26', exception: 'missing' },
+    ]),
+    course('703', 'History: Section 2', 94, [
+      { id: '7031', title: 'Map Work', due: '10/10/26', score: 19, max: 20, note: PENDING, pending: true },
+      { id: '7032', title: 'Timeline', due: '10/12/26', score: 10, max: 10 },
+    ]),
+  ].join(''));
+
+  it('really contains the unclosed span (the fixture reproduces the live quirk)', () => {
+    const opens = (page.match(/<span class="has-dropbox-icon grade-pending-icon">/g) || []).length;
+    expect(opens).toBe(2);
+    expect(page).toContain('has not been graded.</span></div>');
+  });
+
+  it('keeps every row in its own course, with no warnings', () => {
+    const { courses, parseWarnings } = parseGradesHtml(page, { now: NOW });
+    expect(parseWarnings).toEqual([]);
+    expect(courses.map((c) => [c.name, c.grade, c.assignments.map((a) => a.title)])).toEqual([
+      ['Literature', 55, ['Essay Draft', 'Reading Log']],
+      ['Government', 63, ['Bill Project', 'Unit Quiz']],
+      ['History', 94, ['Map Work', 'Timeline']],
+    ]);
+    const missing = courses.flatMap((c) => c.assignments.filter((a) => a.status === 'missing').map((a) => a.title));
+    expect(missing).toEqual(['Essay Draft', 'Unit Quiz']);
+  });
+});

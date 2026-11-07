@@ -17,6 +17,7 @@ All commands run from the repo root.
 npm test          # unit tests (vitest, test/unit/)
 npm run test:e2e  # Playwright e2e (test/e2e/) — needs the DEV build first
 npm run mock-server   # start the mock Schoology server alone (port 8123)
+MOCK_DELAY_MS=700 npm run mock-server   # slow answers, to see the refresh banner
 ```
 
 ## Mock Schoology server (`test/mock-server/server.js`)

@@ -36,8 +36,10 @@ async function writeDashboard(uid, dashboard) {
 }
 
 // Full refresh: detect account, fetch dashboards, parse, summarize, store.
-async function refreshGrades() {
+// progress({ done, total, label }) reports steps for the UI (see startRefresh).
+async function refreshGrades(progress = () => {}) {
   const settings = await loadSettings();
+  progress({ done: 0, total: 1, label: 'Checking your Schoology account' });
   const turnedIn = (await getTurnedIn()) || {};
   const markedDone = (await getMarkedDone()) || {};
   const client = createClient({ baseUrl: settings.schoologyBase });
@@ -45,7 +47,11 @@ async function refreshGrades() {
   await setAccount({ ...account, detectedAt: new Date().toISOString() });
 
   if (account.type === 'parent') {
-    const dashboards = await client.fetchParentDashboards({ turnedInIdsByStudent: turnedIn });
+    const dashboards = await client.fetchParentDashboards({
+      turnedInIdsByStudent: turnedIn,
+      // +1: the account check above counts as the first step.
+      onProgress: ({ done, total, label }) => progress({ done: done + 1, total: total + 1, label }),
+    });
     const byUid = {};
     for (const d of dashboards) {
       // Re-summarize with the family's settings (fetch layer used defaults).
@@ -61,6 +67,7 @@ async function refreshGrades() {
   }
 
   if (account.type === 'student') {
+    progress({ done: 1, total: 2, label: 'Reading your grades' });
     const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self });
     if (result.error === 'LOGGED_OUT') {
       return { ok: false, accountType: 'student', error: 'LOGGED_OUT', fallback: 'hidden-tab' };
@@ -86,6 +93,93 @@ async function refreshGrades() {
 
   // loggedOut / unknown: nothing to fetch from the service worker.
   return { ok: false, accountType: account.type, error: 'NOT_LOGGED_IN', fallback: 'hidden-tab' };
+}
+
+// ---------------------------------------------------------------------------
+// ONE REFRESH AT A TIME, WITH PROGRESS
+// Every refresh (Refresh button, Schoology page load, alarm) goes through
+// startRefresh. A second request while one is running joins it instead of
+// starting another. Progress lives in storage under `refreshState`
+//   { running, startedAt, done, total, label, finishedAt?, ok?, error? }
+// so every open popup and panel shows the same banner and progress bar.
+// ---------------------------------------------------------------------------
+let currentRefresh = null;
+const REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
+// Auto-refresh on a Schoology page load only when the data is older than this.
+// Each click in Schoology loads a new page, and a parent refresh briefly
+// switches Schoology's "viewing as" child, so it must not run on every click.
+const AUTO_REFRESH_MIN_AGE_MS = 5 * 60 * 1000;
+
+async function setRefreshState(state) {
+  await browser.storage.local.set({ refreshState: state });
+}
+
+function startRefresh(reason = 'manual') {
+  if (currentRefresh) return currentRefresh;
+  const startedAt = new Date().toISOString();
+  let last = { done: 0, total: 1, label: 'Starting' };
+  const progress = (p) => {
+    last = { done: Math.min(p.done, p.total), total: Math.max(1, p.total), label: p.label || last.label };
+    setRefreshState({ running: true, reason, startedAt, ...last }).catch(() => {});
+  };
+  currentRefresh = (async () => {
+    await setRefreshState({ running: true, reason, startedAt, ...last });
+    let result;
+    let timer;
+    try {
+      // A refresh that never settles (a Schoology request that hangs) must not
+      // block every later refresh: give up after REFRESH_TIMEOUT_MS.
+      result = await Promise.race([
+        refreshGrades(progress),
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve({ ok: false, error: 'Schoology took too long to answer' }), REFRESH_TIMEOUT_MS);
+        }),
+      ]);
+    } catch (e) {
+      result = { ok: false, error: String(e && e.message ? e.message : e) };
+    } finally {
+      clearTimeout(timer);
+    }
+    await setRefreshState({
+      running: false,
+      reason,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      done: last.total,
+      total: last.total,
+      label: result && result.ok ? 'Done' : 'Failed',
+      ok: Boolean(result && result.ok),
+      error: result && !result.ok ? result.error || 'unknown error' : null,
+    });
+    return result;
+  })().finally(() => {
+    currentRefresh = null;
+  });
+  return currentRefresh;
+}
+
+// A Schoology page finished loading in a tab (content script). Refresh when
+// the stored data is missing or older than AUTO_REFRESH_MIN_AGE_MS, and only
+// for the Schoology site the extension is pointed at (real vs mock).
+async function maybeAutoRefresh(pageUrl) {
+  if (currentRefresh) return { started: false, reason: 'already running' };
+  const settings = await loadSettings();
+  let sameSite = false;
+  try {
+    sameSite = new URL(pageUrl).origin === new URL(settings.schoologyBase).origin;
+  } catch {
+    sameSite = false;
+  }
+  if (!sameSite) return { started: false, reason: 'other site' };
+  const dashboards = (await getDashboards()) || {};
+  let newest = 0;
+  for (const d of Object.values(dashboards)) {
+    const t = Date.parse(d.updatedAt || '');
+    if (t > newest) newest = t;
+  }
+  if (newest && Date.now() - newest < AUTO_REFRESH_MIN_AGE_MS) return { started: false, reason: 'fresh' };
+  startRefresh('page-load');
+  return { started: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +287,7 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
       const active = await browser.tabs.query({ active: true, url: 'https://*.schoology.com/*' });
       if (active.length > 0) return;
     }
-    await refreshGrades();
+    await startRefresh('alarm');
   } catch (e) {
     // Alarm refresh is best-effort; the popup shows the stale warning.
     console.warn('Schoology Dashboard refresh failed:', e);
@@ -204,11 +298,10 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
   if (!message || typeof message.type !== 'string') return undefined;
   switch (message.type) {
     case 'refresh-now': {
-      try {
-        return await refreshGrades();
-      } catch (e) {
-        return { ok: false, error: String(e && e.message ? e.message : e) };
-      }
+      return startRefresh('manual');
+    }
+    case 'schoology-page-loaded': {
+      return maybeAutoRefresh(message.url || (sender && sender.tab && sender.tab.url) || '');
     }
     case 'run-live-probe': {
       const settings = await loadSettings();

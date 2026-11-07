@@ -6,7 +6,7 @@
 // a fake Schoology page served by Playwright itself (no network, no server),
 // and saves screenshots of every state the design covers:
 //
-//   popup, panel open (parent), Sam NO-GO, after "Turned in" + "Mark as done"
+//   popup, panel open (parent), refresh in progress, Sam NO-GO, after "Turned in" + "Mark as done"
 //   (Waiting on teacher), closed tab with verdicts, student view, iPhone.
 //
 // Output: test/screenshots/out/*.png (gitignored). Run `npm run build:dev` first.
@@ -66,6 +66,17 @@ try {
   const body = sheet.locator('.body');
   await sheet.locator('.card').waitFor();
   await shot(page, '02-panel-open');
+
+  // Refresh in progress (state written directly; no network needed).
+  await popup.evaluate(() => chrome.storage.local.set({
+    refreshState: { running: true, reason: 'page-load', startedAt: new Date().toISOString(), done: 2, total: 4, label: 'Reading Jamie’s grades' },
+  }));
+  await sheet.getByText('Refreshing grades…').waitFor();
+  await shot(page, '02b-refreshing');
+  await popup.evaluate(() => chrome.storage.local.set({
+    refreshState: { running: false, ok: true, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), done: 4, total: 4, label: 'Done' },
+  }));
+  await sheet.getByText('Refreshing grades…').waitFor({ state: 'hidden' });
 
   await sheet.getByRole('tab', { name: 'Sam' }).click();
   await sheet.locator('.card', { hasText: 'Sam Rivera' }).waitFor();

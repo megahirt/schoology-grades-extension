@@ -3,7 +3,7 @@
 Safari-first, Chrome second. Shared codebase uses `webextension-polyfill`
 (`browser.*`, Promise-based) everywhere; no `chrome.*` callbacks, no
 offscreen document, no sidePanel, no declarativeNetRequest in the critical
-path. The bundled pure-JS parser (`node-html-parser`) is the portable
+path. The bundled pure-JS, spec-compliant parser (`parse5`, via `src/html-dom.js`) is the portable
 default. No server, no LLM, no Schoology password stored, no Schoology
 REST API/OAuth — auth is the user's logged-in browser session cookies.
 
