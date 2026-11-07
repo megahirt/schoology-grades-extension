@@ -143,6 +143,10 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   For a parent these use Schoology's preview link
   (`/course/<id>/preview/<child uid>/parent?url=…`), which also switches
   the viewed child; `/course/<id>/student_grades` is 403 for any other child.
+- Class names are tidied for display (`src/names.js`): a leading number
+  ("07 English" -> "English") is dropped, and a short all-caps code
+  ("BPL ") is dropped when it starts two or more of the child's classes.
+  A code on one class only ("US History") stays.
 - The class list leaves out sections with no grade data (no course grade and
   no graded assignment, e.g. advisory or house group): `hasGradeData()`.
   Their teacher-marked Missing items, if any, still count.
