@@ -293,6 +293,25 @@ function renderGradedList(title, items, settings, showGrades, emoji) {
   return section(title, rows.join(''), emoji);
 }
 
+// Doing well: compact one-line rows, most recent first, at most 7:
+// "Short Story Draft (American Literature)        84%".
+const DOING_WELL_MAX = 7;
+function renderDoingWell(items, settings, showGrades) {
+  if (!items.length) return '';
+  const when = (a) => {
+    const t = Date.parse(a.due || '');
+    return Number.isNaN(t) ? 0 : t;
+  };
+  const recent = [...items].sort((a, b) => when(b) - when(a)).slice(0, DOING_WELL_MAX);
+  const rows = recent.map((a) => {
+    const g = showGrades ? gradeText(a, settings) : '';
+    const course = a.courseName ? ` <span class="compact-course">(${escapeHtml(a.courseName)})</span>` : '';
+    return `<div class="row compact"><div class="grow compact-line">${titleLink(a, 'row-title')}${course}</div>` +
+      (g ? `<span class="row-grade">${escapeHtml(g)}</span>` : '') + '</div>';
+  });
+  return section('Doing well', rows.join(''), SECTION_EMOJI.doingWell);
+}
+
 const WAITING_HOW = {
   submitted: 'Submitted, not graded yet',
   turnedIn: 'Marked turned in',
@@ -390,7 +409,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     html += renderDue(summary, uid);
     html += renderClasses(courses, settings, showGrades, uid);
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
-    html += renderGradedList('Doing well', summary.doingWell, settings, showGrades, SECTION_EMOJI.doingWell);
+    html += renderDoingWell(summary.doingWell, settings, showGrades);
     html += renderWaiting(summary, uid);
   }
   return { html, summary };
