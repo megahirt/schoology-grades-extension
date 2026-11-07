@@ -96,17 +96,32 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   their due date AND time with no grade and NOT Missing disappear entirely
   (may be noted in fine print only). No due time given = due at end of day.
   Missing items always stay in Missing.
-- Manual "mark as turned in" (undoable) moves a Missing item to "Awaiting teacher"
-  until Schoology updates; manually-marked items do NOT count as Missing.
+- "Waiting on teacher" (near the bottom of the dashboard) holds items the
+  family marked, each with Undo:
+  - "Turned in" on a Missing item: while Schoology still shows it Missing it
+    waits here and does NOT count as Missing. Once Schoology grades it or
+    removes the Missing mark it drops out on its own.
+  - The grey ✓ "Mark as done" on a Due soon item: it leaves Due soon and waits
+    here until graded, even after its due date. If the teacher marks it
+    Missing it counts as Missing again (a "done" mark never hides Missing).
+  Stored as `turnedIn` and `markedDone`: `{ [studentUid]: [assignmentId] }`.
+- The class list leaves out sections with no grade data (no course grade and
+  no graded assignment, e.g. advisory or house group): `hasGradeData()`.
+  Their teacher-marked Missing items, if any, still count.
+- Dashboard panel: Safari has no extension side-panel API, so the content
+  script docks the dashboard on the right edge of Schoology pages
+  (`src/panel.js`, a shadow root that never touches Schoology's elements; a
+  bottom sheet on phones). The toolbar popup shows the same view
+  (`src/dashboard-view.js`). `settings.showPanel` turns the panel off.
 
 `extension/src/rules.js` (pure JS, no chrome APIs, importable by node tests):
 - `DEFAULT_SETTINGS` — object: `{ gradeThreshold: 75, missingThreshold: 2,
   notSoGoodDays: 7, showGoNoGo: true, gradeVisibility: 'both',
-  gradeDisplay: 'percent' }`
+  gradeDisplay: 'percent', showPanel: true }`
 - `computeVerdict({ missingCount, lowestClassGrade, settings })` ->
   `{ verdict: 'GO'|'NO-GO', reasons: string[] }` where reasons use the exact
   badge wording above.
-- `summarizeStudent(courses, settings)` -> per-student summary:
+- `summarizeStudent(courses, settings, turnedInIds?, doneIds?)` -> per-student summary (also `waiting`):
   `{ missingCount, missingItems, lowestClassGrade, lowClasses, dueToday,
     dueTomorrow, doingWell, notSoGood, verdict }`.
 

@@ -17,6 +17,7 @@ import {
   setAccount,
   getAccount,
   getTurnedIn,
+  getMarkedDone,
 } from './src/storage.js';
 
 const ALARM_NAME = 'refresh-grades';
@@ -38,6 +39,7 @@ async function writeDashboard(uid, dashboard) {
 async function refreshGrades() {
   const settings = await loadSettings();
   const turnedIn = (await getTurnedIn()) || {};
+  const markedDone = (await getMarkedDone()) || {};
   const client = createClient({ baseUrl: settings.schoologyBase });
   const account = await client.detectAccount();
   await setAccount({ ...account, detectedAt: new Date().toISOString() });
@@ -47,7 +49,7 @@ async function refreshGrades() {
     const byUid = {};
     for (const d of dashboards) {
       // Re-summarize with the family's settings (fetch layer used defaults).
-      let summary = summarizeStudent(d.courses, settings, turnedIn[d.studentUid]);
+      let summary = summarizeStudent(d.courses, settings, turnedIn[d.studentUid], markedDone[d.studentUid]);
       if (d.error) {
         // Keep the UNKNOWN verdict — empty courses would recompute to a false GO.
         summary = { ...summary, verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades.'] } };
@@ -66,7 +68,7 @@ async function refreshGrades() {
     if (result.error === 'PARSE_EMPTY' || result.error === 'NO_GRADES') {
       return { ok: false, accountType: 'student', error: result.error, fallback: 'hidden-tab' };
     }
-    const summary = summarizeStudent(result.courses, settings, turnedIn.self);
+    const summary = summarizeStudent(result.courses, settings, turnedIn.self, markedDone.self);
     const uid = account.children?.[0]?.uid || 'self';
     const name = result.studentName || account.studentName || 'Student';
     await writeDashboard(uid, {
@@ -143,6 +145,7 @@ async function handleGradesScraped(message, sender) {
   if (!expected && account && account.type === 'parent') return { ok: true, ignored: 'parent-account' };
   const settings = await loadSettings();
   const turnedIn = (await getTurnedIn()) || {};
+  const markedDone = (await getMarkedDone()) || {};
   const uid = 'self';
   // A page scrape may cover only ONE course (a course Grades page). Merge it
   // into the stored dashboard by course id instead of replacing it, so the
@@ -151,7 +154,7 @@ async function handleGradesScraped(message, sender) {
   const byId = new Map((existing && Array.isArray(existing.courses) ? existing.courses : []).map((c) => [String(c.id), c]));
   for (const c of courses) byId.set(String(c.id), c);
   const merged = [...byId.values()];
-  const summary = summarizeStudent(merged, settings, turnedIn.self);
+  const summary = summarizeStudent(merged, settings, turnedIn.self, markedDone.self);
   await writeDashboard(uid, {
     ...(existing || {}),
     studentUid: uid,

@@ -71,3 +71,7 @@ export const getAccount = () => storageGet('account', null);
 export const setAccount = (v) => storageSet('account', v);
 export const getTurnedIn = () => storageGet('turnedIn', {});
 export const setTurnedIn = (v) => storageSet('turnedIn', v);
+// markedDone — { [studentUid]: [assignmentId, ...] } for not-yet-graded items
+// (usually Due soon) marked done. See summarizeStudent in rules.js.
+export const getMarkedDone = () => storageGet('markedDone', {});
+export const setMarkedDone = (v) => storageSet('markedDone', v);

@@ -37,6 +37,19 @@ export function assignmentPercent(a) {
   return score;
 }
 
+// hasGradeData(course): true when the course has a course grade or at least
+// one graded assignment (a score or a letter grade). Sections like advisory
+// or house groups have none: they are not real classes, so the dashboard
+// leaves them out of its class list. Their teacher-marked Missing items, if
+// any, still count (summarizeStudent does not use this).
+export function hasGradeData(course) {
+  if (!course) return false;
+  if (typeof course.grade === 'number' && !Number.isNaN(course.grade)) return true;
+  return (course.assignments || []).some(
+    (a) => assignmentPercent(a) !== null || (a.status === 'graded' && Boolean(a.letterGrade)),
+  );
+}
+
 export function computeVerdict({ missingCount = 0, lowestClassGrade = null, settings } = {}) {
   const s = mergeSettings(settings);
   const hasMissing = missingCount >= s.missingThreshold;
@@ -69,17 +82,26 @@ function endOfDay(d) {
   return x;
 }
 
-// summarizeStudent(courses, settings, turnedInIds?)
+// summarizeStudent(courses, settings, turnedInIds?, doneIds?)
 // courses: [{ id, name, grade (number|null, percent), assignments: [...] }]
-// turnedInIds: optional Set/Array of assignment ids manually marked turned in
-//   (also accepted as settings.turnedInIds). Those items do NOT count as Missing.
+// turnedInIds: optional Set/Array of ids of MISSING items the family marked
+//   "turned in" (also accepted as settings.turnedInIds). While Schoology
+//   still shows them Missing they wait on the teacher instead of counting as
+//   Missing; once Schoology grades them or removes the Missing mark, the mark
+//   no longer matters and they drop out of Waiting.
+// doneIds: optional Set/Array of ids of not-yet-graded items (usually Due
+//   soon) marked "done". They wait on the teacher until graded. If the
+//   teacher marks one Missing it counts as Missing again: a "done" mark never
+//   hides teacher-marked Missing work.
 // Returns { missingCount, missingItems, lowestClassGrade, lowClasses,
-//   dueToday, dueTomorrow, doingWell, notSoGood, verdict }.
-export function summarizeStudent(courses, settings, turnedInIdsArg) {
+//   dueToday, dueTomorrow, doingWell, notSoGood, waiting, verdict }.
+// waiting items carry waitingReason: 'turnedIn' | 'done'.
+export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) {
   const s = mergeSettings(settings);
   const turnedIn = normalizeTurnedInIds(
     turnedInIdsArg !== undefined ? turnedInIdsArg : s.turnedInIds,
   );
+  const done = normalizeTurnedInIds(doneIdsArg !== undefined ? doneIdsArg : s.doneIds);
   const now = s.now ? new Date(s.now) : new Date();
   const todayStart = startOfDay(now);
   const tomorrowStart = new Date(todayStart);
@@ -95,6 +117,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg) {
   const dueTomorrow = [];
   const doingWell = [];
   const notSoGood = [];
+  const waiting = [];
   let lowestClassGrade = null;
   const lowClasses = [];
 
@@ -107,16 +130,15 @@ export function summarizeStudent(courses, settings, turnedInIdsArg) {
     for (const a of course.assignments || []) {
       const item = { ...a, courseId: course.id, courseName: course.name };
       const idKey = a.id !== undefined && a.id !== null ? String(a.id) : null;
-      const isTurnedIn = idKey !== null && turnedIn.has(idKey);
-      const isMissing = a.status === 'missing' && !isTurnedIn;
-      if (isMissing) {
-        // Missing items always stay in Missing, whatever their due date.
-        missingItems.push(item);
-        continue;
-      }
-      if (isTurnedIn) {
-        // Manually marked turned in: awaiting the teacher, not Missing,
-        // not due, not graded. Handled by the popup's Awaiting section.
+      if (a.status === 'missing') {
+        if (idKey !== null && turnedIn.has(idKey)) {
+          // Turned in, Schoology still says Missing: waiting on the teacher.
+          waiting.push({ ...item, waitingReason: 'turnedIn' });
+        } else {
+          // Missing items always stay in Missing, whatever their due date,
+          // even when marked "done" (the teacher's Missing mark wins).
+          missingItems.push(item);
+        }
         continue;
       }
       const pct = assignmentPercent(a);
@@ -127,6 +149,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg) {
       const due = a.due ? new Date(a.due) : null;
       const dueValid = due && !Number.isNaN(due.getTime());
       if (graded) {
+        // Graded items leave Waiting on their own, whatever was marked.
         const below = pct !== null ? pct < s.gradeThreshold : /^[DF]/i.test(letter);
         if (below) {
           // "Not so good": graded below threshold from the past
@@ -137,6 +160,11 @@ export function summarizeStudent(courses, settings, turnedInIdsArg) {
         } else {
           doingWell.push(item);
         }
+        continue;
+      }
+      if (idKey !== null && done.has(idKey)) {
+        // Marked done, not graded yet: waiting on the teacher.
+        waiting.push({ ...item, waitingReason: 'done' });
         continue;
       }
       // Ungraded + not Missing = in-between / OK, not counted as Missing.
@@ -162,6 +190,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg) {
     dueTomorrow,
     doingWell,
     notSoGood,
+    waiting,
     verdict,
   };
 }

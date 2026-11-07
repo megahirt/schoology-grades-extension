@@ -192,17 +192,27 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
 
       const popup = await openPopup(context, extensionId);
       // Alex Student's data: Algebra 2 at 68% (below 75) is a low class, and
-      // American Literature has 1 Missing item. Correct verdict: NO-GO with
-      // reason "Low grades" (one Missing alone would be GO).
-      // NOTE: the student display name now comes from the home page
-      // (data-user-name on the home page), so the popup shows the real name.
-      await expect(popup.getByRole('heading', { name: 'Alex Student', exact: true })).toBeVisible({ timeout: 15000 });
+      // American Literature has 1 Missing item. Correct verdict: NO-GO for
+      // low grades (one Missing alone would be GO). The student's name comes
+      // from the home page (data-user-name).
+      await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
+      const card = popup.locator('.card');
+      await expect(card.getByText('Alex Student', { exact: true })).toBeVisible();
+      await expect(card.getByText('NO-GO', { exact: true })).toBeVisible();
+      await expect(card.getByText('1 missing · Algebra 2 below 75%')).toBeVisible();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
-      await expect(popup.getByText('NO-GO', { exact: true })).toBeVisible();
-      await expect(popup.getByText('NO-GO — Low grades')).toBeVisible();
-      await expect(popup.getByText('Algebra 2').first()).toBeVisible();
+      await expect(popup.getByText('Algebra 2', { exact: true })).toBeVisible();
       await expect(popup.getByText('68%').first()).toBeVisible();
+
+      // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
+      await popup.getByRole('button', { name: 'Turned in' }).click();
+      await expect(popup.getByText('Missing · 0')).toBeVisible();
+      await expect(popup.getByText('Waiting on teacher · 1')).toBeVisible();
+      await expect(popup.locator('.waiting').getByText('Persuasive Essay Draft')).toBeVisible();
+      await popup.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
+      await expect(popup.getByText('Missing · 1')).toBeVisible();
+      await expect(popup.getByText('Waiting on teacher · 0')).toBeVisible();
       await popup.close();
     } finally {
       await context.close();
@@ -223,9 +233,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Playwright locators pierce the panel's open shadow root.
       const panel = page.locator('#sgd-panel-host aside.sheet');
       const tab = page.locator('#sgd-panel-host button.tab');
-      await expect(panel.getByRole('heading', { name: 'Alex Student', exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
       await expect(panel.getByText('Missing · 1')).toBeVisible();
-      await expect(panel.getByText('NO-GO', { exact: true })).toBeVisible();
+      await expect(panel.locator('.card').getByText('NO-GO', { exact: true })).toBeVisible();
       // The panel hides the demo button (demo data is a popup feature).
       await expect(panel.getByRole('button', { name: /demo/i })).toBeHidden();
       // The page's own grades table is untouched and still on the page.
@@ -239,8 +249,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await page.goto(`${mockBase}/home`);
       await expect(tab).toHaveAttribute('aria-expanded', 'false', { timeout: 15000 });
       await expect(panel).toBeHidden();
+      // The closed tab shows the verdict at a glance.
+      await expect(tab).toHaveAttribute('aria-label', /Alex Student: NO-GO/);
       await tab.click();
-      await expect(panel.getByRole('heading', { name: 'Alex Student', exact: true })).toBeVisible();
+      await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
       await page.close();
     } finally {
       await context.close();
@@ -257,20 +269,27 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await triggerRefresh(context, extensionId);
 
       const popup = await openPopup(context, extensionId);
-      // Both children render as their own section.
-      const samSection = popup.locator('section.student', { hasText: 'Sam Rivera' });
-      const jamieSection = popup.locator('section.student', { hasText: 'Jamie Rivera' });
-      await expect(samSection).toBeVisible({ timeout: 15000 });
-      await expect(jamieSection).toBeVisible({ timeout: 15000 });
+      // One child at a time, picked with the tabs at the top.
+      const samTab = popup.getByRole('tab', { name: 'Sam' });
+      const jamieTab = popup.getByRole('tab', { name: 'Jamie' });
+      await expect(samTab).toBeVisible({ timeout: 15000 });
+      await expect(samTab).toHaveAttribute('aria-selected', 'true');
+      const card = popup.locator('.card');
       // Sam: 2 Missing + lowest class 55% => NO-GO.
-      await expect(samSection.getByText('Missing · 2')).toBeVisible();
-      await expect(samSection.getByText('NO-GO', { exact: true })).toBeVisible();
-      await expect(samSection.getByText('Persuasive Essay Draft')).toBeVisible();
-      await expect(samSection.getByText('Unit 2 Essay')).toBeVisible();
+      await expect(card.getByText('Sam Rivera', { exact: true })).toBeVisible();
+      await expect(card.getByText('NO-GO', { exact: true })).toBeVisible();
+      await expect(popup.getByText('Missing · 2')).toBeVisible();
+      await expect(popup.getByText('Persuasive Essay Draft')).toBeVisible();
+      await expect(popup.getByText('Unit 2 Essay')).toBeVisible();
+      // Classes leave out sections with no grade data (House Group 1).
+      await expect(popup.locator('.class', { hasText: 'United States History' })).toBeVisible();
+      await expect(popup.locator('.class', { hasText: 'House Group 1' })).toHaveCount(0);
       // Jamie: 1 Missing, all classes >= 90 => GO.
-      await expect(jamieSection.getByText('Missing · 1')).toBeVisible();
-      await expect(jamieSection.getByText('GO', { exact: true })).toBeVisible();
-      await expect(jamieSection.getByText('Poetry Analysis Essay')).toBeVisible();
+      await jamieTab.click();
+      await expect(card.getByText('Jamie Rivera', { exact: true })).toBeVisible();
+      await expect(card.getByText('GO', { exact: true })).toBeVisible();
+      await expect(popup.getByText('Missing · 1')).toBeVisible();
+      await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
       await popup.close();
     } finally {
       await context.close();

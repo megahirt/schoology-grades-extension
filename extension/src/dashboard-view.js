@@ -1,31 +1,37 @@
 // dashboard-view.js — the dashboard UI, shared by the toolbar popup
 // (popup/popup.js) and the in-page panel on Schoology pages (src/panel.js).
-// Parent view: one section per child + GO/NO-GO badge with reason.
-// Student view: own dashboard, Schoology avatar, class icons, badge hidden
-// unless settings.showGoNoGo. All verdicts are recomputed locally with
-// rules.js so a manual "mark as turned in" is reflected immediately.
+// Layout follows the "Schoology Dashboard Panel" design:
+//   header (title or "Hi, <name>", updated time, refresh, close in the panel)
+//   → child switcher (parents with 2+ children)
+//   → verdict card (GO/NO-GO pill when settings.showGoNoGo, reason, numbers)
+//   → Missing (with "Turned in") → Due soon (with a grey ✓ "Mark as done")
+//   → Classes (grade bars with the passing line) → Doing well / Not so good
+//   → Waiting on teacher (with Undo) → footer.
+// Every verdict is recomputed locally with rules.js, so marks show at once.
 //
-// mountDashboard(container, options) renders into any element (a popup
-// body or a shadow root) and re-renders whenever the stored dashboards,
-// settings or turned-in marks change, so every open popup and panel stays
-// in sync. It uses only APIs that work in content scripts as well as
-// extension pages: browser.storage, browser.runtime.sendMessage/getURL.
+// mountDashboard(container, options) renders into any element (a popup body
+// or a shadow root) and re-renders whenever the stored data changes, so every
+// open popup and panel stays in sync. It only uses APIs that also work in
+// content scripts: browser.storage and browser.runtime.sendMessage/getURL.
 
-import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData } from './rules.js';
 import {
   getSettings,
   getDashboards,
   setDashboards,
   getTurnedIn,
   setTurnedIn,
+  getMarkedDone,
+  setMarkedDone,
 } from './storage.js';
 import css from './dashboard.css';
 
 export const DASHBOARD_CSS = css;
 
 const DEMO_ANCHOR = new Date('2026-11-06T00:00:00');
+const STALE_MS = 24 * 60 * 60 * 1000;
 
-function escapeHtml(s) {
+export function escapeHtml(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -34,147 +40,227 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function classIcon(courseName, classIcons = {}) {
-  if (classIcons[courseName]) return classIcons[courseName];
-  const n = (courseName || '').toLowerCase();
-  if (n.includes('math') || n.includes('algebra') || n.includes('geometry')) return '🔢';
-  if (n.includes('english') || n.includes('literature') || n.includes('language')) return '📖';
-  if (n.includes('history') || n.includes('government') || n.includes('social')) return '🏛️';
-  if (n.includes('science') || n.includes('chemistry') || n.includes('biology') || n.includes('physics')) return '🔬';
-  if (n.includes('spanish') || n.includes('sign language') || n.includes('french')) return '💬';
-  if (n.includes('band') || n.includes('orchestra') || n.includes('music')) return '🎵';
-  if (n.includes('bible') || n.includes('theology')) return '✝️';
-  if (n.includes('physical') || n.includes('gym')) return '🏃';
-  if (n.includes('art')) return '🎨';
-  return '📘';
+// Line icons (stroke = currentColor), decorative: the buttons carry labels.
+const ICON = {
+  refresh: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>',
+  close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  checkSmall: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+};
+
+export function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  const first = parts[0][0] || '';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase();
 }
 
-function formatDue(a) {
-  if (a.dueText) return escapeHtml(a.dueText);
-  if (a.due) return escapeHtml(new Date(a.due).toLocaleDateString());
-  return '';
+function firstName(name) {
+  return String(name || '').trim().split(/\s+/)[0] || 'Student';
 }
 
-function gradeLabel(a, settings) {
-  const pct = assignmentPercent(a);
-  if (pct === null) return '';
-  if (settings.gradeDisplay === 'points' && a.maxPoints) {
-    return `${a.score}/${a.maxPoints}`;
+function shortDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function dueLabel(a) {
+  if (a.due) {
+    const s = shortDate(a.due);
+    if (s) return `Due ${s}`;
   }
+  return a.dueText ? `Due ${a.dueText}` : '';
+}
+
+function updatedLabel(iso) {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return '';
+  const time = when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const today = new Date();
+  if (when.toDateString() === today.toDateString()) return `Updated today, ${time}`;
+  return `Updated ${shortDate(iso)}, ${time}`;
+}
+
+function gradeText(a, settings) {
+  const pct = assignmentPercent(a);
+  if (pct === null) return a.status === 'graded' && a.letterGrade ? String(a.letterGrade) : '';
+  if (settings.gradeDisplay === 'points' && a.maxPoints) return `${a.score}/${a.maxPoints}`;
   return `${Math.round(pct)}%`;
 }
 
-function statusLine(a) {
-  if (a.status === 'missing') return 'Missing';
-  if (a.status === 'excused') return 'Excused';
-  if (a.status === 'incomplete') return 'Incomplete';
-  return '';
+function plural(n, one, many) {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
-function renderAssignment(a, settings, { showTurnedIn = false, uid = null } = {}) {
-  const pct = assignmentPercent(a);
-  const low = pct !== null && pct < settings.gradeThreshold;
-  const grade = settings._hideGrades ? '' : gradeLabel(a, settings);
-  const turnBtn = showTurnedIn
-    ? ` <button class="turned-in-btn" type="button" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" title="Mark as turned in">✓</button>`
-    : '';
-  return `<li><span class="title">${escapeHtml(a.title)}${turnBtn}</span>` +
-    `<span class="sub">${escapeHtml(a.courseName || '')}</span>` +
-    `<span class="sub">${formatDue(a)}</span>` +
-    (grade ? `<span class="sub${low ? ' low' : ''}">${escapeHtml(grade)}</span>` : '') +
-    (statusLine(a) ? `<span class="sub low">${escapeHtml(statusLine(a))}</span>` : '') +
-    `</li>`;
+// The one-line reason under the child's name.
+export function reasonLine(summary, settings) {
+  const parts = [];
+  parts.push(summary.missingCount ? `${summary.missingCount} missing` : 'Nothing missing');
+  if (summary.lowClasses.length === 1) {
+    parts.push(`${summary.lowClasses[0].name} below ${settings.gradeThreshold}%`);
+  } else if (summary.lowClasses.length > 1) {
+    parts.push(`${summary.lowClasses.length} classes below ${settings.gradeThreshold}%`);
+  } else if (summary.lowestClassGrade !== null) {
+    parts.push(`every class ${settings.gradeThreshold}% or above`);
+  }
+  return parts.join(' · ');
 }
 
-function renderSection(title, items, settings, opts = {}) {
-  if (!items || items.length === 0) return '';
-  return `<h3>${escapeHtml(title)}</h3><ul>${items.map((a) => renderAssignment(a, settings, opts)).join('')}</ul>`;
+// The student view's "what to do first" line.
+function studentNote(summary, settings) {
+  const todo = [];
+  if (summary.missingCount === 1) todo.push(`turn in ${summary.missingItems[0].title}`);
+  else if (summary.missingCount > 1) todo.push(`turn in ${summary.missingCount} missing assignments`);
+  for (const c of summary.lowClasses.slice(0, 2)) todo.push(`bring ${c.name} up past ${settings.gradeThreshold}%`);
+  if (!todo.length) return null;
+  const n = summary.missingCount + summary.lowClasses.length;
+  const text = todo.join(' and ');
+  return { title: `${plural(n, 'thing', 'things')} to finish first`, body: text.charAt(0).toUpperCase() + text.slice(1) + '.' };
 }
 
-function renderStudent(d, settings, turnedInForStudent, isParentView) {
-  const summary = summarizeStudent(d.courses || [], settings, turnedInForStudent);
-  const showBadge = settings.showGoNoGo;
+function section(title, inner) {
+  return `<section class="sec"><h2 class="sec-h">${escapeHtml(title)}</h2>${inner}</section>`;
+}
+
+function titleLink(a, cls = 'item-title') {
+  return a.url
+    ? `<a class="${cls}" href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>`
+    : `<span class="${cls}">${escapeHtml(a.title)}</span>`;
+}
+
+function renderMissing(summary, uid) {
+  if (!summary.missingItems.length) return section('Missing · 0', '<p class="empty">Nothing missing.</p>');
+  const rows = summary.missingItems.map((a) => {
+    const sub = [a.courseName, dueLabel(a)].filter(Boolean).map(escapeHtml).join(' · ');
+    const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
+    return `<div class="missing-card"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
+      `<button class="btn btn-sm" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}">Turned in</button></div>`;
+  });
+  return section(`Missing · ${summary.missingItems.length}`, rows.join(''));
+}
+
+function renderDue(summary, uid) {
+  const items = [
+    ...summary.dueToday.map((a) => ({ a, when: 'Today', cls: 'today' })),
+    ...summary.dueTomorrow.map((a) => ({ a, when: 'Tomorrow', cls: 'tomorrow' })),
+  ];
+  if (!items.length) return section('Due soon', '<p class="empty">Nothing due in the next two days.</p>');
+  const rows = items.map(({ a, when, cls }) =>
+    `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${escapeHtml(a.courseName || '')}</div></div>` +
+    `<span class="chip ${cls}">${when}</span>` +
+    `<button class="check-btn" type="button" data-act="done" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as done" title="Mark as done">${ICON.check}</button></div>`);
+  return section('Due soon', rows.join(''));
+}
+
+// Classes: only real classes (with grade data), minus any the family
+// unticked in the setup wizard (settings.realClasses[`${uid}:${id}`] false).
+export function visibleCourses(courses, settings, uid) {
+  const real = settings.realClasses || {};
+  return (courses || []).filter((c) => hasGradeData(c) && real[`${uid}:${c.id || c.name}`] !== false);
+}
+
+function renderClasses(courses, settings, showGrades, uid) {
+  const list = visibleCourses(courses, settings, uid);
+  if (!list.length) return '';
+  const t = settings.gradeThreshold;
+  const rows = list.map((c) => {
+    const pct = typeof c.grade === 'number' ? c.grade : null;
+    const low = pct !== null && pct < t;
+    const grade = showGrades && pct !== null ? `<span class="class-grade${low ? ' low' : ''}">${Math.round(pct * 10) / 10}%</span>` : '';
+    const bar = showGrades && pct !== null
+      ? `<div class="bar" aria-hidden="true"><div class="bar-fill${low ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
+      : '';
+    return `<div class="class"><div class="class-head"><span class="grow">${escapeHtml(c.name)}</span>${grade}</div>${bar}</div>`;
+  });
+  const legend = showGrades ? `<p class="legend">Line marks ${t}%, the passing grade.</p>` : '';
+  return section('Classes', rows.join('') + legend);
+}
+
+function renderGradedList(title, items, settings, showGrades) {
+  if (!items.length) return '';
+  const rows = items.map((a) => {
+    const g = showGrades ? gradeText(a, settings) : '';
+    const pct = assignmentPercent(a);
+    const low = pct !== null && pct < settings.gradeThreshold;
+    return `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${escapeHtml(a.courseName || '')}</div></div>` +
+      (g ? `<span class="row-grade${low ? ' low' : ''}">${escapeHtml(g)}</span>` : '') + '</div>';
+  });
+  return section(title, rows.join(''));
+}
+
+function renderWaiting(summary, uid) {
+  const n = summary.waiting.length;
+  if (!n) {
+    return section('Waiting on teacher · 0', '<p class="empty">Nothing waiting. Items marked turned in or done show here until the teacher grades them.</p>');
+  }
+  const rows = summary.waiting.map((a) => {
+    const how = a.waitingReason === 'done' ? 'Marked done' : 'Marked turned in';
+    return `<div class="waiting"><span class="waiting-icon">${ICON.checkSmall}</span>` +
+      `<div class="grow"><div class="waiting-title">${escapeHtml(a.title)}</div><div class="sub">${escapeHtml(a.courseName || '')} · ${how}</div></div>` +
+      `<button class="link-btn" type="button" data-act="undo" data-reason="${a.waitingReason}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Undo: ${escapeHtml(a.title)}">Undo</button></div>`;
+  });
+  return section(`Waiting on teacher · ${n}`, rows.join(''));
+}
+
+function verdictPill(verdict) {
+  const cls = verdict === 'GO' ? 'go' : verdict === 'NO-GO' ? 'nogo' : 'unknown';
+  return `<span class="pill ${cls}">${verdict}</span>`;
+}
+
+function avatarHtml(d) {
+  return d.pictureUrl
+    ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="">`
+    : `<span class="avatar" aria-hidden="true">${escapeHtml(initials(d.studentName))}</span>`;
+}
+
+// One child's (or the student's own) dashboard body.
+export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
+  const summary = summarizeStudent(d.courses || [], settings, marks.turnedIn, marks.done);
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
     || (settings.gradeVisibility === 'student' && !isParentView);
-  const effectiveSettings = { ...settings, _hideGrades: !showGrades };
-  // Awaiting teacher: Missing items manually marked turned in.
-  const turnedInIds = turnedInForStudent;
-  const awaiting = [];
-  for (const c of d.courses || []) {
-    for (const a of c.assignments || []) {
-      if (a.status === 'missing' && a.id !== null && turnedInIds.has(String(a.id))) {
-        awaiting.push({ ...a, courseId: c.id, courseName: c.name });
-      }
-    }
-  }
-  const verdict = summary.verdict;
-  const hasError = d.error === 'NO_CHILD_ATTRIBUTION';
-  const badge = hasError
-    ? `<span class="badge unknown">UNKNOWN</span><span class="badge-reason">Could not read this child’s grades</span>`
-    : showBadge
-      ? `<span class="badge ${verdict.verdict === 'GO' ? 'go' : 'nogo'}">${verdict.verdict}</span>` +
-        (verdict.reasons.length ? `<span class="badge-reason">${escapeHtml(verdict.reasons[0])}</span>` : '')
-      : '';
-  const avatar = d.pictureUrl
-    ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="">`
-    : `<span class="avatar">🧒</span>`;
-  const classRows = (d.courses || []).map((c) => {
-    const grade = showGrades && typeof c.grade === 'number'
-      ? `<span class="class-grade ${c.grade < settings.gradeThreshold ? 'low' : ''}">${c.grade}%</span>`
-      : '';
-    return `<li><span class="title">${classIcon(c.name, settings.classIcons)} ${escapeHtml(c.name)}</span>${grade}</li>`;
-  }).join('');
+  const failed = Boolean(d.error);
+  let html = '';
 
-  let html = `<section class="student"><div class="student-head">${avatar}<h2>${escapeHtml(d.studentName || 'Student')}</h2>${badge}</div>`;
+  if (failed) {
+    html += `<div class="card unknown"><div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
+      `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${verdictPill('UNKNOWN')}</div></div>`;
+  } else if (isParentView || settings.showGoNoGo) {
+    const good = summary.verdict.verdict === 'GO';
+    const pill = settings.showGoNoGo ? verdictPill(summary.verdict.verdict) : '';
+    const lowest = summary.lowestClassGrade;
+    const lowestBad = lowest !== null && lowest < settings.gradeThreshold;
+    const stats = [
+      { value: String(summary.missingCount), label: 'Missing', bad: summary.missingCount >= settings.missingThreshold },
+      { value: lowest !== null && showGrades ? `${Math.round(lowest)}%` : '—', label: 'Lowest class', bad: lowestBad && showGrades },
+      { value: String(summary.dueToday.length + summary.dueTomorrow.length), label: 'Due soon', bad: false },
+    ];
+    html += `<div class="card ${settings.showGoNoGo ? (good ? 'go' : 'nogo') : 'plain'}">` +
+      `<div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
+      `<div class="card-reason">${escapeHtml(reasonLine(summary, settings))}</div></div>${pill}</div>` +
+      `<div class="stats">${stats.map((s) => `<div class="stat"><div class="stat-v${s.bad ? ' low' : ''}">${escapeHtml(s.value)}</div><div class="stat-l">${s.label}</div></div>`).join('')}</div></div>`;
+  } else {
+    const note = studentNote(summary, settings);
+    html += note
+      ? `<div class="card nogo"><div class="card-name">${escapeHtml(note.title)}</div><div class="card-body">${escapeHtml(note.body)}</div></div>`
+      : '<div class="card go"><div class="card-name">All caught up</div><div class="card-body">Nothing missing and every class is passing.</div></div>';
+  }
+
   if (Array.isArray(d.parseWarnings) && d.parseWarnings.length) {
-    html += `<p class="warn">⚠ ${d.parseWarnings.map((w) => escapeHtml(w)).join('<br>⚠ ')}</p>`;
+    html += `<p class="warn">${d.parseWarnings.map(escapeHtml).join('<br>')}</p>`;
   }
-  if (classRows) html += `<h3>Classes</h3><ul>${classRows}</ul>`;
-  html += renderSection(`Missing · ${summary.missingCount}`, summary.missingItems, effectiveSettings, { showTurnedIn: true, uid: d.studentUid });
-  // Due soon with Due today / Due tomorrow badges.
-  let dueHtml = '';
-  if (summary.dueToday.length || summary.dueTomorrow.length) {
-    dueHtml += '<h3>Due soon</h3><ul>';
-    for (const a of summary.dueToday) {
-      dueHtml += renderAssignment(a, effectiveSettings).replace('</li>', ' <span class="chip today">Due today</span></li>');
-    }
-    for (const a of summary.dueTomorrow) {
-      dueHtml += renderAssignment(a, effectiveSettings).replace('</li>', ' <span class="chip tomorrow">Due tomorrow</span></li>');
-    }
-    dueHtml += '</ul>';
+  if (!failed) {
+    html += renderMissing(summary, uid);
+    html += renderDue(summary, uid);
+    html += renderClasses(d.courses, settings, showGrades, uid);
+    html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades);
+    if (!isParentView) html += renderGradedList('Doing well', summary.doingWell.slice(0, 5), settings, showGrades);
+    html += renderWaiting(summary, uid);
   }
-  html += dueHtml;
-  html += renderSection('Doing well', summary.doingWell, effectiveSettings);
-  html += renderSection('Not so good', summary.notSoGood, effectiveSettings);
-  if (awaiting.length) {
-    html += `<h3>Awaiting teacher</h3><ul>${awaiting.map((a) =>
-      `<li><span class="title">${escapeHtml(a.title)}</span><span class="sub">${escapeHtml(a.courseName || '')}</span>` +
-      `<button class="undo-btn" type="button" data-uid="${escapeHtml(d.studentUid)}" data-aid="${escapeHtml(a.id ?? '')}">Undo</button></li>`).join('')}</ul>`;
-  }
-  if (!hasError && !summary.missingItems.length && !summary.dueToday.length && !summary.dueTomorrow.length) {
-    html += `<p class="empty">Nothing missing, nothing due soon. 🎉</p>`;
-  }
-  html += '</section>';
-  return html;
+  return { html, summary };
 }
-
-const SHELL = `
-<header>
-  <h1>📚 Schoology Dashboard</h1>
-  <div data-ref="updated" class="muted"></div>
-  <div data-ref="stale" class="stale hidden">⚠️ Data is more than 24 hours old — press Refresh now.</div>
-</header>
-<main data-ref="app">
-  <p class="muted">Loading…</p>
-</main>
-<footer>
-  <button data-ref="refresh" type="button">↻ Refresh now</button>
-  <button data-ref="demo" type="button">Load demo data</button>
-  <button data-ref="options" type="button">⚙️ Settings</button>
-  <div data-ref="status" class="muted" role="status"></div>
-  <p class="fineprint">Grades are read from Schoology in this browser only and never leave this computer. Missing means explicitly marked Missing in Schoology — a 0 is never counted as Missing on its own.</p>
-</footer>`;
 
 // Demo data with due dates shifted so "today"/"tomorrow" line up with the
 // day the demo is loaded (demo anchor: 2026-11-06).
@@ -200,109 +286,145 @@ async function loadDemo(browser) {
   await setDashboards(dashboards);
 }
 
-// mountDashboard(container, { browser, showDemo = true, openOptions })
+async function loadState() {
+  const settings = { ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', ...((await getSettings()) || {}) };
+  return {
+    settings,
+    dashboards: (await getDashboards()) || {},
+    turnedIn: (await getTurnedIn()) || {},
+    done: (await getMarkedDone()) || {},
+  };
+}
+
+// Toggle one id in a { [uid]: [ids] } mark store.
+async function toggleMark(get, set, uid, aid, on) {
+  const all = (await get()) || {};
+  const ids = new Set((all[uid] || []).map(String));
+  if (on) ids.add(aid);
+  else ids.delete(aid);
+  all[uid] = [...ids];
+  await set(all);
+}
+
+// mountDashboard(container, { browser, showDemo = true, openOptions, onClose })
 //   container   — element (or shadow root) to render into; its contents are replaced.
 //   browser     — the webextension-polyfill namespace.
-//   showDemo    — show the "Load demo data" button.
-//   openOptions — how to open the settings page (content scripts cannot
-//                 call runtime.openOptionsPage, so the panel asks the
-//                 background service worker instead).
+//   showDemo    — show the "Load demo data" button (popup only).
+//   openOptions — how to open the settings page (content scripts cannot call
+//                 runtime.openOptionsPage, so the panel asks the background).
+//   onClose     — when given, the header gets a close button (the panel).
 // Returns { render, destroy }.
-export function mountDashboard(container, { browser, showDemo = true, openOptions } = {}) {
+export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose } = {}) {
   const root = container.ownerDocument.createElement('div');
   root.className = 'sgd';
-  root.innerHTML = SHELL;
   container.replaceChildren(root);
-  const ref = (name) => root.querySelector(`[data-ref="${name}"]`);
-  ref('demo').classList.toggle('hidden', !showDemo);
+  let pickedUid = null;
+  let statusText = '';
 
   async function render() {
-    const app = ref('app');
-    const settings = { ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', ...((await getSettings()) || {}) };
-    const dashboards = (await getDashboards()) || {};
-    const turnedIn = (await getTurnedIn()) || {};
+    const { settings, dashboards, turnedIn, done } = await loadState();
     const uids = Object.keys(dashboards);
+    const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
+    if (!uids.includes(pickedUid)) pickedUid = uids[0] || null;
+    const current = pickedUid ? dashboards[pickedUid] : null;
 
-    // updatedAt + stale warning (>24h).
     let latest = null;
     for (const d of Object.values(dashboards)) {
       if (d.updatedAt && (!latest || d.updatedAt > latest)) latest = d.updatedAt;
     }
-    if (latest) {
-      const when = new Date(latest);
-      ref('updated').textContent = `Updated ${when.toLocaleString()}`;
-      ref('stale').classList.toggle('hidden', Date.now() - when.getTime() <= 24 * 60 * 60 * 1000);
-    } else {
-      ref('updated').textContent = '';
-      ref('stale').classList.add('hidden');
-    }
+    const stale = latest && Date.now() - new Date(latest).getTime() > STALE_MS;
+    const heading = isParentView || !current
+      ? '<h1 class="title">Homework Dashboard</h1>'
+      : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
+    const headAvatar = !isParentView && current ? avatarHtml(current) : '';
 
-    if (uids.length === 0) {
-      app.innerHTML = `<p class="empty">No Schoology data yet. Open Schoology in this browser and visit a Grades page, press Refresh now${showDemo ? ', or load the demo data to see how the dashboard looks' : ''}.</p>`;
-      return;
-    }
-    const isParentView = uids.length > 1;
-    app.innerHTML = uids
-      .map((uid) => {
+    let header = `<header class="head"><div class="head-row">${headAvatar}<div class="grow">${heading}` +
+      `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
+      `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>` +
+      (onClose ? `<button class="icon-btn ghost" type="button" data-act="close" aria-label="Close dashboard panel" title="Close">${ICON.close}</button>` : '') +
+      '</div>';
+
+    if (isParentView && uids.length > 1) {
+      const tabs = uids.map((uid) => {
         const d = dashboards[uid];
-        const turnedInForStudent = new Set((turnedIn[uid] || []).map(String));
-        return renderStudent({ ...d, studentUid: uid }, settings, turnedInForStudent, isParentView);
-      })
-      .join('');
+        const s = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
+        const v = d.error ? 'unknown' : s.verdict.verdict === 'GO' ? 'go' : 'nogo';
+        const dot = settings.showGoNoGo ? `<span class="dot ${v}" aria-hidden="true"></span>` : '';
+        const sel = uid === pickedUid;
+        return `<button class="tab${sel ? ' sel' : ''}" type="button" role="tab" aria-selected="${sel}" data-act="pick" data-uid="${escapeHtml(uid)}">${dot}${escapeHtml(firstName(d.studentName))}</button>`;
+      });
+      header += `<div class="tabs" role="tablist" aria-label="Choose a child" style="grid-template-columns:repeat(${uids.length}, minmax(0, 1fr))">${tabs.join('')}</div>`;
+    }
+    header += '</header>';
+
+    let body;
+    if (!current) {
+      body = `<p class="empty">No Schoology data yet. Sign in to Schoology in this browser and press Refresh${showDemo ? ', or load the demo data to see how the dashboard looks' : ''}.</p>`;
+    } else {
+      const marks = { turnedIn: turnedIn[pickedUid], done: done[pickedUid] };
+      body = renderStudentBody(current, pickedUid, settings, marks, { isParentView }).html;
+    }
+    if (stale) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
+
+    const footer = '<footer class="foot">' +
+      `<div class="status" role="status">${escapeHtml(statusText)}</div>` +
+      '<div class="foot-row"><p class="fineprint grow">Read from Schoology in this browser only. Missing means the teacher marked it Missing.</p>' +
+      (showDemo ? '<button class="btn btn-sm" type="button" data-act="demo">Demo data</button>' : '') +
+      '<button class="btn btn-sm" type="button" data-act="options">Settings</button></div></footer>';
+
+    root.innerHTML = header + `<main class="body">${body}</main>` + footer;
   }
 
-  // "Mark as turned in" (✓), Undo and the footer buttons, via delegation.
+  function setStatus(text) {
+    statusText = text;
+    const el = root.querySelector('.status');
+    if (el) el.textContent = text;
+  }
+
   async function onClick(e) {
-    const status = ref('status');
-    const turnBtn = e.target.closest('.turned-in-btn');
-    const undoBtn = e.target.closest('.undo-btn');
-    if (turnBtn || undoBtn) {
-      const btn = turnBtn || undoBtn;
-      const { uid, aid } = btn.dataset;
-      if (!uid || !aid) return;
-      const turnedIn = (await getTurnedIn()) || {};
-      const list = new Set((turnedIn[uid] || []).map(String));
-      if (turnBtn) list.add(aid);
-      else list.delete(aid);
-      turnedIn[uid] = [...list];
-      await setTurnedIn(turnedIn);
+    const btn = e.target.closest('[data-act]');
+    if (!btn || !root.contains(btn)) return;
+    const { act, uid, aid } = btn.dataset;
+    if (act === 'pick') {
+      pickedUid = uid;
       await render();
-      return;
-    }
-    const button = e.target.closest('[data-ref]');
-    const action = button && button.dataset.ref;
-    if (action === 'refresh') {
-      status.textContent = 'Refreshing…';
+    } else if (act === 'turned-in' && uid && aid) {
+      await toggleMark(getTurnedIn, setTurnedIn, uid, aid, true);
+    } else if (act === 'done' && uid && aid) {
+      await toggleMark(getMarkedDone, setMarkedDone, uid, aid, true);
+    } else if (act === 'undo' && uid && aid) {
+      if (btn.dataset.reason === 'done') await toggleMark(getMarkedDone, setMarkedDone, uid, aid, false);
+      else await toggleMark(getTurnedIn, setTurnedIn, uid, aid, false);
+    } else if (act === 'refresh') {
+      setStatus('Refreshing…');
+      btn.disabled = true;
       try {
         const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
-        if (result && result.ok) {
-          status.textContent = 'Refreshed.';
-        } else if (result && result.fallback === 'hidden-tab') {
-          status.textContent = 'Could not fetch in the background (not logged in, or Schoology changed its page). Visit a Schoology Grades page and the dashboard will update from there.';
-        } else {
-          status.textContent = `Refresh failed: ${result && result.error ? result.error : 'unknown error'}`;
-        }
+        if (result && result.ok) setStatus('');
+        else if (result && result.fallback === 'hidden-tab') setStatus('Could not fetch in the background (signed out, or Schoology changed its page). Open a Schoology Grades page and the dashboard will update from there.');
+        else setStatus(`Refresh failed: ${result && result.error ? result.error : 'unknown error'}`);
       } catch (err) {
-        status.textContent = `Refresh failed: ${err.message || err}`;
+        setStatus(`Refresh failed: ${err.message || err}`);
       }
       await render();
-    } else if (action === 'demo') {
+    } else if (act === 'demo') {
       try {
         await loadDemo(browser);
-        status.textContent = 'Demo data loaded.';
-        await render();
+        setStatus('Demo data loaded.');
       } catch (err) {
-        status.textContent = `Could not load demo data: ${err.message || err}`;
+        setStatus(`Could not load demo data: ${err.message || err}`);
       }
-    } else if (action === 'options') {
+    } else if (act === 'options') {
       if (openOptions) openOptions();
       else browser.runtime.openOptionsPage();
+    } else if (act === 'close' && onClose) {
+      onClose();
     }
+    // Mark changes re-render through storage.onChanged below.
   }
   root.addEventListener('click', onClick);
 
-  // Re-render when another popup, panel or the background changes the data.
-  const WATCHED = ['dashboards', 'settings', 'turnedIn'];
+  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone'];
   function onStorageChanged(changes, area) {
     if (area === 'local' && WATCHED.some((k) => k in changes)) render();
   }
