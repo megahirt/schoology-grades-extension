@@ -3,6 +3,7 @@ dist/
 *.zip
 .DS_Store
 test-results/
+.chromium-profile/
 
 # Private planning notes (contain family details) — never commit
 docs/schoology-extension-plan.md
