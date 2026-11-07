@@ -129,3 +129,14 @@ data source with one click:
 
 Production builds (`npm run build`) never show the switch.
 
+## Dev Chromium window (hands-on testing without "Load unpacked")
+
+`npm run chromium` builds the dev extension and opens a visible Chromium
+window with it already loaded, on real Schoology. It has its own profile in
+`.chromium-profile/` (gitignored): sign in to Schoology there once and it
+stays signed in; your everyday Chrome is not touched. Rerun the command after
+a code change (`-- --no-build` skips the rebuild). Chromium's DevTools
+protocol listens on `127.0.0.1:9333` (this machine only), so tools such as
+Playwright's `chromium.connectOverCDP('http://127.0.0.1:9333')` can attach to
+the same window. Safari still needs its own manual check.
+

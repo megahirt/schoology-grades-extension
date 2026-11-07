@@ -20,7 +20,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "screenshots": "node test/screenshots/capture.mjs"
+    "screenshots": "node test/screenshots/capture.mjs",
+    "chromium": "node scripts/open-chromium.mjs"
   },
   "type": "module",
   "version": "0.1.0"
