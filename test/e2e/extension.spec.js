@@ -217,6 +217,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const lit = popup.locator('.class', { hasText: 'American Literature' });
       await expect(lit.locator('.class-grade')).toHaveText('—');
       await expect(lit.locator('.class-overall')).toHaveText('82%');
+      await expect(lit.locator('.bar-fill')).toHaveAttribute('style', /width:\s*82%/); // bar follows the semester grade
       // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).
       const journal = popup.locator('.waiting', { hasText: 'Poetry Journal' });
       await expect(journal).toContainText('Submitted, not graded yet');
