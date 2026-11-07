@@ -115,3 +115,17 @@ open panel, a NO-GO child, Waiting on teacher, the closed tab, the student
 view and the iPhone bottom sheet to `test/screenshots/out/` (gitignored).
 Compare them with the "Schoology Dashboard Panel" design.
 
+## Dev build: real Schoology or the mock server
+
+`npm run build:dev` builds "Schoology Dashboard (Dev)". It uses real
+Schoology (`https://app.schoology.com`) by default, like the normal build.
+A purple **DEV** row in the dashboard footer (popup and panel) switches the
+data source with one click:
+
+- **Use mock server** points it at `http://localhost:8123`, clears the stored
+  dashboards and refreshes. Start the server first (`npm run mock-server`)
+  and sign in at `http://localhost:8123/login?as=parent` (or `?as=student`).
+- **Use real Schoology** switches back the same way.
+
+Production builds (`npm run build`) never show the switch.
+

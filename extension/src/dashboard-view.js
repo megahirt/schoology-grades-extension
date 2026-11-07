@@ -17,6 +17,7 @@
 import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData } from './rules.js';
 import {
   getSettings,
+  setSettings,
   getDashboards,
   setDashboards,
   getTurnedIn,
@@ -29,6 +30,13 @@ import css from './dashboard.css';
 export const DASHBOARD_CSS = css;
 
 const DEMO_ANCHOR = new Date('2026-11-06T00:00:00');
+
+// Dev builds only (scripts/build.mjs --dev defines __DEV__): a footer switch
+// between real Schoology (the default) and the local mock server
+// (`npm run mock-server`). Production builds never show it.
+const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
+export const REAL_SCHOOLOGY = 'https://app.schoology.com';
+export const MOCK_SCHOOLOGY = 'http://localhost:8123';
 const STALE_MS = 24 * 60 * 60 * 1000;
 
 export function escapeHtml(s) {
@@ -211,7 +219,7 @@ function verdictPill(verdict) {
 
 function avatarHtml(d) {
   return d.pictureUrl
-    ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="">`
+    ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="" data-initials="${escapeHtml(initials(d.studentName))}">`
     : `<span class="avatar" aria-hidden="true">${escapeHtml(initials(d.studentName))}</span>`;
 }
 
@@ -366,13 +374,29 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     }
     if (stale) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
 
-    const footer = '<footer class="foot">' +
+    const usingMock = settings.schoologyBase === MOCK_SCHOOLOGY;
+    const devSwitch = IS_DEV
+      ? '<div class="dev-row"><span class="dev-tag">DEV</span><span class="grow">Data: ' +
+        `<b>${usingMock ? 'Mock server (localhost:8123)' : 'Real Schoology'}</b></span>` +
+        `<button class="btn btn-sm" type="button" data-act="switch-source">${usingMock ? 'Use real Schoology' : 'Use mock server'}</button></div>`
+      : '';
+    const footer = '<footer class="foot">' + devSwitch +
       `<div class="status" role="status">${escapeHtml(statusText)}</div>` +
       '<div class="foot-row"><p class="fineprint grow">Read from Schoology in this browser only. Missing means the teacher marked it Missing.</p>' +
       (showDemo ? '<button class="btn btn-sm" type="button" data-act="demo">Demo data</button>' : '') +
       '<button class="btn btn-sm" type="button" data-act="options">Settings</button></div></footer>';
 
     root.innerHTML = header + `<main class="body">${body}</main>` + footer;
+    // A profile picture that fails to load falls back to the initials.
+    for (const img of root.querySelectorAll('img.avatar')) {
+      img.addEventListener('error', () => {
+        const span = root.ownerDocument.createElement('span');
+        span.className = 'avatar';
+        span.setAttribute('aria-hidden', 'true');
+        span.textContent = img.dataset.initials || '?';
+        img.replaceWith(span);
+      }, { once: true });
+    }
   }
 
   function setStatus(text) {
@@ -417,6 +441,20 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     } else if (act === 'options') {
       if (openOptions) openOptions();
       else browser.runtime.openOptionsPage();
+    } else if (act === 'switch-source' && IS_DEV) {
+      // Swap the data source, drop the other source's data, then refresh.
+      const settings = (await getSettings()) || {};
+      const toMock = settings.schoologyBase !== MOCK_SCHOOLOGY;
+      await setSettings({ ...settings, schoologyBase: toMock ? MOCK_SCHOOLOGY : REAL_SCHOOLOGY });
+      await setDashboards({});
+      setStatus(toMock ? 'Switched to the mock server. Refreshing…' : 'Switched to real Schoology. Refreshing…');
+      try {
+        const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
+        setStatus(result && result.ok ? '' : `Refresh failed: ${(result && result.error) || 'sign in to the new source, then press Refresh'}`);
+      } catch (err) {
+        setStatus(`Refresh failed: ${err.message || err}`);
+      }
+      await render();
     } else if (act === 'close' && onClose) {
       onClose();
     }
