@@ -143,15 +143,23 @@ async function handleGradesScraped(message, sender) {
   if (!expected && account && account.type === 'parent') return { ok: true, ignored: 'parent-account' };
   const settings = await loadSettings();
   const turnedIn = (await getTurnedIn()) || {};
-  const summary = summarizeStudent(courses, settings, turnedIn.self);
   const uid = 'self';
+  // A page scrape may cover only ONE course (a course Grades page). Merge it
+  // into the stored dashboard by course id instead of replacing it, so the
+  // verdict is never computed from a partial course list.
+  const existing = ((await getDashboards()) || {})[uid];
+  const byId = new Map((existing && Array.isArray(existing.courses) ? existing.courses : []).map((c) => [String(c.id), c]));
+  for (const c of courses) byId.set(String(c.id), c);
+  const merged = [...byId.values()];
+  const summary = summarizeStudent(merged, settings, turnedIn.self);
   await writeDashboard(uid, {
+    ...(existing || {}),
     studentUid: uid,
-    studentName: 'Student',
-    pictureUrl: null,
-    courses,
+    studentName: (existing && existing.studentName) || 'Student',
+    pictureUrl: (existing && existing.pictureUrl) || null,
+    courses: merged,
     summary,
-    source: 'hidden-tab-scrape',
+    source: existing ? existing.source : 'page-scrape',
   });
   if (pendingScrape && (tabId === null || pendingScrape.tabId === tabId)) {
     pendingScrape.finish({ ok: true, via: 'hidden-tab', courses: courses.length });
@@ -174,6 +182,14 @@ browser.runtime.onStartup.addListener(async () => {
 browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== ALARM_NAME) return;
   try {
+    // A parent refresh switches Schoology's "viewing as" child. Don't do
+    // that underneath someone who is using Schoology right now; the next
+    // alarm (or the popup's Refresh button) catches up.
+    const account = await getAccount();
+    if (account && account.type === 'parent') {
+      const active = await browser.tabs.query({ active: true, url: 'https://*.schoology.com/*' });
+      if (active.length > 0) return;
+    }
     await refreshGrades();
   } catch (e) {
     // Alarm refresh is best-effort; the popup shows the stale warning.

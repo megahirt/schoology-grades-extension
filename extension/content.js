@@ -42,8 +42,14 @@ function init() {
   reportUrl();
   if (sendScrape()) return;
   // Grades pages load data asynchronously: observe until the table appears.
+  // Debounced: re-parse at most every 500 ms, not on every mutation.
+  let timer = null;
   const observer = new MutationObserver(() => {
-    if (sendScrape()) observer.disconnect();
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = null;
+      if (sendScrape()) observer.disconnect();
+    }, 500);
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
   // Give up observing after 30s so we never leak an observer forever.

@@ -130,9 +130,13 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
       if (info.children.length > 0) {
         return { type: 'parent', children: info.children, studentName: null, evidence: { ...evidence, viewChild: info.viewChild } };
       }
+      // A server error says nothing about the account type: don't fall
+      // through and mistake a parent for a student.
+      if (info.status >= 500) return { type: 'unknown', children: [], studentName: null, evidence };
       evidence.parentInfoChildren = 0;
     } catch (e) {
       evidence.parentInfoError = errMsg(e);
+      return { type: 'unknown', children: [], studentName: null, evidence };
     }
     try {
       const home = await fetchPage(`${base}/home`);
@@ -259,7 +263,10 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
       try {
         await doFetch(`${base}/parent/home?child_uid=${encodeURIComponent(child.uid)}`, { headers: { Accept: 'text/html' } });
         const before = await getParentInfo();
-        if (before.viewChild !== child.uid) {
+        if (before.loggedOut) {
+          error = 'LOGGED_OUT';
+          parseWarnings.push('Logged out of Schoology — sign in again, then Refresh.');
+        } else if (before.viewChild !== child.uid) {
           error = 'NO_CHILD_ATTRIBUTION';
           parseWarnings.push(`Schoology did not switch to ${child.name} — verdict withheld rather than guessed.`);
         } else {

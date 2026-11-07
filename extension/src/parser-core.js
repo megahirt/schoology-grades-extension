@@ -136,7 +136,7 @@ function submissionOf(gradeCell) {
   const note = hiddenText(wrapper) || null;
   let submitted = null;
   if (note) {
-    if (/has made a submission|completed assignment submission|posted in the discussion|has submitted/i.test(note)) submitted = true;
+    if (/has made a submission|completed assignment submission|completed the test|posted in the discussion|has submitted/i.test(note)) submitted = true;
   }
   const pendingGrade = !!(wrapper && wrapper.querySelector('.grade-pending-icon'));
   return { submitted, submissionNote: note, gradePending: pendingGrade };
