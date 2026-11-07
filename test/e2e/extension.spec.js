@@ -224,7 +224,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
 
       // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
       await popup.getByRole('button', { name: 'Turned in' }).click();
-      await expect(popup.getByText('Missing · 0')).toBeVisible();
+      // With nothing left, the Missing section disappears entirely.
+      await expect(popup.locator('.sec-h', { hasText: 'Missing' })).toHaveCount(0);
       await expect(popup.getByText('Waiting on teacher · 2')).toBeVisible();
       await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toContainText('Marked turned in');
       await expect(popup.getByText('Marking something done or turned in is for your own use — nobody is notified.')).toBeVisible();
@@ -232,6 +233,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Waiting on teacher · 1')).toBeVisible();
       await expect(popup.getByText(/nobody is notified/)).toHaveCount(0);
+      // Each section heading carries its emoji.
+      await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('.sec-emoji')).toHaveText('❗');
+      await expect(popup.locator('.sec-h', { hasText: 'Classes' }).locator('.sec-emoji')).toHaveText('🏛️');
       await popup.close();
     } finally {
       await context.close();

@@ -178,8 +178,22 @@ function studentNote(summary, settings, period = null) {
   return { title: `${plural(n, 'thing', 'things')} to finish first`, body: text.charAt(0).toUpperCase() + text.slice(1) + '.' };
 }
 
-function section(title, inner) {
-  return `<section class="sec"><h2 class="sec-h">${escapeHtml(title)}</h2>${inner}</section>`;
+// Section headings carry an emoji; sections with no items are left out.
+export const SECTION_EMOJI = {
+  missing: '❗',
+  due: '⌛',
+  classes: '🏛️',
+  notSoGood: '📉',
+  doingWell: '🎉',
+  waiting: '📬',
+};
+
+function sectionHeading(title, emoji, extraClass = '') {
+  return `<h2 class="sec-h${extraClass}"><span class="sec-emoji" aria-hidden="true">${emoji}</span>${escapeHtml(title)}</h2>`;
+}
+
+function section(title, inner, emoji) {
+  return `<section class="sec">${sectionHeading(title, emoji)}${inner}</section>`;
 }
 
 function titleLink(a, cls = 'item-title') {
@@ -189,14 +203,14 @@ function titleLink(a, cls = 'item-title') {
 }
 
 function renderMissing(summary, uid) {
-  if (!summary.missingItems.length) return section('Missing · 0', '<p class="empty">Nothing missing.</p>');
+  if (!summary.missingItems.length) return '';
   const rows = summary.missingItems.map((a) => {
     const sub = [a.courseName, dueLabel(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
     return `<div class="missing-card"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
       `<button class="btn btn-sm" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}">Turned in</button></div>`;
   });
-  return section(`Missing · ${summary.missingItems.length}`, rows.join(''));
+  return section(`Missing · ${summary.missingItems.length}`, rows.join(''), SECTION_EMOJI.missing);
 }
 
 function renderDue(summary, uid) {
@@ -204,12 +218,12 @@ function renderDue(summary, uid) {
     ...summary.dueToday.map((a) => ({ a, when: 'Today', cls: 'today' })),
     ...summary.dueTomorrow.map((a) => ({ a, when: 'Tomorrow', cls: 'tomorrow' })),
   ];
-  if (!items.length) return section('Due soon', '<p class="empty">Nothing due in the next two days.</p>');
+  if (!items.length) return '';
   const rows = items.map(({ a, when, cls }) =>
     `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${escapeHtml(a.courseName || '')}</div></div>` +
     `<span class="chip ${cls}">${when}</span>` +
     `<button class="check-btn" type="button" data-act="done" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as done" title="Mark as done">${ICON.check}</button></div>`);
-  return section('Due soon', rows.join(''));
+  return section('Due soon', rows.join(''), SECTION_EMOJI.due);
 }
 
 // Classes: only real classes (with grade data), minus any the family
@@ -227,9 +241,9 @@ function renderClasses(courses, settings, showGrades, uid) {
   const qHead = cols.quarter || 'Grade';
   const oHead = cols.overall;
   const head = showGrades
-    ? `<div class="class-cols"><h2 class="sec-h grow">Classes</h2><span class="col-h col-q">${escapeHtml(qHead)}</span>` +
+    ? `<div class="class-cols">${sectionHeading('Classes', SECTION_EMOJI.classes, ' grow')}<span class="col-h col-q">${escapeHtml(qHead)}</span>` +
       (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '') + '</div>'
-    : '<h2 class="sec-h">Classes</h2>';
+    : sectionHeading('Classes', SECTION_EMOJI.classes);
   const rows = list.map((c) => {
     const grade = typeof c.grade === 'number' ? c.grade : null;
     // With quarters, the first column is the quarter grade, or a dash while
@@ -253,7 +267,7 @@ function renderClasses(courses, settings, showGrades, uid) {
   return `<section class="sec">${head}${rows.join('')}</section>`;
 }
 
-function renderGradedList(title, items, settings, showGrades) {
+function renderGradedList(title, items, settings, showGrades, emoji) {
   if (!items.length) return '';
   const rows = items.map((a) => {
     const g = showGrades ? gradeText(a, settings) : '';
@@ -262,7 +276,7 @@ function renderGradedList(title, items, settings, showGrades) {
     return `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${escapeHtml(a.courseName || '')}</div></div>` +
       (g ? `<span class="row-grade${low ? ' low' : ''}">${escapeHtml(g)}</span>` : '') + '</div>';
   });
-  return section(title, rows.join(''));
+  return section(title, rows.join(''), emoji);
 }
 
 const WAITING_HOW = {
@@ -274,7 +288,7 @@ const WAITING_HOW = {
 function renderWaiting(summary, uid) {
   const n = summary.waiting.length;
   if (!n) {
-    return section('Waiting on teacher · 0', '<p class="empty">Nothing waiting. Submitted work, and anything you mark turned in or done, shows here until the teacher grades it.</p>');
+    return '';
   }
   // Schoology-reported submissions first, then the family's own marks.
   const order = { submitted: 0, turnedIn: 1, done: 2 };
@@ -290,7 +304,7 @@ function renderWaiting(summary, uid) {
   });
   const manual = items.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
   const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
-  return section(`Waiting on teacher · ${n}`, rows.join('') + disclaimer);
+  return section(`Waiting on teacher · ${n}`, rows.join('') + disclaimer, SECTION_EMOJI.waiting);
 }
 
 function verdictPill(verdict) {
@@ -350,8 +364,8 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
     html += renderMissing(summary, uid);
     html += renderDue(summary, uid);
     html += renderClasses(d.courses, settings, showGrades, uid);
-    html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades);
-    html += renderGradedList('Doing well', summary.doingWell, settings, showGrades);
+    html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
+    html += renderGradedList('Doing well', summary.doingWell, settings, showGrades, SECTION_EMOJI.doingWell);
     html += renderWaiting(summary, uid);
   }
   return { html, summary };
