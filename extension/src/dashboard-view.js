@@ -245,8 +245,12 @@ function renderClasses(courses, settings, showGrades, uid) {
       ? `<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
-    const bar = showGrades && first !== null
-      ? `<div class="bar" aria-hidden="true"><div class="bar-fill${firstLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, first))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
+    // The bar shows the grade GO/NO-GO uses: the quarter, or the semester
+    // grade while the quarter has none.
+    const barGrade = first !== null ? first : grade;
+    const barLow = barGrade !== null && barGrade < t;
+    const bar = showGrades && barGrade !== null
+      ? `<div class="bar" aria-hidden="true"><div class="bar-fill${barLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, barGrade))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
     const name = c.url
       ? `<a class="class-name" href="${escapeHtml(c.url)}" title="Open ${escapeHtml(c.name)} grades in Schoology">${escapeHtml(c.name)}</a>`
