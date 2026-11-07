@@ -8,6 +8,19 @@ Related docs: [`safari.md`](safari.md) (Safari packaging, review, the
 containing app) and [`chrome-web-store-setup.md`](chrome-web-store-setup.md)
 (listing assets and privacy tab). This plan supersedes their CI sections.
 
+### Owner decisions (7 Nov 2026)
+
+| Decision | Choice |
+|---|---|
+| Bundle ID (permanent) | `net.hirtfamily.sabaisnoopy.schoology-dashboard`; extension target `net.hirtfamily.sabaisnoopy.schoology-dashboard.Extension` |
+| Product name | "Grades Dashboard for Schoology students and parents". Per-store fit in §1a |
+| Safari platforms | **iOS and macOS** from the start, one app record |
+| Chrome visibility | **Unlisted** |
+| Going live | **Every store waits for the owner's click.** CI never makes an update live by itself (§5a) |
+| Edge and Firefox | **Both in scope** |
+
+Still open: see §7.
+
 > Store rules, API endpoints and Apple tooling change often. Each "verify"
 > below marks something to re-check against the live docs at
 > implementation time.
@@ -105,7 +118,7 @@ push to main ──▶ release.yml: "is manifest version untagged?"
   - `schoology-dashboard-<v>-chrome.zip`: prod `dist/` for Chrome and Edge,
     also good for Safari "Add Temporary Extension" and Apple's web
     packager.
-  - `schoology-dashboard-<v>-firefox.zip` (if Phase 4 happens).
+  - `schoology-dashboard-<v>-firefox.zip` (Firefox build; plus the signed `.xpi` if AMO unlisted, from Phase 4).
   - `SHA256SUMS.txt`.
   - No signed Apple binaries; those go to App Store Connect only.
 - Releases stay public. The repo is public anyway, and the ZIP is
@@ -115,6 +128,23 @@ The alternative was **release-please** (bot-maintained release PR from
 Conventional Commits). It's rejected for now: more machinery than a
 one-maintainer family project needs, and it forces a commit-message
 convention. Revisit if the bump script becomes a chore.
+
+### 1a. Product name per store
+
+The chosen name is **51 characters**, which is longer than some stores
+allow:
+
+| Where | Limit | What goes there |
+|---|---|---|
+| Apple App Store name | **30 chars (hard limit)** | **"Grades Dashboard for Schoology"** (exactly 30) |
+| Apple subtitle | 30 chars | "For students and parents" (24) |
+| Safari containing app / extension display name | Short is better (Home Screen, Safari toolbar) | "Grades Dashboard" |
+| `manifest.json` `name` (Chrome, Edge, Firefox) | Chrome allows 75 | Full name. Check the Edge and AMO limits at listing time; AMO may cap names at 50, so fall back to the 30-char form there |
+| `manifest.json` `action.default_title` and short display | — | "Grades Dashboard" (and add `short_name`) |
+
+Changing `manifest.json` `name` from today's "Schoology Dashboard" is a
+small code change for Phase 1. The dev build's "(Dev)" suffix keeps
+working.
 
 ---
 
@@ -147,9 +177,9 @@ convention. Revisit if the bump script becomes a chore.
 - `POST https://chromewebstore.googleapis.com/upload/v2/publishers/$PUB/items/$ID:upload`
   with the ZIP.
 - `POST .../v2/publishers/$PUB/items/$ID:publish`, using
-  `publishType: STAGED_PUBLISH` at first: once review passes the item
-  waits for a click in the dashboard, so the owner controls go-live.
-  Switch to the default (auto-publish after review) once trusted.
+  `publishType: STAGED_PUBLISH`, always (owner decision): once review
+  passes, the item waits for the owner's **Publish** click in the
+  dashboard.
 - Implement as a small `scripts/publish-chrome.mjs` (fetch + JSON), not a
   third-party action, so we depend only on Google's documented API. If a
   maintained action or CLI with **confirmed v2 + service-account support**
@@ -212,21 +242,21 @@ convention. Revisit if the bump script becomes a chore.
      with Xcode makes it much faster.
 3. Keep **C** as the fallback if GitHub-hosted signing proves fiddly.
 
-### Bundle ID: owner decides, and it's permanent
+### Bundle ID: decided
 
 Bundle IDs can never be changed or reused after the first upload.
-Proposal:
 
-- App: `io.github.sabaisnoopy.schoology-dashboard`. It's tied to the
-  GitHub account that owns the repo, so no domain is needed.
-  Alternatives: a domain the owner controls (`com.<owner-domain>.schoology-dashboard`),
-  or a family name.
-- Extension target: `<app id>.Extension` (packager default).
-- iOS and macOS use the same IDs (universal purchase).
-- The App Store **name** is separate and changeable; "Schoology" is a
-  trademark of PowerSchool, so review may push back on it as the leading
-  word. Something like "Homework Dashboard for Schoology" is safer.
-  Verify against the guidelines.
+- App: **`net.hirtfamily.sabaisnoopy.schoology-dashboard`**.
+- Extension target: **`net.hirtfamily.sabaisnoopy.schoology-dashboard.Extension`**
+  (packager default suffix).
+- iOS and macOS share both IDs (universal purchase, one app record).
+- Replace the `com.example.schoology-dashboard` placeholder in
+  `build-safari.mjs` and `safari.md` when the Xcode project is generated
+  (Phase 3b). Before that, register the ID in the developer portal
+  (Identifiers) as soon as the owner enrols, so it's reserved.
+- App Store name: "Grades Dashboard for Schoology" (see §1a). The
+  descriptive "for Schoology" form, not "Schoology …", is what keeps the
+  PowerSchool trademark from being a review problem.
 
 ### TestFlight as the Safari dry run
 
@@ -239,10 +269,10 @@ Proposal:
 
 ---
 
-## 4. Optional: Firefox (AMO) and Edge
+## 4. Firefox (AMO) and Edge (in scope)
 
-Both are free, and both API flows are simple. They are **not** zero-code,
-though.
+Both are free, and both API flows are simple. Firefox needs its own build
+target.
 
 | | Firefox AMO | Edge Add-ons |
 |---|---|---|
@@ -252,9 +282,25 @@ though.
 | Review | Automated plus possible human review; source upload needed only if code is minified/bundled in ways reviewers can't read (esbuild bundle → **probably yes**, upload the repo ZIP) | Hours to ~7 days |
 | Effort | ~half a day + ongoing manual testing | ~1–2 hours |
 
-**Recommendation:** add **Edge** whenever Chrome automation lands, since it
-is almost free. Leave **Firefox** out unless a family actually asks for
-it; it's a real second build target.
+**Plan:** Edge ships with Chrome (Phase 2). Firefox follows as Phase 4,
+since it needs the `--target=firefox` build and manual testing in
+Firefox (Playwright's e2e stays Chromium-only).
+
+**Keeping the owner's click on each store:**
+
+- **Edge:** CI uploads the new package as a draft (API "upload" only).
+  The owner clicks **Publish** in Partner Center, which sends it to
+  certification, and it goes live when certification passes. Visibility:
+  **Hidden** (Edge's equivalent of Chrome Unlisted, link-only; verify the
+  option name in Partner Center).
+- **Firefox:** AMO has no "wait after review" state; a submission goes
+  live once approved. So the click is the GitHub approval gate (§5a) on
+  the Firefox job, before `web-ext sign` submits. Visibility to match
+  Chrome Unlisted: **AMO unlisted**. AMO signs the `.xpi` without listing
+  it, the signed `.xpi` is attached to the GitHub Release, and Firefox
+  updates through an `update_url` → `updates.json` hosted on GitHub Pages
+  (the same site as the privacy policy). The alternative is AMO
+  **listed**: public and searchable, but AMO handles updates. See §7.
 
 ---
 
@@ -278,7 +324,42 @@ keys go in base64-encoded.
 | `ASC_API_KEY_P8_B64` | Apple | Owner | **Downloadable only once.** Store it immediately. Role per §3 |
 | `APPLE_DIST_CERT_P12_B64` / `_PASSWORD` / `APPLE_PROFILE_*_B64` | Apple | Owner | **Only for option B′.** Expire yearly |
 | `EDGE_PRODUCT_ID` / `EDGE_CLIENT_ID` / `EDGE_API_KEY` | Edge | Owner (Partner Center) | API keys expire; check the current lifetime and calendar it |
-| `AMO_JWT_ISSUER` / `AMO_JWT_SECRET` | Firefox | Owner (addons.mozilla.org → API keys) | Only if Phase 4 |
+| `AMO_JWT_ISSUER` / `AMO_JWT_SECRET` | Firefox | Owner (addons.mozilla.org → API keys) | Phase 4 |
+
+### 5a. The approval gate (where it lives)
+
+The gate is a **GitHub Actions environment** named `release`, configured
+in **repo Settings → Environments → `release`**. It isn't a file in the
+repo: only repo admins can change it, so a PR can't switch it off.
+
+- **Required reviewers: the owner.** Any job that declares
+  `environment: release` pauses before it starts, and GitHub emails the
+  owner. The run page shows **"Review deployments" → Approve / Reject**
+  (also in the GitHub mobile app).
+- **Deployment branches: `main` only.** A workflow run from any other
+  branch or a fork can't use the environment or read its secrets.
+- **Environment secrets:** the store credentials in the table above live
+  *in the environment*, not as repo-wide secrets, so only approved jobs
+  can read them.
+- In `release.yml`, the build, tag and GitHub Release jobs run with no
+  gate (no credentials needed). Each store job (`chrome`, `edge`,
+  `firefox`, `safari`) declares `environment: release`. One approval
+  covers all store jobs in that run if they're approved together.
+
+How it combines with each store's own go-live click:
+
+| Store | GitHub gate (before upload) | Store-side click (after review) |
+|---|---|---|
+| Chrome | Approve | **Publish** in the dashboard (`STAGED_PUBLISH`) |
+| Edge | Approve | **Publish** in Partner Center (CI uploads the draft only) |
+| Firefox | **Approve = the go-live decision** | none (AMO goes live once approved) |
+| Safari | Approve | **Submit for Review** in App Store Connect (CI uploads to TestFlight only), with "Manually release this version" selected, so it also waits after approval |
+
+For Chrome, Edge and Safari, the store-side click is what satisfies
+"wait for the owner's click", so the GitHub gate is extra protection
+there. Firefox is the one store where the gate does that job. Recommended:
+keep the gate on for all of them, since one tap per release is cheap. It
+also stops a mistaken version-bump merge from ever touching a store.
 
 `GITHUB_TOKEN` (automatic) creates tags and Releases and needs
 `contents: write` on the release job only. Builder/Claude sessions never
@@ -319,11 +400,13 @@ demo-data screenshots.
   the planned steady state for the family and NPC) and do one manual
   publish so API publishing works afterwards (see §2 gotcha).
 - Enable the CI publish job with `STAGED_PUBLISH`.
-- Edge (optional) rides along here.
+- **Edge** ships here too. Owner: Partner Center account (free), first
+  manual submission as **Hidden**, then the API key. CI uploads drafts
+  and the owner clicks Publish.
 
 ### Phase 3: Safari (owner: $99/yr membership)
 
-- Owner: enrol (Individual), decide bundle ID and App Store name, create
+- Owner: enrol (Individual), register the bundle ID (decided above), create
   the app record, create the ASC API key, add any helper accounts in
   Users and Access (never share the Apple ID password or 2FA).
 - 3a: web packager → TestFlight internal (family Macs/iPhones).
@@ -336,9 +419,13 @@ demo-data screenshots.
 - Allow 1–7+ days for first review, and submit 2–3 weeks before any date
   that matters (see `safari.md`).
 
-### Phase 4: optional Firefox
+### Phase 4: Firefox
 
-Only on demand (§4).
+- Build: `--target=firefox` manifest transform, Firefox ZIP, manual test
+  in Firefox (temporary add-on via `about:debugging`).
+- Owner: Firefox Account → AMO API keys.
+- First submission by hand (with source ZIP if reviewers ask), as
+  unlisted or listed per §7. Then the CI job runs behind the approval gate.
 
 ### What ships first
 
@@ -350,19 +437,19 @@ can take a few days.
 
 ---
 
-## 7. Decisions for the owner
+## 7. Decisions
 
-1. **Bundle ID** (permanent): `io.github.sabaisnoopy.schoology-dashboard`,
-   a personal domain, or something else.
-2. **App Store name**: avoid leading with "Schoology"? E.g. "Homework
-   Dashboard for Schoology".
-3. **Apple enrolment** as Individual (seller name = owner's legal name),
+Decided 7 Nov 2026: see the table at the top.
+
+Still open:
+
+1. **Short names** (§1a): OK to use "Grades Dashboard for Schoology" as
+   the App Store name (30-char limit) with subtitle "For students and
+   parents", and "Grades Dashboard" as the short display name?
+2. **Apple enrolment** as Individual (seller name = owner's legal name),
    $99/yr, and when to start.
-4. **Safari platforms**: macOS + iOS from the start (recommended; same
-   app record), or macOS first.
-5. **Chrome visibility** after testing: Unlisted (recommended) or Public.
-6. **Auto-publish vs staged**: should CI make store updates live after
-   review, or wait for the owner's click? Recommended: staged at first.
-7. **Edge / Firefox**: add Edge with Chrome? Skip Firefox for now?
-8. **Release approval gate**: require the owner's approval on the
-   `release` environment before store jobs run (recommended).
+3. **Firefox visibility**: AMO unlisted (matches Chrome; self-hosted
+   updates via GitHub Pages, recommended) or AMO listed (public, simpler
+   updates).
+4. **Approval gate** (§5a): keep the `release` environment gate on every
+   store job (recommended) or only on Firefox.
