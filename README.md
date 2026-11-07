@@ -31,8 +31,8 @@ not a follow-up — see [docs/safari.md](docs/safari.md).
 - Parent view: tabs per child with a GO/NO-GO verdict. Student view: just
   their own dashboard and what to finish first (GO/NO-GO is parents only).
 - One settings page (saved automatically): account, family rules,
-  display, which classes count (sections with no grades are hidden
-  automatically), privacy & data.
+  display, privacy & data. Classes with no grades posted (advisory, house
+  group) are left out automatically.
 - "Demo data" button loads bundled fixture data so the extension works
   out of the box with zero setup.
 

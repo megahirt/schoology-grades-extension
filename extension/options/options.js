@@ -1,6 +1,6 @@
 // options.js — the settings page (see the "Schoology Dashboard Settings"
 // design): one page, saved automatically on every change.
-//   Account · Family rules · Display · Classes · Privacy & data ·
+//   Account · Family rules · Display · Privacy & data ·
 //   Developer (dev builds only) · credit footer.
 
 import browser from 'webextension-polyfill';
@@ -12,7 +12,7 @@ import npcLogo from '../icons/npc_icon_tiny.png';
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
 const $ = (id) => document.getElementById(id);
 
-let settings = { ...DEFAULT_SETTINGS, schoologyBase: REAL_SCHOOLOGY, realClasses: {} };
+let settings = { ...DEFAULT_SETTINGS, schoologyBase: REAL_SCHOOLOGY };
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -113,70 +113,16 @@ async function renderAccount() {
         : 'Not signed in to Schoology';
   const who = account && account.type === 'parent' ? ` · ${kids.length} ${kids.length === 1 ? 'child' : 'children'}` : '';
   $('account-detail').textContent = `${site}${who} · ${updatedText(dashboards)}`;
-  $('kids').innerHTML = kids.map(([uid, d]) => {
-    const shown = (d.courses || []).filter((c) => isShown(uid, c)).length;
-    const hidden = (d.courses || []).length - shown;
+  $('kids').innerHTML = kids.map(([, d]) => {
+    // Classes with grades posted (the ones the dashboard shows).
+    const shown = (d.courses || []).filter((c) => hasGradeData(c)).length;
     const pic = d.pictureUrl
       ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="">`
       : `<span class="avatar" aria-hidden="true">${escapeHtml(initials(d.studentName))}</span>`;
     return `<div class="kid">${pic}<div class="grow"><div class="strong">${escapeHtml(d.studentName || 'Student')}</div>` +
-      `<div class="muted">${shown} ${shown === 1 ? 'class' : 'classes'}${hidden ? ` · ${hidden} hidden` : ''}</div></div></div>`;
+      `<div class="muted">${shown} ${shown === 1 ? 'class' : 'classes'}</div></div></div>`;
   }).join('');
 }
-
-// --- Classes -------------------------------------------------------------------
-
-const classKey = (uid, c) => `${uid}:${c.id || c.name}`;
-
-// Shown unless hidden by hand; sections with no grades start hidden.
-function isShown(uid, c) {
-  const choice = (settings.realClasses || {})[classKey(uid, c)];
-  if (choice === true || choice === false) return choice;
-  return hasGradeData(c);
-}
-
-function pct(n) {
-  return typeof n === 'number' ? `${Math.round(n * 10) / 10}%` : '—';
-}
-
-function classDetail(c) {
-  if (!hasGradeData(c)) return 'No grades · hidden automatically';
-  const parts = [];
-  if (typeof c.quarterGrade === 'number') parts.push(`${c.gradeLabel || 'Quarter'} ${pct(c.quarterGrade)}`);
-  if (typeof c.overallGrade === 'number') parts.push(`${c.overallLabel || 'Semester'} ${pct(c.overallGrade)}`);
-  if (!parts.length && typeof c.grade === 'number') parts.push(pct(c.grade));
-  return parts.join(' · ');
-}
-
-async function renderClasses() {
-  const dashboards = (await getDashboards()) || {};
-  const groups = Object.entries(dashboards).filter(([, d]) => (d.courses || []).length);
-  if (!groups.length) {
-    $('class-groups').innerHTML = '<p class="muted">No classes yet. Press Refresh now above.</p>';
-    return;
-  }
-  $('class-groups').innerHTML = groups.map(([uid, d]) =>
-    `<div class="group"><div class="group-h">${escapeHtml(d.studentName || 'Student')}</div>` +
-    d.courses.map((c) => {
-      const on = isShown(uid, c);
-      return `<div class="class-row${on ? '' : ' off'}"><div class="grow"><div class="name">${escapeHtml(c.name)}</div>` +
-        `<div class="muted">${escapeHtml(classDetail(c))}</div></div>` +
-        `<button type="button" role="switch" class="switch" aria-checked="${on}" aria-label="Show ${escapeHtml(c.name)}" data-key="${escapeHtml(classKey(uid, c))}" data-auto="${hasGradeData(c)}"><span></span></button></div>`;
-    }).join('') + '</div>').join('');
-}
-
-$('class-groups').addEventListener('click', async (e) => {
-  const btn = e.target.closest('button[data-key]');
-  if (!btn) return;
-  const on = btn.getAttribute('aria-checked') !== 'true';
-  const realClasses = { ...(settings.realClasses || {}) };
-  // Store only choices that differ from the automatic default.
-  if (on === (btn.dataset.auto === 'true')) delete realClasses[btn.dataset.key];
-  else realClasses[btn.dataset.key] = on;
-  await save({ realClasses });
-  await renderClasses();
-  await renderAccount();
-});
 
 // --- Buttons -------------------------------------------------------------------
 
@@ -192,7 +138,6 @@ $('refresh-btn').addEventListener('click', async () => {
   btn.disabled = false;
   btn.textContent = 'Refresh now';
   await renderAccount();
-  await renderClasses();
 });
 
 $('clear-btn').addEventListener('click', async () => {
@@ -201,7 +146,6 @@ $('clear-btn').addEventListener('click', async () => {
   for (const key of ['dashboards', 'turnedIn', 'markedDone', 'refreshState', 'account', 'liveTest']) await storageRemove(key);
   $('clear-status').textContent = 'Saved grades and marks cleared.';
   await renderAccount();
-  await renderClasses();
 });
 
 // --- Developer (dev builds only) ------------------------------------------------
@@ -221,7 +165,6 @@ function setupDev() {
     await save({ schoologyBase: b.dataset.value === 'mock' ? MOCK_SCHOOLOGY : REAL_SCHOOLOGY });
     await storageRemove('dashboards');
     await renderAccount();
-    await renderClasses();
   });
   const out = $('dev-result');
   $('live-test-btn').addEventListener('click', async () => {
@@ -246,7 +189,6 @@ function setupDev() {
       out.textContent = `Could not load demo data: ${err.message || err}`;
     }
     await renderAccount();
-    await renderClasses();
   });
 }
 
@@ -266,7 +208,7 @@ function setupMenu() {
 
 async function init() {
   const stored = (await getSettings()) || {};
-  settings = { ...settings, ...stored, realClasses: stored.realClasses || {} };
+  settings = { ...settings, ...stored };
   bindNumber('grade-threshold', 'gradeThreshold', { min: 0, max: 100 });
   bindNumber('missing-threshold', 'missingThreshold', { min: 1, max: 20 });
   bindNumber('doing-well-percent', 'doingWellPercent', { min: 0, max: 100 });
@@ -281,14 +223,10 @@ async function init() {
   setupDev();
   setupMenu();
   await renderAccount();
-  await renderClasses();
   requestAnimationFrame(() => document.body.classList.add('ready'));
   // Keep the account box and class list current if a refresh finishes.
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && ('dashboards' in changes || 'account' in changes)) {
-      renderAccount();
-      renderClasses();
-    }
+    if (area === 'local' && ('dashboards' in changes || 'account' in changes)) renderAccount();
   });
 }
 

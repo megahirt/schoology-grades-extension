@@ -247,7 +247,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
-  test('settings page: one auto-saving page; hiding a class and changing a rule take effect', async () => {
+  test('settings page: one auto-saving page; changing a rule takes effect', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     try {
@@ -259,20 +259,18 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await opts.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
       await expect(opts.getByRole('heading', { name: 'Homework Dashboard settings' })).toBeVisible();
       await expect(opts.locator('#account-title')).toHaveText('Connected as a student');
-      for (const name of ['Account', 'Family rules', 'Display', 'Classes', 'Privacy & data']) {
+      for (const name of ['Account', 'Family rules', 'Display', 'Privacy & data']) {
         await expect(opts.getByRole('heading', { name, exact: true })).toBeVisible();
       }
+      await expect(opts.getByRole('heading', { name: 'Classes', exact: true })).toHaveCount(0); // no class switches
       await expect(opts.getByRole('heading', { name: 'Developer' })).toBeVisible(); // dev build
-      // Advisory has no grades: hidden automatically.
-      await expect(opts.getByRole('switch', { name: 'Show Advisory 11' })).toHaveAttribute('aria-checked', 'false');
+      // Only classes with grades posted count (Advisory 11 has none).
+      await expect(opts.locator('.kid')).toContainText('3 classes');
 
-      // Hide Algebra 2 (the only class below 75): it leaves the class list and the finish-first note.
-      await opts.getByRole('switch', { name: 'Show Algebra 2' }).click();
-      await expect(opts.getByRole('switch', { name: 'Show Algebra 2' })).toHaveAttribute('aria-checked', 'false');
       const popup = await openPopup(context, extensionId);
       await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
-      await expect(popup.locator('.class', { hasText: 'Algebra 2' })).toHaveCount(0);
-      await expect(popup.locator('.card')).not.toContainText('Algebra 2');
+      await expect(popup.locator('.class', { hasText: 'Advisory 11' })).toHaveCount(0);
+      await expect(popup.locator('.card')).toContainText('bring Algebra 2 up past 75%');
 
       // Passing grade 85: American Literature (82%) now needs work too. Saved automatically.
       await opts.locator('#grade-threshold').fill('85');

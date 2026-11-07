@@ -174,8 +174,8 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   'advisory','study hall','house group','homeroom','mentor').
   Thresholds: score >= 60 'include', 25–59 'check', < 25 'skip'.
 - Real classes have real grades posted; advisory/study-hall types have very
-  little grade information. The settings page hides sections with no grade
-  data automatically; the user can show or hide any class.
+  little grade information. The dashboard shows only classes with grades
+  posted (`hasGradeData`); there is no per-class setting.
 
 ## Grades HTML parser
 
@@ -229,7 +229,7 @@ requests `{ credentials: 'include' }`; endpoints verified live 2026-11-06):
 ## Storage keys (chrome.storage.local)
 
 - `settings` — the settings object (see rules.js DEFAULT_SETTINGS plus
-  `schoologyBase`, `classIcons`, `avatarOverride`, `realClasses` per student).
+  `schoologyBase`).
 - `dashboards` — `{ [studentUid]: { studentName, pictureUrl, courses, summary,
   updatedAt, source } }`.
 - `liveTest` — the latest live-probe evidence object.
@@ -263,11 +263,8 @@ requests `{ credentials: 'include' }`; endpoints verified live 2026-11-06):
   Account (connection, children, Refresh now), Family rules (passing grade,
   Missing limit, GO/NO-GO badge), Display (Doing well / Not so good windows,
   panel on Schoology pages, refresh when Schoology opens = `autoRefresh`, who
-  sees grades, percent/points), Classes (show/hide per child, stored in
-  `realClasses` "<uid>:<courseId>"; hidden classes leave the class list and
-  the passing-grade check via `withHiddenCourses`, their Missing work still
-  counts), Privacy & data (clear saved grades and marks), Developer (dev
-  builds: data source, live test, demo data). Profile pictures always come
+  sees grades, percent/points), Privacy & data (clear saved grades and
+  marks), Developer (dev  builds: data source, live test, demo data). Profile pictures always come
   from Schoology (initials when there is none).
 - `scripts/build.mjs` — `node scripts/build.mjs [--dev]`: bundles `src/*.js`
   with esbuild into `dist/`, copies manifest/popup/options/content. `--dev`
