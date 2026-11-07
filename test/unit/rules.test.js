@@ -149,7 +149,10 @@ describe('summarizeStudent', () => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-    const iso = (d) => d.toISOString().slice(0, 10) + 'T23:59:00';
+    // Local calendar date (not toISOString, which is UTC and rolls to the
+    // next day in the evening west of Greenwich).
+    const pad = (n) => String(n).padStart(2, '0');
+    const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T23:59:00`;
     const summary = summarizeStudent(
       [{
         id: '1002',

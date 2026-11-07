@@ -7,13 +7,8 @@
 // personas (student: 1 Missing + a 68% class => NO-GO "Low grades";
 // parent: Luis NO-GO + Emma GO).
 //
-// KNOWN ISSUE (2026-11-06): the parent test currently FAILS against the
-// extension as built — fetchParentDashboards assigns the combined parent
-// grade report to EVERY child with no per-child filtering, so both children
-// show all 4 courses, Missing · 3, and NO-GO. The unit test
-// (schoology.test.js > fetchParentDashboards) fails the same way. The
-// assertions below encode the SPEC-correct expectation and must not be
-// weakened to match the bug; the fix belongs in extension/src/schoology.js.
+// The parent test guards the per-child attribution fix in
+// extension/src/schoology.js (each child gets only their own courses).
 //
 // Tests run in Chromium via Playwright. Safari cannot be automated here —
 // the Safari build is verified separately (see test/README.md). The extension
@@ -81,6 +76,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   // the extension id (read from the background service worker target).
   async function launchWithExtension(userDataDir) {
     const context = await chromium.launchPersistentContext(userDataDir, {
+      // Chrome's headless shell (Playwright's default headless browser since
+      // 1.49) ignores --load-extension. channel 'chromium' runs full Chromium
+      // in new headless mode, which loads extensions.
+      channel: 'chromium',
       headless: true,
       args: [
         `--disable-extensions-except=${DIST_DIR}`,

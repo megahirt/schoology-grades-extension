@@ -33,14 +33,10 @@ describe('parseGradesHtml — student fixtures (Alex Student)', () => {
     const missing = course.assignments.filter((a) => a.status === 'missing');
     expect(missing).toHaveLength(1);
     expect(missing[0].title).toBe('Propaganda Script');
-    // Parser stores no-time dues as end of day in the school timezone, so the
-    // UTC ISO string can roll to the next calendar day; check the date in
-    // America/New_York instead of matching the raw string.
-    expect(
-      new Date(missing[0].due).toLocaleDateString('en-CA', {
-        timeZone: 'America/New_York',
-      }),
-    ).toBe('2026-11-03');
+    // data-due has no offset, so it is read as the browser's local time (the
+    // family's own timezone) and stored as UTC ISO, which can roll to the next
+    // calendar day. Check the local calendar date instead of the raw string.
+    expect(new Date(missing[0].due).toLocaleDateString('en-CA')).toBe('2026-11-03');
 
     const graded = course.assignments.filter((a) => a.status === 'graded');
     expect(graded.map((a) => a.title)).toEqual(

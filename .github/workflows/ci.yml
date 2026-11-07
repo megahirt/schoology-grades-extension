@@ -41,8 +41,11 @@ jobs:
       - name: Build (dev, mock-server build)
         run: npm run build:dev
 
+      # --no-shell: skip Chrome's headless shell, which cannot load
+      # extensions (the e2e tests use full Chromium via channel 'chromium').
+      # --with-deps: install the system libraries full Chromium needs.
       - name: Install Playwright Chromium
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps --no-shell chromium
 
       - name: End-to-end tests
         run: npm run test:e2e
