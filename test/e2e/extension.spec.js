@@ -276,6 +276,12 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(tab).toHaveAttribute('aria-label', 'Show homework dashboard');
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
+
+      // Class and assignment links open in this same tab, not a new one.
+      const pagesBefore = context.pages().length;
+      await panel.locator('.class', { hasText: 'Algebra 2' }).locator('a.class-name').click();
+      await expect(page).toHaveURL(`${mockBase}/course/1001/student_grades`);
+      expect(context.pages().length).toBe(pagesBefore);
       await page.close();
     } finally {
       await context.close();
