@@ -95,7 +95,7 @@
 .sgd .class-overall { font-size: 13px; color: var(--muted); }
 .sgd .class-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .sgd .bar { height: 6px; border-radius: 3px; background: var(--line-2); position: relative; overflow: hidden; }
-.sgd .bar-fill { height: 6px; border-radius: 3px; background: var(--ink-2); }
+.sgd .bar-fill { height: 6px; border-radius: 3px; background: var(--go); } /* passing: green; .low: red */
 .sgd .bar-fill.low { background: var(--nogo); }
 .sgd .bar-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #9aa4b1; }
 .sgd .legend { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }

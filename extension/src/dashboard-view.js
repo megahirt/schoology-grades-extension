@@ -128,21 +128,6 @@ function plural(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-// The one-line reason under the child's name.
-export function reasonLine(summary, settings, period = null) {
-  const parts = [];
-  const when = period && /^quarter/i.test(period) ? ' this quarter' : '';
-  parts.push(summary.missingCount ? `${summary.missingCount} missing` : 'Nothing missing');
-  if (summary.lowClasses.length === 1) {
-    parts.push(`${summary.lowClasses[0].name} below ${settings.gradeThreshold}%${when}`);
-  } else if (summary.lowClasses.length > 1) {
-    parts.push(`${summary.lowClasses.length} classes below ${settings.gradeThreshold}%${when}`);
-  } else if (summary.lowestClassGrade !== null) {
-    parts.push(`every class ${settings.gradeThreshold}% or above${when}`);
-  }
-  return parts.join(' · ');
-}
-
 function mostCommon(values) {
   const counts = new Map();
   for (const v of values) if (v) counts.set(v, (counts.get(v) || 0) + 1);
@@ -349,10 +334,12 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
       { value: String(summary.dueToday.length + summary.dueTomorrow.length), label: 'Due soon', bad: false },
     ];
     const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
-    const reason = partial ? 'Only part of the grades loaded, so no verdict yet. Press Refresh.' : reasonLine(summary, settings, quarterLabel);
+    // Just the picture, name and (when on) the GO/NO-GO badge. The only
+    // line under the name is for an UNKNOWN verdict, which needs a reason.
+    const reason = partial ? '<div class="card-reason">Only part of the grades loaded, so no verdict yet. Press Refresh.</div>' : '';
     html += `<div class="card ${cardTone}">` +
       `<div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
-      `<div class="card-reason">${escapeHtml(reason)}</div></div>${pill}</div>` +
+      `${reason}</div>${pill}</div>` +
       `<div class="stats">${stats.map((s) => `<div class="stat"><div class="stat-v${s.bad ? ' low' : ''}">${escapeHtml(s.value)}</div><div class="stat-l">${s.label}</div></div>`).join('')}</div></div>`;
   } else {
     const note = studentNote(summary, settings, gradeColumns(visibleCourses(d.courses, settings, uid)).quarter);
