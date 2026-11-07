@@ -216,6 +216,11 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       await setLiveTest({ ...evidence, gradesUrl: message.url });
       return evidence;
     }
+    case 'open-options': {
+      // From the in-page panel: content scripts cannot open the options page.
+      await browser.runtime.openOptionsPage();
+      return { ok: true };
+    }
     case 'get-dashboards': {
       return { dashboards: (await getDashboards()) || {}, settings: await loadSettings() };
     }

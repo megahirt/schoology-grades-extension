@@ -36,6 +36,7 @@ async function main() {
       target: ['safari16', 'chrome109'],
       outfile: path.join(distDir, `${outName}.js`),
       sourcemap: isDev,
+      loader: { '.css': 'text' },
       logLevel: 'info',
     });
   }
@@ -45,12 +46,13 @@ async function main() {
   if (isDev) {
     manifest.name = 'Schoology Dashboard (Dev)';
     manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost:*/*'];
+    // Run the content script (grades scrape + panel) on the mock server too.
+    for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost:*/*'];
   }
   await writeFile(path.join(distDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
   // Static assets.
   await cp(path.join(extDir, 'popup', 'popup.html'), path.join(distDir, 'popup', 'popup.html'));
-  await cp(path.join(extDir, 'popup', 'popup.css'), path.join(distDir, 'popup', 'popup.css'));
   await cp(path.join(extDir, 'popup', 'demo-data.json'), path.join(distDir, 'popup', 'demo-data.json'));
   await cp(path.join(extDir, 'options', 'options.html'), path.join(distDir, 'options', 'options.html'));
   await cp(path.join(extDir, 'options', 'options.css'), path.join(distDir, 'options', 'options.css'));

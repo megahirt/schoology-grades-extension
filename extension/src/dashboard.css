@@ -1,0 +1,35 @@
+/* dashboard.css — styles for the dashboard view (src/dashboard-view.js).
+   Everything is scoped under .sgd so the same CSS works in the toolbar
+   popup and inside the in-page panel's shadow root on Schoology pages. */
+.sgd { font-family: -apple-system, "Segoe UI", sans-serif; color: #222; font-size: 14px; line-height: 1.35; text-align: left; }
+.sgd h1 { font-size: 17px; margin: 0 0 4px; font-weight: 700; }
+.sgd h2 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; }
+.sgd h3 { font-size: 13px; margin: 10px 0 4px; color: #444; font-weight: 700; }
+.sgd .muted { color: #666; font-size: 12px; }
+.sgd .hidden { display: none; }
+.sgd .stale { background: #fff3cd; border: 1px solid #e6c200; padding: 6px 8px; border-radius: 6px; margin: 6px 0; font-size: 12px; }
+.sgd .student { border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin: 10px 0; }
+.sgd .student-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sgd .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #e8f5e9; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.sgd .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+.sgd .badge.go { background: #2e7d32; color: #fff; }
+.sgd .badge.nogo { background: #c62828; color: #fff; }
+.sgd .badge.unknown { background: #f9a825; color: #222; }
+.sgd .warn { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 8px 10px; color: #5d4037; font-size: 12px; }
+.sgd .badge-reason { font-size: 12px; color: #666; margin-left: 6px; }
+.sgd ul { list-style: none; padding: 0; margin: 4px 0; }
+.sgd li { display: flex; align-items: baseline; gap: 6px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; }
+.sgd li .title { flex: 1; min-width: 40%; }
+.sgd li .sub { color: #666; font-size: 12px; }
+.sgd .chip { font-size: 11px; background: #e3f2fd; border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.sgd .chip.today { background: #fff3cd; }
+.sgd .chip.tomorrow { background: #e3f2fd; }
+.sgd .low { color: #c62828; font-weight: 600; }
+.sgd button { margin: 4px 4px 4px 0; padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; background: #f5f5f5; color: #222; cursor: pointer; font: inherit; font-size: 13px; }
+.sgd button:hover { background: #e8e8e8; }
+.sgd .turned-in-btn { border: none; background: none; color: #888; font-size: 13px; padding: 0 2px; cursor: pointer; margin: 0 0 0 4px; }
+.sgd .turned-in-btn:hover { color: #2e7d32; background: none; }
+.sgd .undo-btn { border: none; background: none; color: #2e7d32; font-size: 12px; cursor: pointer; padding: 0; }
+.sgd .fineprint { color: #888; font-size: 11px; line-height: 1.4; }
+.sgd .empty { color: #666; font-size: 13px; }
+.sgd .class-grade { font-size: 12px; color: #555; }

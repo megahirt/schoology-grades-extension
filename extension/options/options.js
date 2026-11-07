@@ -122,6 +122,7 @@ function renderReview() {
     `<li>Missing threshold: <b>${settings.missingThreshold}</b> Missing item(s) = NO-GO</li>` +
     `<li>"Not so good" window: <b>${settings.notSoGoodDays}</b> day(s)</li>` +
     `<li>Show GO/NO-GO badge: <b>${settings.showGoNoGo ? 'yes' : 'no'}</b></li>` +
+    `<li>Panel on Schoology pages: <b>${settings.showPanel !== false ? 'yes' : 'no'}</b></li>` +
     `<li>Grades visible to: <b>${settings.gradeVisibility}</b>; display: <b>${settings.gradeDisplay}</b></li>` +
     `<li>Classes kept: <b>${real} of ${courses.length}</b></li>` +
     `<li>Schoology base: <b>${settings.schoologyBase}</b></li></ul>`;
@@ -132,6 +133,7 @@ function readRulesForm() {
   settings.missingThreshold = Number(document.getElementById('missing-threshold').value) || 2;
   settings.notSoGoodDays = Number(document.getElementById('notsogood-days').value) || 7;
   settings.showGoNoGo = document.getElementById('show-gonogo').checked;
+  settings.showPanel = document.getElementById('show-panel').checked;
   settings.gradeVisibility = document.getElementById('grade-visibility').value;
   settings.gradeDisplay = document.getElementById('grade-display').value;
   settings.schoologyBase = document.getElementById('schoology-base').value.trim() || 'https://app.schoology.com';
@@ -142,6 +144,7 @@ function fillForm() {
   document.getElementById('missing-threshold').value = settings.missingThreshold;
   document.getElementById('notsogood-days').value = settings.notSoGoodDays;
   document.getElementById('show-gonogo').checked = settings.showGoNoGo;
+  document.getElementById('show-panel').checked = settings.showPanel !== false;
   document.getElementById('grade-visibility').value = settings.gradeVisibility;
   document.getElementById('grade-display').value = settings.gradeDisplay;
   document.getElementById('schoology-base').value = settings.schoologyBase;

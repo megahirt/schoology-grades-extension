@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = {
   showGoNoGo: true,
   gradeVisibility: 'both',
   gradeDisplay: 'percent',
+  showPanel: true, // dashboard panel on Schoology pages
 };
 
 function mergeSettings(settings) {

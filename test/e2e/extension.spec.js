@@ -210,6 +210,44 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('in-page panel on Schoology pages: open by default, closes, reopens, remembered', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      await triggerRefresh(context, extensionId);
+
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/grades/grades`);
+      // Playwright locators pierce the panel's open shadow root.
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      const tab = page.locator('#sgd-panel-host button.tab');
+      await expect(panel.getByRole('heading', { name: 'Alex Student', exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(panel.getByText('Missing · 1')).toBeVisible();
+      await expect(panel.getByText('NO-GO', { exact: true })).toBeVisible();
+      // The panel hides the demo button (demo data is a popup feature).
+      await expect(panel.getByRole('button', { name: /demo/i })).toBeHidden();
+      // The page's own grades table is untouched and still on the page.
+      await expect(page.locator('.gradebook-course').first()).toBeVisible();
+
+      await panel.getByRole('button', { name: 'Close dashboard panel' }).click();
+      await expect(panel).toBeHidden();
+      await expect(tab).toHaveAttribute('aria-expanded', 'false');
+
+      // Closed state is remembered on the next Schoology page.
+      await page.goto(`${mockBase}/home`);
+      await expect(tab).toHaveAttribute('aria-expanded', 'false', { timeout: 15000 });
+      await expect(panel).toBeHidden();
+      await tab.click();
+      await expect(panel.getByRole('heading', { name: 'Alex Student', exact: true })).toBeVisible();
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('parent persona: TWO child dashboards — Sam NO-GO, Jamie GO', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);

@@ -3,24 +3,12 @@
 <head>
 <meta charset="utf-8">
 <title>Schoology Dashboard</title>
-<link rel="stylesheet" href="popup.css">
+<style>
+  body { width: 420px; margin: 0; padding: 12px 14px; background: #fff; }
+</style>
 </head>
 <body>
-<header>
-  <h1>📚 Schoology Dashboard</h1>
-  <div id="updated-line" class="muted"></div>
-  <div id="stale-warning" class="stale hidden">⚠️ Data is more than 24 hours old — press Refresh now.</div>
-</header>
-<main id="app">
-  <p class="muted">Loading…</p>
-</main>
-<footer>
-  <button id="refresh-btn" type="button">↻ Refresh now</button>
-  <button id="demo-btn" type="button">Load demo data</button>
-  <button id="options-btn" type="button">⚙️ Settings</button>
-  <div id="status" class="muted" role="status"></div>
-  <p class="fineprint">Grades are read from Schoology in this browser only and never leave this computer. Missing means explicitly marked Missing in Schoology — a 0 is never counted as Missing on its own.</p>
-</footer>
+<div id="dashboard"></div>
 <script src="popup.js"></script>
 </body>
 </html>
