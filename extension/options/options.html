@@ -2,106 +2,197 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Schoology Dashboard — Settings</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homework Dashboard settings</title>
 <link rel="stylesheet" href="options.css">
 </head>
 <body>
-<main>
-<h1>📚 Schoology Dashboard — Setup</h1>
-<p class="muted">Everything is stored in this browser only. No Schoology password is ever stored; the extension uses your logged-in Schoology session.</p>
+<header class="top">
+  <div class="top-in">
+    <div class="top-icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+    <div class="grow">
+      <h1>Homework Dashboard settings</h1>
+      <p class="muted">Everything here is saved in this browser only.</p>
+    </div>
+    <div id="save-state" class="save-state" role="status" aria-live="polite">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <span>Changes save automatically</span>
+    </div>
+  </div>
+</header>
 
-<nav id="steps">
-  <button type="button" data-step="1" class="step-btn active">1 Connect</button>
-  <button type="button" data-step="2" class="step-btn">2 Profile</button>
-  <button type="button" data-step="3" class="step-btn">3 Classes</button>
-  <button type="button" data-step="4" class="step-btn">4 Icons</button>
-  <button type="button" data-step="5" class="step-btn">5 Rules</button>
-  <button type="button" data-step="6" class="step-btn">6 Review</button>
-</nav>
+<div class="layout">
+  <nav class="side" aria-label="Settings sections">
+    <a href="#account">Account</a>
+    <a href="#rules">Family rules</a>
+    <a href="#display">Display</a>
+    <a href="#classes">Classes</a>
+    <a href="#privacy">Privacy &amp; data</a>
+    <a href="#developer" class="dev-only" hidden>Developer</a>
+  </nav>
 
-<section id="step-1" class="step active">
-  <h2>Connect to Schoology</h2>
-  <p>Log in to Schoology in this browser, then visit a Grades page. The extension reads the grades you can already see — nothing else.</p>
-  <p id="account-line" class="muted">Account: not checked yet.</p>
-  <button id="check-account-btn" type="button">Check connection</button>
-  <button id="refresh-btn" type="button">Refresh grades now</button>
-  <p id="connect-status" class="muted" role="status"></p>
-</section>
+  <main class="content">
+    <section id="account" class="card">
+      <div class="card-h">
+        <h2>Account</h2>
+        <p class="muted">The dashboard reads Schoology with the account you are signed in with in this browser. It never sees or stores your password.</p>
+      </div>
+      <div id="account-status" class="status-box">
+        <span id="account-dot" class="dot" aria-hidden="true"></span>
+        <div class="grow">
+          <div id="account-title" class="strong">Not checked yet</div>
+          <div id="account-detail" class="muted"></div>
+        </div>
+        <button id="refresh-btn" type="button" class="btn">Refresh now</button>
+      </div>
+      <div id="kids" class="kids"></div>
+    </section>
 
-<section id="step-2" class="step">
-  <h2>Profile</h2>
-  <p>Your Schoology profile picture is used by default. You can upload a different picture or pick one from the list instead (fallback only).</p>
-  <div id="profile-preview"></div>
-  <label>Avatar override (upload a picture)
-    <input id="avatar-upload" type="file" accept="image/*">
-  </label>
-  <p>Or pick one:</p>
-  <div id="avatar-choices"></div>
-</section>
+    <section id="rules" class="card">
+      <div class="card-h">
+        <h2>Family rules</h2>
+        <p class="muted">How GO and NO-GO are decided. GO/NO-GO is shown to parents only.</p>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <label for="grade-threshold" class="strong">Passing grade</label>
+          <div class="muted">NO-GO if any class is below this. Uses the current quarter grade (the semester grade until the quarter has one).</div>
+        </div>
+        <div class="field"><input id="grade-threshold" type="number" min="0" max="100" inputmode="numeric"><span>%</span></div>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <label for="missing-threshold" class="strong">Missing work limit</label>
+          <div class="muted">NO-GO when this many items are teacher-marked Missing. Submitted work never counts.</div>
+        </div>
+        <div class="field"><input id="missing-threshold" type="number" min="1" max="20" inputmode="numeric"><span>items</span></div>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong" id="badge-label">Show the GO/NO-GO badge</div>
+          <div class="muted">On each child's card and on the closed panel tab. Parents only.</div>
+        </div>
+        <button id="show-gonogo" type="button" role="switch" class="switch" aria-labelledby="badge-label"><span></span></button>
+      </div>
+    </section>
 
-<section id="step-3" class="step">
-  <h2>Classes — which are real?</h2>
-  <p>Real classes have real grades posted; advisory, study hall, house group and similar sections have very little grade information. The recommendation is a hint — you make the final call.</p>
-  <div id="class-list"><p class="muted">No classes loaded yet — refresh grades first, or load the demo data from the popup.</p></div>
-</section>
+    <section id="display" class="card">
+      <div class="card-h"><h2>Display</h2></div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong">Doing well</div>
+          <div class="muted">Recent graded work worth celebrating.</div>
+        </div>
+        <div class="field wrap">
+          <label for="doing-well-percent">At least</label>
+          <input id="doing-well-percent" type="number" min="0" max="100" inputmode="numeric">
+          <span>% from the past</span>
+          <input id="doing-well-days" type="number" min="1" max="60" inputmode="numeric" aria-label="Doing well window in days">
+          <span>days</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong">Not so good</div>
+          <div class="muted">Graded work below the passing grade.</div>
+        </div>
+        <div class="field">
+          <span>From the past</span>
+          <input id="notsogood-days" type="number" min="1" max="60" inputmode="numeric" aria-label="Not so good window in days">
+          <span>days</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong" id="panel-label">Dashboard panel on Schoology pages</div>
+          <div class="muted">Docked on the right edge (a bottom sheet on iPhone). The toolbar button always works.</div>
+        </div>
+        <button id="show-panel" type="button" role="switch" class="switch" aria-labelledby="panel-label"><span></span></button>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong" id="auto-label">Refresh when Schoology opens</div>
+          <div class="muted">At most every 5 minutes. A parent refresh briefly switches which child Schoology is showing.</div>
+        </div>
+        <button id="auto-refresh" type="button" role="switch" class="switch" aria-labelledby="auto-label"><span></span></button>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong" id="vis-label">Who sees grades</div>
+          <div class="muted">Grade numbers and bars. Missing and due items always show.</div>
+        </div>
+        <div class="seg" role="radiogroup" aria-labelledby="vis-label" data-setting="gradeVisibility">
+          <button type="button" role="radio" data-value="both">Everyone</button>
+          <button type="button" role="radio" data-value="parent">Parents</button>
+          <button type="button" role="radio" data-value="student">Students</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="grow"><div class="strong" id="fmt-label">Assignment grades as</div></div>
+        <div class="seg" role="radiogroup" aria-labelledby="fmt-label" data-setting="gradeDisplay">
+          <button type="button" role="radio" data-value="percent">Percent</button>
+          <button type="button" role="radio" data-value="points">Points (42/50)</button>
+        </div>
+      </div>
+    </section>
 
-<section id="step-4" class="step">
-  <h2>Class icons</h2>
-  <p>Pick an icon for each class. These show in the popup next to the class name.</p>
-  <div id="icon-list"></div>
-</section>
+    <section id="classes" class="card">
+      <div class="card-h">
+        <h2>Classes</h2>
+        <p class="muted">Hidden classes leave the class list and the passing-grade check. Their Missing work still counts. Sections with no grades are hidden automatically.</p>
+      </div>
+      <div id="class-groups"><p class="muted">No classes yet. Press Refresh now above.</p></div>
+    </section>
 
-<section id="step-5" class="step">
-  <h2>Rules</h2>
-  <label>Grade threshold (75 passes; below is NO-GO)
-    <input id="grade-threshold" type="number" min="0" max="100" value="75">
-  </label>
-  <label>Missing threshold (NO-GO when Missing count reaches this)
-    <input id="missing-threshold" type="number" min="1" max="20" value="2">
-  </label>
-  <label>"Not so good" window (days)
-    <input id="notsogood-days" type="number" min="1" max="30" value="7">
-  </label>
-  <label><input id="show-gonogo" type="checkbox" checked> Show GO/NO-GO badge</label>
-  <label><input id="show-panel" type="checkbox" checked> Show the dashboard panel on Schoology pages</label>
-  <label>Who sees grades
-    <select id="grade-visibility">
-      <option value="both">Both parent and student</option>
-      <option value="parent">Parents only</option>
-      <option value="student">Students only</option>
-    </select>
-  </label>
-  <label>Grade display
-    <select id="grade-display">
-      <option value="percent">Percent</option>
-      <option value="points">Points (e.g. 42/50)</option>
-    </select>
-  </label>
-</section>
+    <section id="privacy" class="card">
+      <div class="card-h">
+        <h2>Privacy &amp; data</h2>
+        <p class="muted">Grades are read from Schoology in this browser and stay here. Nothing is sent anywhere else, and marking work turned in or done never notifies anyone.</p>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong">Clear saved grades and marks</div>
+          <div class="muted">Removes the stored dashboards and your turned-in and done marks. Settings stay.</div>
+        </div>
+        <button id="clear-btn" type="button" class="btn danger">Clear data…</button>
+      </div>
+      <p id="clear-status" class="muted" role="status"></p>
+    </section>
 
-<section id="step-6" class="step">
-  <h2>Review &amp; save</h2>
-  <div id="review"></div>
-  <button id="save-btn" type="button">Save settings</button>
-  <p id="save-status" class="muted" role="status"></p>
-</section>
+    <section id="developer" class="card dev dev-only" hidden>
+      <div class="dev-h">
+        <span class="dev-tag">DEV</span>
+        <h2>Developer</h2>
+        <span id="dev-build" class="muted"></span>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong" id="src-label">Data source</div>
+          <div class="muted">The mock server runs on localhost:8123 (npm run mock-server).</div>
+        </div>
+        <div class="seg dev-seg" role="radiogroup" aria-labelledby="src-label" id="source-seg">
+          <button type="button" role="radio" data-value="real">Real Schoology</button>
+          <button type="button" role="radio" data-value="mock">Mock server</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="live-test-btn" type="button" class="btn dev-btn">Run live connection test</button>
+        <button id="demo-btn" type="button" class="btn dev-btn">Load demo data</button>
+      </div>
+      <pre id="dev-result" class="result" hidden></pre>
+    </section>
 
-<div class="nav-row">
-  <button id="prev-btn" type="button">← Back</button>
-  <button id="next-btn" type="button">Next →</button>
+    <footer class="credit">
+      <div class="credit-line">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#c2410c" stroke="none" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        <span>Made with love for</span><img id="credit-logo" alt="NPC" width="20" height="20"><span>by Chris Hirt</span>
+      </div>
+      <div id="version" class="muted"></div>
+    </footer>
+  </main>
 </div>
-
-<hr>
-<section id="advanced">
-  <h2>Advanced</h2>
-  <label>Schoology base URL
-    <input id="schoology-base" type="url" value="https://app.schoology.com">
-  </label>
-  <p class="muted">For testing against a mock server, set this to the mock URL (dev build only).</p>
-  <button id="live-test-btn" type="button">Run live connection test</button>
-  <pre id="live-test-result" class="result"></pre>
-</section>
-</main>
 <script src="options.js"></script>
 </body>
 </html>

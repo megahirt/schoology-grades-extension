@@ -1,228 +1,293 @@
-// options.js — settings + 6-step setup wizard
-// (Connect → Profile → Classes → Icons → Rules → Review).
-// Classes step uses classifier.js; Profile uses the Schoology pictureUrl
-// by default, upload/pick-from-list is fallback only.
+// options.js — the settings page (see the "Schoology Dashboard Settings"
+// design): one page, saved automatically on every change.
+//   Account · Family rules · Display · Classes · Privacy & data ·
+//   Developer (dev builds only) · credit footer.
 
 import browser from 'webextension-polyfill';
-import { DEFAULT_SETTINGS } from '../src/rules.js';
-import { classifySection } from '../src/classifier.js';
-import {
-  getSettings,
-  setSettings,
-  getDashboards,
-  getAccount,
-  getLiveTest,
-} from '../src/storage.js';
+import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
+import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, storageRemove } from '../src/storage.js';
+import { loadDemo, initials, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
+import npcLogo from '../icons/npc_icon_tiny.png';
 
-let currentStep = 1;
-let settings = { ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', classIcons: {}, avatarOverride: null, realClasses: {} };
-let dashboards = {};
-let account = null;
+const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
+const $ = (id) => document.getElementById(id);
 
-const AVATAR_CHOICES = ['🧒', '👦', '👧', '🦊', '🐶', '🐱', '🦉', '🚀', '⚽', '🎸'];
+let settings = { ...DEFAULT_SETTINGS, schoologyBase: REAL_SCHOOLOGY, realClasses: {} };
 
-function showStep(n) {
-  currentStep = Math.min(6, Math.max(1, n));
-  document.querySelectorAll('.step').forEach((el) => el.classList.remove('active'));
-  document.querySelectorAll('.step-btn').forEach((el) => el.classList.remove('active'));
-  document.getElementById(`step-${currentStep}`).classList.add('active');
-  document.querySelector(`.step-btn[data-step="${currentStep}"]`).classList.add('active');
-  if (currentStep === 3) renderClasses();
-  if (currentStep === 4) renderIcons();
-  if (currentStep === 6) renderReview();
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function allCourses() {
-  const out = [];
-  for (const [uid, d] of Object.entries(dashboards)) {
-    for (const c of d.courses || []) {
-      out.push({ uid, studentName: d.studentName, ...c });
+// --- Saving -----------------------------------------------------------------
+
+let saveTimer = null;
+function showSaved(state) {
+  const el = $('save-state');
+  el.classList.toggle('saving', state === 'saving');
+  el.querySelector('span').textContent = state === 'saving' ? 'Saving…' : 'Changes save automatically';
+}
+
+async function save(patch) {
+  settings = { ...settings, ...patch };
+  showSaved('saving');
+  await setSettings(settings);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => showSaved('saved'), 400);
+}
+
+// --- Controls -----------------------------------------------------------------
+
+function bindNumber(id, key, { min, max }) {
+  const input = $(id);
+  input.value = settings[key];
+  input.addEventListener('change', () => {
+    const n = Number(input.value);
+    if (!Number.isFinite(n)) {
+      input.value = settings[key];
+      return;
     }
-  }
-  return out;
+    const v = Math.min(max, Math.max(min, Math.round(n)));
+    input.value = v;
+    save({ [key]: v });
+  });
 }
 
-function courseStats(course) {
-  const graded = (course.assignments || []).filter((a) => a.score !== null && a.score !== undefined).length;
-  return {
-    name: course.name || '',
-    gradedItemCount: graded,
-    hasPeriodGrade: typeof course.grade === 'number',
-    assignmentCount: (course.assignments || []).length,
+function setSwitch(btn, on) {
+  btn.setAttribute('aria-checked', String(Boolean(on)));
+}
+
+function bindSwitch(id, key) {
+  const btn = $(id);
+  setSwitch(btn, settings[key] !== false);
+  btn.addEventListener('click', () => {
+    const on = btn.getAttribute('aria-checked') !== 'true';
+    setSwitch(btn, on);
+    save({ [key]: on });
+  });
+}
+
+function setSeg(seg, value) {
+  for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-checked', String(b.dataset.value === value));
+}
+
+function bindSeg(seg, key) {
+  setSeg(seg, settings[key]);
+  seg.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-value]');
+    if (!b) return;
+    setSeg(seg, b.dataset.value);
+    save({ [key]: b.dataset.value });
+  });
+}
+
+// --- Account -------------------------------------------------------------------
+
+function updatedText(dashboards) {
+  let latest = null;
+  for (const d of Object.values(dashboards)) if (d.updatedAt && (!latest || d.updatedAt > latest)) latest = d.updatedAt;
+  if (!latest) return 'not refreshed yet';
+  const when = new Date(latest);
+  const time = when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return when.toDateString() === new Date().toDateString()
+    ? `last refreshed today, ${time}`
+    : `last refreshed ${when.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
+async function renderAccount() {
+  const account = await getAccount();
+  const dashboards = (await getDashboards()) || {};
+  const site = (() => {
+    try {
+      return new URL(settings.schoologyBase).host;
+    } catch {
+      return settings.schoologyBase;
+    }
+  })();
+  const kids = Object.entries(dashboards);
+  const known = account && (account.type === 'parent' || account.type === 'student');
+  $('account-status').classList.toggle('ok', Boolean(known));
+  $('account-title').textContent = !account
+    ? 'Not checked yet'
+    : account.type === 'parent' ? 'Connected as a parent'
+      : account.type === 'student' ? 'Connected as a student'
+        : 'Not signed in to Schoology';
+  const who = account && account.type === 'parent' ? ` · ${kids.length} ${kids.length === 1 ? 'child' : 'children'}` : '';
+  $('account-detail').textContent = `${site}${who} · ${updatedText(dashboards)}`;
+  $('kids').innerHTML = kids.map(([uid, d]) => {
+    const shown = (d.courses || []).filter((c) => isShown(uid, c)).length;
+    const hidden = (d.courses || []).length - shown;
+    const pic = d.pictureUrl
+      ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="">`
+      : `<span class="avatar" aria-hidden="true">${escapeHtml(initials(d.studentName))}</span>`;
+    return `<div class="kid">${pic}<div class="grow"><div class="strong">${escapeHtml(d.studentName || 'Student')}</div>` +
+      `<div class="muted">${shown} ${shown === 1 ? 'class' : 'classes'}${hidden ? ` · ${hidden} hidden` : ''}</div></div></div>`;
+  }).join('');
+}
+
+// --- Classes -------------------------------------------------------------------
+
+const classKey = (uid, c) => `${uid}:${c.id || c.name}`;
+
+// Shown unless hidden by hand; sections with no grades start hidden.
+function isShown(uid, c) {
+  const choice = (settings.realClasses || {})[classKey(uid, c)];
+  if (choice === true || choice === false) return choice;
+  return hasGradeData(c);
+}
+
+function pct(n) {
+  return typeof n === 'number' ? `${Math.round(n * 10) / 10}%` : '—';
+}
+
+function classDetail(c) {
+  if (!hasGradeData(c)) return 'No grades · hidden automatically';
+  const parts = [];
+  if (typeof c.quarterGrade === 'number') parts.push(`${c.gradeLabel || 'Quarter'} ${pct(c.quarterGrade)}`);
+  if (typeof c.overallGrade === 'number') parts.push(`${c.overallLabel || 'Semester'} ${pct(c.overallGrade)}`);
+  if (!parts.length && typeof c.grade === 'number') parts.push(pct(c.grade));
+  return parts.join(' · ');
+}
+
+async function renderClasses() {
+  const dashboards = (await getDashboards()) || {};
+  const groups = Object.entries(dashboards).filter(([, d]) => (d.courses || []).length);
+  if (!groups.length) {
+    $('class-groups').innerHTML = '<p class="muted">No classes yet. Press Refresh now above.</p>';
+    return;
+  }
+  $('class-groups').innerHTML = groups.map(([uid, d]) =>
+    `<div class="group"><div class="group-h">${escapeHtml(d.studentName || 'Student')}</div>` +
+    d.courses.map((c) => {
+      const on = isShown(uid, c);
+      return `<div class="class-row${on ? '' : ' off'}"><div class="grow"><div class="name">${escapeHtml(c.name)}</div>` +
+        `<div class="muted">${escapeHtml(classDetail(c))}</div></div>` +
+        `<button type="button" role="switch" class="switch" aria-checked="${on}" aria-label="Show ${escapeHtml(c.name)}" data-key="${escapeHtml(classKey(uid, c))}" data-auto="${hasGradeData(c)}"><span></span></button></div>`;
+    }).join('') + '</div>').join('');
+}
+
+$('class-groups').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-key]');
+  if (!btn) return;
+  const on = btn.getAttribute('aria-checked') !== 'true';
+  const realClasses = { ...(settings.realClasses || {}) };
+  // Store only choices that differ from the automatic default.
+  if (on === (btn.dataset.auto === 'true')) delete realClasses[btn.dataset.key];
+  else realClasses[btn.dataset.key] = on;
+  await save({ realClasses });
+  await renderClasses();
+  await renderAccount();
+});
+
+// --- Buttons -------------------------------------------------------------------
+
+$('refresh-btn').addEventListener('click', async () => {
+  const btn = $('refresh-btn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  try {
+    await browser.runtime.sendMessage({ type: 'refresh-now' });
+  } catch {
+    // The account box shows the result either way.
+  }
+  btn.disabled = false;
+  btn.textContent = 'Refresh now';
+  await renderAccount();
+  await renderClasses();
+});
+
+$('clear-btn').addEventListener('click', async () => {
+  // eslint-disable-next-line no-alert
+  if (!window.confirm('Clear the saved grades and your turned-in and done marks from this browser? Settings stay. This cannot be undone.')) return;
+  for (const key of ['dashboards', 'turnedIn', 'markedDone', 'refreshState', 'account', 'liveTest']) await storageRemove(key);
+  $('clear-status').textContent = 'Saved grades and marks cleared.';
+  await renderAccount();
+  await renderClasses();
+});
+
+// --- Developer (dev builds only) ------------------------------------------------
+
+function setupDev() {
+  if (!IS_DEV) return;
+  for (const el of document.querySelectorAll('.dev-only')) el.hidden = false;
+  const v = browser.runtime.getManifest().version_name || '';
+  const stamp = v.includes('-dev.') ? v.split('-dev.')[1].replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2}).*$/, '$2/$3 $4:$5') : '';
+  $('dev-build').textContent = stamp ? `Dev builds only · built ${stamp} UTC` : 'Dev builds only';
+  const seg = $('source-seg');
+  setSeg(seg, settings.schoologyBase === MOCK_SCHOOLOGY ? 'mock' : 'real');
+  seg.addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-value]');
+    if (!b) return;
+    setSeg(seg, b.dataset.value);
+    await save({ schoologyBase: b.dataset.value === 'mock' ? MOCK_SCHOOLOGY : REAL_SCHOOLOGY });
+    await storageRemove('dashboards');
+    await renderAccount();
+    await renderClasses();
+  });
+  const out = $('dev-result');
+  $('live-test-btn').addEventListener('click', async () => {
+    out.hidden = false;
+    out.textContent = 'Running live connection test…';
+    try {
+      const stored = (await getSettings()) || {};
+      const url = stored.lastGradesUrl || `${settings.schoologyBase}/home`;
+      const evidence = await browser.runtime.sendMessage({ type: 'run-live-probe', url });
+      out.textContent = JSON.stringify(evidence, null, 2);
+      if (await getLiveTest()) out.textContent += `\n\nStored as liveTest at ${new Date().toISOString()}.`;
+    } catch (err) {
+      out.textContent = `Live test failed: ${err.message || err}`;
+    }
+  });
+  $('demo-btn').addEventListener('click', async () => {
+    out.hidden = false;
+    try {
+      await loadDemo(browser);
+      out.textContent = 'Demo data loaded (made-up families).';
+    } catch (err) {
+      out.textContent = `Could not load demo data: ${err.message || err}`;
+    }
+    await renderAccount();
+    await renderClasses();
+  });
+}
+
+// --- Menu highlight ---------------------------------------------------------------
+
+function setupMenu() {
+  const links = [...document.querySelectorAll('.side a')];
+  const mark = () => {
+    const id = (location.hash || '#account').slice(1);
+    for (const a of links) a.classList.toggle('active', a.getAttribute('href') === `#${id}`);
   };
+  window.addEventListener('hashchange', mark);
+  mark();
 }
 
-function renderClasses() {
-  const el = document.getElementById('class-list');
-  const courses = allCourses();
-  if (!courses.length) {
-    el.innerHTML = '<p class="muted">No classes loaded yet — refresh grades first, or load the demo data from the popup.</p>';
-    return;
-  }
-  el.innerHTML = courses.map((c) => {
-    const rec = classifySection(courseStats(c));
-    const key = `${c.uid}:${c.id || c.name}`;
-    const checked = settings.realClasses[key] !== false && rec.recommendation !== 'skip';
-    return `<div class="class-row"><input type="checkbox" data-class-key="${key.replace(/"/g, '&quot;')}" ${checked ? 'checked' : ''}>` +
-      `<span>${c.name} <span class="muted">(${c.studentName})</span></span>` +
-      `<span class="rec ${rec.recommendation}">${rec.recommendation} · ${rec.score}</span>` +
-      `<span class="muted" title="${rec.reasons.join('; ')}">ⓘ</span></div>`;
-  }).join('');
-  el.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-    cb.addEventListener('change', () => {
-      settings.realClasses[cb.dataset.classKey] = cb.checked;
-    });
-  });
-}
-
-function renderIcons() {
-  const el = document.getElementById('icon-list');
-  const courses = allCourses();
-  if (!courses.length) {
-    el.innerHTML = '<p class="muted">No classes loaded yet.</p>';
-    return;
-  }
-  el.innerHTML = courses.map((c) => {
-    const current = (settings.classIcons && settings.classIcons[c.name]) || '';
-    return `<div class="icon-row"><span>${c.name}</span><select data-icon-for="${c.name.replace(/"/g, '&quot;')}">` +
-      ['', '📖', '🔢', '🔬', '🏛️', '💬', '🎵', '✝️', '🏃', '🎨', '📘'].map((ic) =>
-        `<option value="${ic}" ${ic === current ? 'selected' : ''}>${ic || '(auto)'}</option>`).join('') +
-      `</select></div>`;
-  }).join('');
-  el.querySelectorAll('select').forEach((sel) => {
-    sel.addEventListener('change', () => {
-      settings.classIcons[sel.dataset.iconFor] = sel.value;
-    });
-  });
-}
-
-function renderProfile() {
-  const el = document.getElementById('profile-preview');
-  const first = Object.values(dashboards)[0];
-  const pic = settings.avatarOverride || (first && first.pictureUrl);
-  el.innerHTML = pic
-    ? `<img class="avatar" src="${pic}" alt="Profile picture">`
-    : '<p class="muted">No Schoology picture found yet — refresh grades first.</p>';
-  const choices = document.getElementById('avatar-choices');
-  choices.innerHTML = AVATAR_CHOICES.map((a) =>
-    `<button type="button" class="avatar-choice${settings.avatarOverride === a ? ' selected' : ''}" data-avatar="${a}">${a}</button>`).join('');
-  choices.querySelectorAll('.avatar-choice').forEach((b) => {
-    b.addEventListener('click', () => {
-      settings.avatarOverride = b.dataset.avatar;
-      renderProfile();
-    });
-  });
-}
-
-function renderReview() {
-  const courses = allCourses();
-  const real = courses.filter((c) => settings.realClasses[`${c.uid}:${c.id || c.name}`] !== false).length;
-  document.getElementById('review').innerHTML =
-    `<ul><li>Grade threshold: <b>${settings.gradeThreshold}</b> (below = NO-GO)</li>` +
-    `<li>Missing threshold: <b>${settings.missingThreshold}</b> Missing item(s) = NO-GO</li>` +
-    `<li>"Not so good" window: <b>${settings.notSoGoodDays}</b> day(s)</li>` +
-    `<li>Show GO/NO-GO badge: <b>${settings.showGoNoGo ? 'yes' : 'no'}</b></li>` +
-    `<li>Panel on Schoology pages: <b>${settings.showPanel !== false ? 'yes' : 'no'}</b></li>` +
-    `<li>Grades visible to: <b>${settings.gradeVisibility}</b>; display: <b>${settings.gradeDisplay}</b></li>` +
-    `<li>Classes kept: <b>${real} of ${courses.length}</b></li>` +
-    `<li>Schoology base: <b>${settings.schoologyBase}</b></li></ul>`;
-}
-
-function readRulesForm() {
-  settings.gradeThreshold = Number(document.getElementById('grade-threshold').value) || 75;
-  settings.missingThreshold = Number(document.getElementById('missing-threshold').value) || 2;
-  settings.notSoGoodDays = Number(document.getElementById('notsogood-days').value) || 7;
-  settings.showGoNoGo = document.getElementById('show-gonogo').checked;
-  settings.showPanel = document.getElementById('show-panel').checked;
-  settings.gradeVisibility = document.getElementById('grade-visibility').value;
-  settings.gradeDisplay = document.getElementById('grade-display').value;
-  settings.schoologyBase = document.getElementById('schoology-base').value.trim() || 'https://app.schoology.com';
-}
-
-function fillForm() {
-  document.getElementById('grade-threshold').value = settings.gradeThreshold;
-  document.getElementById('missing-threshold').value = settings.missingThreshold;
-  document.getElementById('notsogood-days').value = settings.notSoGoodDays;
-  document.getElementById('show-gonogo').checked = settings.showGoNoGo;
-  document.getElementById('show-panel').checked = settings.showPanel !== false;
-  document.getElementById('grade-visibility').value = settings.gradeVisibility;
-  document.getElementById('grade-display').value = settings.gradeDisplay;
-  document.getElementById('schoology-base').value = settings.schoologyBase;
-  const acc = document.getElementById('account-line');
-  acc.textContent = account
-    ? `Account: ${account.type}${account.children && account.children.length ? ` — ${account.children.map((c) => c.name).join(', ')}` : ''} (detected ${account.detectedAt || 'unknown'})`
-    : 'Account: not checked yet.';
-}
+// --- Start ------------------------------------------------------------------------
 
 async function init() {
   const stored = (await getSettings()) || {};
-  settings = { ...settings, ...stored, classIcons: stored.classIcons || {}, realClasses: stored.realClasses || {} };
-  dashboards = (await getDashboards()) || {};
-  account = await getAccount();
-  fillForm();
-  renderProfile();
-
-  document.querySelectorAll('.step-btn').forEach((b) => {
-    b.addEventListener('click', () => showStep(Number(b.dataset.step)));
-  });
-  document.getElementById('prev-btn').addEventListener('click', () => showStep(currentStep - 1));
-  document.getElementById('next-btn').addEventListener('click', () => { readRulesForm(); showStep(currentStep + 1); });
-  document.getElementById('save-btn').addEventListener('click', async () => {
-    readRulesForm();
-    await setSettings(settings);
-    document.getElementById('save-status').textContent = 'Saved.';
-  });
-  document.getElementById('check-account-btn').addEventListener('click', async () => {
-    const el = document.getElementById('connect-status');
-    el.textContent = 'Checking…';
-    try {
-      const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
-      account = await getAccount();
-      dashboards = (await getDashboards()) || {};
-      fillForm();
-      renderProfile();
-      el.textContent = result && result.ok
-        ? `Connected (${result.accountType}).`
-        : `Could not fetch grades in the background: ${result && result.error ? result.error : 'unknown'}. Try visiting a Schoology Grades page instead.`;
-    } catch (err) {
-      el.textContent = `Check failed: ${err.message || err}`;
-    }
-  });
-  document.getElementById('refresh-btn').addEventListener('click', async () => {
-    const el = document.getElementById('connect-status');
-    el.textContent = 'Refreshing…';
-    try {
-      const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
-      dashboards = (await getDashboards()) || {};
+  settings = { ...settings, ...stored, realClasses: stored.realClasses || {} };
+  bindNumber('grade-threshold', 'gradeThreshold', { min: 0, max: 100 });
+  bindNumber('missing-threshold', 'missingThreshold', { min: 1, max: 20 });
+  bindNumber('doing-well-percent', 'doingWellPercent', { min: 0, max: 100 });
+  bindNumber('doing-well-days', 'doingWellDays', { min: 1, max: 60 });
+  bindNumber('notsogood-days', 'notSoGoodDays', { min: 1, max: 60 });
+  bindSwitch('show-gonogo', 'showGoNoGo');
+  bindSwitch('show-panel', 'showPanel');
+  bindSwitch('auto-refresh', 'autoRefresh');
+  for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
+  $('credit-logo').src = npcLogo;
+  $('version').textContent = `Homework Dashboard ${browser.runtime.getManifest().version}`;
+  setupDev();
+  setupMenu();
+  await renderAccount();
+  await renderClasses();
+  requestAnimationFrame(() => document.body.classList.add('ready'));
+  // Keep the account box and class list current if a refresh finishes.
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && ('dashboards' in changes || 'account' in changes)) {
+      renderAccount();
       renderClasses();
-      el.textContent = result && result.ok ? 'Refreshed.' : `Refresh issue: ${result && result.error ? result.error : 'unknown'}`;
-    } catch (err) {
-      el.textContent = `Refresh failed: ${err.message || err}`;
-    }
-  });
-  document.getElementById('avatar-upload').addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      settings.avatarOverride = reader.result;
-      renderProfile();
-    };
-    reader.readAsDataURL(file);
-  });
-  document.getElementById('live-test-btn').addEventListener('click', async () => {
-    const out = document.getElementById('live-test-result');
-    out.textContent = 'Running live connection test…';
-    try {
-      readRulesForm();
-      const stored2 = (await getSettings()) || {};
-      const gradesUrl = stored2.lastGradesUrl || `${settings.schoologyBase}/home`;
-      const evidence = await browser.runtime.sendMessage({ type: 'run-live-probe', url: gradesUrl });
-      out.textContent = JSON.stringify(evidence, null, 2);
-      const saved = await getLiveTest();
-      if (saved) out.textContent += `\n\nStored as liveTest at ${new Date().toISOString()}.`;
-    } catch (err) {
-      out.textContent = `Live test failed: ${err.message || err}`;
     }
   });
 }

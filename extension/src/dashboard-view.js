@@ -14,7 +14,7 @@
 // open popup and panel stays in sync. It only uses APIs that also work in
 // content scripts: browser.storage and browser.runtime.sendMessage/getURL.
 
-import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData, withHiddenCourses } from './rules.js';
 import {
   getSettings,
   setSettings,
@@ -230,7 +230,11 @@ function renderDue(summary, uid) {
 // unticked in the setup wizard (settings.realClasses[`${uid}:${id}`] false).
 export function visibleCourses(courses, settings, uid) {
   const real = settings.realClasses || {};
-  return (courses || []).filter((c) => hasGradeData(c) && real[`${uid}:${c.id || c.name}`] !== false);
+  return (courses || []).filter((c) => {
+    const choice = real[`${uid}:${c.id || c.name}`];
+    if (choice === true || choice === false) return choice; // chosen in Settings
+    return hasGradeData(c); // sections with no grades start hidden
+  });
 }
 
 function renderClasses(courses, settings, showGrades, uid) {
@@ -320,7 +324,7 @@ function avatarHtml(d) {
 
 // One child's (or the student's own) dashboard body.
 export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
-  const summary = summarizeStudent(d.courses || [], settings, marks.turnedIn, marks.done);
+  const summary = summarizeStudent(d.courses || [], withHiddenCourses(settings, uid), marks.turnedIn, marks.done);
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
     || (settings.gradeVisibility === 'student' && !isParentView);
@@ -373,7 +377,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView }) {
 
 // Demo data with due dates shifted so "today"/"tomorrow" line up with the
 // day the demo is loaded (demo anchor: 2026-11-06).
-async function loadDemo(browser) {
+export async function loadDemo(browser) {
   const res = await fetch(browser.runtime.getURL('popup/demo-data.json'));
   const data = await res.json();
   const todayStart = new Date();
@@ -465,7 +469,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (isParentView && uids.length > 1) {
       const tabs = uids.map((uid) => {
         const d = dashboards[uid];
-        const s = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
+        const s = summarizeStudent(d.courses || [], withHiddenCourses(settings, uid), turnedIn[uid], done[uid]);
         const v = d.error || isPartial(d) ? 'unknown' : s.verdict.verdict === 'GO' ? 'go' : 'nogo';
         const dot = settings.showGoNoGo ? `<span class="dot ${v}" aria-hidden="true"></span>` : '';
         const sel = uid === pickedUid;
