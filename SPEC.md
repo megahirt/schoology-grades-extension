@@ -138,6 +138,11 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   which, and the dashboard notes it). `overallGrade` / `overallLabel` is the
   second column: "Semester" (the current semester) until a later semester
   has any grade, then "Overall" (the course grade, or the semesters' average).
+- Links: every assignment title with a Schoology page links to it, and
+  every class title links to that class's grades, opening in a new tab.
+  For a parent these use Schoology's preview link
+  (`/course/<id>/preview/<child uid>/parent?url=…`), which also switches
+  the viewed child; `/course/<id>/student_grades` is 403 for any other child.
 - The class list leaves out sections with no grade data (no course grade and
   no graded assignment, e.g. advisory or house group): `hasGradeData()`.
   Their teacher-marked Missing items, if any, still count.

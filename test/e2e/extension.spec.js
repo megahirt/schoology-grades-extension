@@ -208,6 +208,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.class-cols .col-q')).toHaveText('Quarter 2');
       await expect(popup.locator('.class-cols .col-o')).toHaveText('Semester');
       const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
+      // Class and assignment titles link to Schoology.
+      await expect(algebra.locator('a.class-name')).toHaveAttribute('href', `${mockBase}/course/1001/student_grades`);
+      await expect(popup.locator('.missing-card a.item-title', { hasText: 'Persuasive Essay Draft' })).toHaveAttribute('href', /\/assignment\/5101$/);
       await expect(algebra.locator('.class-grade')).toHaveText('68%');
       await expect(algebra.locator('.class-overall')).toHaveText('74%');
       // A class with no quarter grade shows a dash; its semester grade stands.
@@ -347,6 +350,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // teacher and does not count as Missing.
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.locator('.missing-card', { hasText: 'Unit 2 Essay' })).toBeVisible();
+      // Parent class links open that child's class grades via Schoology's preview link.
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.class-name'))
+        .toHaveAttribute('href', /\/course\/\d+\/preview\/2000001\/parent\?url=course\/\d+\/student_grades$/);
       await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toContainText('Submitted, not graded yet');
       // Classes leave out sections with no grade data (House Group 1).
       await expect(popup.locator('.class', { hasText: 'United States History' })).toBeVisible();
