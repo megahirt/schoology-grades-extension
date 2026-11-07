@@ -36,7 +36,7 @@ import npcLogo from '../icons/npc_icon_tiny.png';
 // here looks like Missing on Schoology's grades page.
 import missingIcon from '../icons/schoology-missing.png';
 
-const MISSING_IMG = `<img class="missing-icon" src="${missingIcon}" alt="" width="14" height="12">`;
+export const MISSING_IMG = `<img class="missing-icon" src="${missingIcon}" alt="" width="14" height="12">`;
 
 export const DASHBOARD_CSS = css;
 

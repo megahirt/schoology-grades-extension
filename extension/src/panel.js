@@ -21,7 +21,7 @@
 // (dashboard-view.js). It is only built the first time the panel opens, so
 // a closed panel costs one small button per page.
 
-import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning } from './dashboard-view.js';
+import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning, MISSING_IMG } from './dashboard-view.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
 import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet } from './storage.js';
 
@@ -68,10 +68,14 @@ const PANEL_CSS = `
 .edge-tab svg { display: block; }
 .tab-spin { display: block; animation: sgd-tab-spin 0.9s linear infinite; }
 @keyframes sgd-tab-spin { to { transform: rotate(360deg); } }
-.kids { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.kid { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.kid-i { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; }
-.kid-i.go { background: #1b7a3e; } .kid-i.nogo { background: #b42318; } .kid-i.unknown { background: #f2b84b; color: #3d2c00; }
+.kids { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.kid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.kid-pic { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #e7ecf3; color: #334155; font-size: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
+.kid-m { display: flex; align-items: center; gap: 3px; font-size: 11px; line-height: 1; color: #fff; }
+.kid-m .missing-icon { width: 11px; height: 10px; display: block; }
+.kid-m .hg { font-size: 10px; }
+.kid-nogo { font-size: 8px; font-weight: 800; letter-spacing: 0.02em; color: #fff; background: #b42318; border-radius: 4px; padding: 2px 3px; }
+.kid-unknown { font-size: 10px; font-weight: 800; color: #3d2c00; background: #f2b84b; border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 600px) {
   .wrap { top: auto; left: 0; width: 100%; height: 85vh; transform: translateY(100%); }
   .sheet { border-left: none; border-radius: 18px 18px 0 0; box-shadow: 0 -2px 4px rgba(15, 23, 42, 0.10), 0 -10px 28px rgba(15, 23, 42, 0.24), 0 -24px 56px rgba(15, 23, 42, 0.18); }
@@ -98,21 +102,30 @@ const CHEVRON_LEFT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none
 const SPINNER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>';
 const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
-// Per-child verdicts for the closed tab: [{ name, verdict: 'GO'|'NO-GO'|'UNKNOWN' }].
-// Empty when the GO/NO-GO badge is turned off, and for a student's own view.
-export async function tabVerdicts() {
+// Per-child summary for the closed tab:
+//   [{ name, pictureUrl, missing, due, nogo, unknown }]
+// Missing and Due soon counts always show (when non-zero). NO-GO (or "?" for
+// UNKNOWN) shows only for parents with the badge turned on; GO shows nothing.
+export async function tabSummaries() {
   const settings = { ...DEFAULT_SETTINGS, ...((await getSettings()) || {}) };
-  if (!settings.showGoNoGo) return [];
   const dashboards = (await getDashboards()) || {};
-  // GO/NO-GO is for parents only: a student's own dashboard is keyed 'self'.
   const uids = Object.keys(dashboards);
-  if (uids.length === 1 && uids[0] === 'self') return [];
+  const isStudent = uids.length === 1 && uids[0] === 'self';
+  const verdictsOn = settings.showGoNoGo && !isStudent;
   const turnedIn = (await getTurnedIn()) || {};
   const done = (await getMarkedDone()) || {};
-  return Object.entries(dashboards).map(([uid, d]) => ({
-    name: d.studentName || 'Student',
-    verdict: d.error || isPartial(d) ? 'UNKNOWN' : summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]).verdict.verdict,
-  }));
+  return Object.entries(dashboards).map(([uid, d]) => {
+    const sum = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
+    const unknown = Boolean(d.error || isPartial(d));
+    return {
+      name: d.studentName || 'Student',
+      pictureUrl: d.pictureUrl || null,
+      missing: unknown ? 0 : sum.missingCount,
+      due: unknown ? 0 : sum.dueToday.length + sum.dueTomorrow.length,
+      nogo: verdictsOn && !unknown && sum.verdict.verdict === 'NO-GO',
+      unknown: verdictsOn && unknown,
+    };
+  });
 }
 
 // mountPanel({ document, browser, open = false, onOpenChange })
@@ -149,31 +162,53 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     : Date.now();
   let dashboard = null;
   let isOpen = false;
-  let verdicts = [];
+  let kids = [];
   let busy = false;
 
   function drawTab() {
-    const label = verdicts.map((v) => `${v.name}: ${v.verdict}`).join('. ');
+    const parts = kids.map((k) => {
+      const bits = [];
+      if (k.missing) bits.push(`${k.missing} missing`);
+      if (k.due) bits.push(`${k.due} due soon`);
+      if (k.nogo) bits.push('NO-GO');
+      if (k.unknown) bits.push('verdict unknown');
+      return `${k.name}${bits.length ? `: ${bits.join(', ')}` : ''}`;
+    }).join('. ');
     tab.setAttribute('aria-label', isOpen
       ? 'Hide homework dashboard'
-      : `Show homework dashboard${label ? `. ${label}.` : ''}`);
+      : `Show homework dashboard${parts ? `. ${parts}.` : ''}`);
     tab.classList.toggle('open', isOpen);
-    const kids = verdicts.map((v) => {
-      const cls = v.verdict === 'GO' ? 'go' : v.verdict === 'NO-GO' ? 'nogo' : 'unknown';
-      const first = escapeHtml(initials(v.name).charAt(0));
-      return `<span class="kid"><span class="kid-i ${cls}">${first}</span><span>${escapeHtml(v.verdict === 'UNKNOWN' ? '?' : v.verdict)}</span></span>`;
+    const html = kids.map((k) => {
+      const pic = k.pictureUrl
+        ? `<img class="kid-pic" src="${escapeHtml(k.pictureUrl)}" alt="" data-initials="${escapeHtml(initials(k.name))}">`
+        : `<span class="kid-pic">${escapeHtml(initials(k.name))}</span>`;
+      return `<span class="kid">${pic}` +
+        (k.missing ? `<span class="kid-m">${MISSING_IMG}${k.missing}</span>` : '') +
+        (k.due ? `<span class="kid-m"><span class="hg">⌛</span>${k.due}</span>` : '') +
+        (k.nogo ? '<span class="kid-nogo">NO-GO</span>' : k.unknown ? '<span class="kid-unknown">?</span>' : '') +
+        '</span>';
     }).join('');
     const spinner = busy && !isOpen ? `<span class="tab-spin" aria-hidden="true">${SPINNER}</span>` : '';
-    tab.innerHTML = (isOpen ? CHEVRON_RIGHT : CHEVRON_LEFT) + spinner + (kids ? `<span class="kids" aria-hidden="true">${kids}</span>` : '');
+    tab.innerHTML = (isOpen ? CHEVRON_RIGHT : CHEVRON_LEFT) + spinner + (html ? `<span class="kids" aria-hidden="true">${html}</span>` : '');
+    // A Schoology picture that fails to load falls back to the initials.
+    for (const img of tab.querySelectorAll('img.kid-pic')) {
+      img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.className = 'kid-pic';
+        span.textContent = img.dataset.initials || '?';
+        img.replaceWith(span);
+      }, { once: true });
+    }
     if (busy && !isOpen) tab.setAttribute('aria-label', `${tab.getAttribute('aria-label')} Refreshing grades.`);
   }
 
+
   async function refreshTab() {
     try {
-      verdicts = await tabVerdicts();
+      kids = await tabSummaries();
       busy = refreshRunning(await storageGet('refreshState', null));
     } catch {
-      verdicts = [];
+      kids = [];
     }
     drawTab();
   }

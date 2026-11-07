@@ -314,8 +314,12 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await page.goto(`${mockBase}/home`);
       await expect(tab).toHaveAttribute('aria-expanded', 'false', { timeout: 15000 });
       await expect(panel).toBeHidden();
-      // A student's closed tab shows no verdict (GO/NO-GO is for parents).
-      await expect(tab).toHaveAttribute('aria-label', 'Show homework dashboard');
+      // A student's closed tab shows the counts but no verdict (GO/NO-GO is for parents).
+      await expect(tab).toHaveAttribute('aria-label', /^Show homework dashboard\. Alex Student: 1 missing/);
+      await expect(tab).not.toHaveAttribute('aria-label', /NO-GO/);
+      await expect(tab.locator('.kid-pic')).toHaveCount(1);
+      await expect(tab.locator('.kid-m').first()).toHaveText('1'); // Schoology Missing icon + 1
+      await expect(tab.locator('.kid-nogo')).toHaveCount(0);
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
