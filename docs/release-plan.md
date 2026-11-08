@@ -278,7 +278,7 @@ target.
 |---|---|---|
 | Account | Firefox Account, free | Microsoft Partner Center developer account, free (individual) |
 | Code changes | Firefox MV3 uses `background.scripts`, not `service_worker`. It needs `browser_specific_settings.gecko.id` (+ `data_collection_permissions` for new AMO submissions; verify). → a `--target=firefox` manifest transform in `build.mjs`, its own ZIP, Playwright can't cover it. Our `browser.*` + polyfill code should otherwise run. | None. It takes the Chrome ZIP as is. |
-| CI | `web-ext sign --channel=listed` (or `unlisted` for self-hosted signed `.xpi`) with an AMO JWT issuer + secret | Edge Add-ons API v1.1: upload package → publish; API key + client ID from Partner Center → Publish API |
+| CI | `web-ext sign --channel=listed` with an AMO JWT issuer + secret | Edge Add-ons API v1.1: upload package → publish; API key + client ID from Partner Center → Publish API |
 | Review | Automated plus possible human review; source upload needed only if code is minified/bundled in ways reviewers can't read (esbuild bundle → **probably yes**, upload the repo ZIP) | Hours to ~7 days |
 | Effort | ~half a day + ongoing manual testing | ~1–2 hours |
 
