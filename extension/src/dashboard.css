@@ -173,3 +173,25 @@
   .sgd .tab { height: 44px; font-size: 14px; }
   .sgd .btn { height: 40px; }
 }
+
+/* Rewards (rewards.js): this week's ring, "▲ 6% vs Q1", Records. */
+.sgd .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.sgd .card.with-ring { flex-direction: row; align-items: center; gap: 10px; }
+.sgd .card-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.sgd .week { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sgd .ring { position: relative; width: 96px; height: 96px; }
+.sgd .ring svg { position: absolute; inset: 0; width: 96px; height: 96px; }
+.sgd .ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.sgd .ring-n { font-size: 18px; font-weight: 800; line-height: 1.1; color: var(--ink); }
+.sgd .ring-l { font-size: 8.5px; line-height: 1.2; color: #4b5563; width: 58px; }
+.sgd .ring-key { display: flex; gap: 8px; font-size: 10px; color: #4b5563; }
+.sgd .ring-key span { display: inline-flex; align-items: center; gap: 3px; }
+.sgd .ring-key i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.sgd .ring-key .k-graded { background: #1d4ed8; } .sgd .ring-key .k-sub { background: #93b4f5; }
+.sgd .up-pill { flex: 0 0 auto; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--go-bg); color: var(--go); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.sgd .record { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.sgd .record-icon { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: #fff7e0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.sgd .record-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.sgd .record-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sgd .record-value { flex: 0 0 auto; font-size: 15px; font-weight: 700; }
+.sgd .new-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: #c2410c; border-radius: 999px; padding: 1px 6px; }

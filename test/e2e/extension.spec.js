@@ -210,6 +210,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // The quarter's dates, from the grading-period title on the grades page.
       await expect(popup.getByText('Quarter 2 is from Oct 19 to Dec 15.')).toBeVisible();
       const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
+      // Down on Quarter 1 (80% -> 68%): no "vs Q1" pill, drops are not shown.
+      await expect(algebra.locator('.up-pill')).toHaveCount(0);
       // Clicking the class name opens its grade chart (dots + class-grade line),
       // with the link to the class in Schoology; clicking again closes it.
       await algebra.locator('button.class-toggle').click();
@@ -459,6 +461,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Classes leave out sections with no grade data (House Group 1).
       await expect(popup.locator('.class', { hasText: 'United States History' })).toBeVisible();
       await expect(popup.locator('.class', { hasText: 'House Group 1' })).toHaveCount(0);
+      // Records: personal bests saved with the refresh (they only go up).
+      const records = popup.locator('section', { has: popup.getByRole('heading', { name: 'Records' }) });
+      await expect(records.locator('.record', { hasText: 'Highest score' })).toBeVisible();
+      expect(await worker.evaluate(async () => Object.keys((await chrome.storage.local.get('records')).records || {}).length)).toBe(2);
       // Jamie: 1 Missing, all classes >= 90 => GO.
       await jamieTab.click();
       await expect(card.getByText('Jamie Rivera', { exact: true })).toBeVisible();

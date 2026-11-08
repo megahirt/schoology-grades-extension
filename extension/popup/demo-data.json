@@ -12,7 +12,9 @@
               "score": 0,
               "sourceUrl": null,
               "status": "missing",
-              "title": "Quadratic Functions HW"
+              "title": "Quadratic Functions HW",
+              "periodId": "q24001",
+              "categoryId": "q24001-1"
             },
             {
               "due": "2026-11-06T23:59:00",
@@ -22,7 +24,9 @@
               "score": null,
               "sourceUrl": null,
               "status": "pending",
-              "title": "Systems of Equations Quiz"
+              "title": "Systems of Equations Quiz",
+              "periodId": "q24001",
+              "categoryId": "q24001-1"
             },
             {
               "due": "2026-11-05T23:59:00",
@@ -32,7 +36,33 @@
               "score": 19,
               "sourceUrl": null,
               "status": "graded",
-              "title": "Graphing Practice"
+              "title": "Graphing Practice",
+              "periodId": "q24001",
+              "categoryId": "q24001-1"
+            },
+            {
+              "due": "2026-09-30T23:59:00",
+              "dueText": "",
+              "id": "9101",
+              "maxPoints": 50,
+              "score": 47,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Unit 1 Test",
+              "periodId": "q14001",
+              "categoryId": "q14001-1"
+            },
+            {
+              "due": "2026-10-01T23:59:00",
+              "dueText": "",
+              "id": "9102",
+              "maxPoints": 20,
+              "score": 20,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Factoring Practice",
+              "periodId": "q14001",
+              "categoryId": "q14001-1"
             }
           ],
           "grade": 92,
@@ -42,7 +72,36 @@
           "quarterGrade": 92,
           "overallGrade": 94,
           "overallLabel": "Semester",
-          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026",
+          "periods": [
+            {
+              "id": "s4001",
+              "parentId": "4001",
+              "title": "Semester 1: 08/24/2026 - 01/15/2027",
+              "grade": 94,
+              "topLevel": true,
+              "start": "2026-08-24T00:00:00",
+              "end": "2027-01-15T23:59:59"
+            },
+            {
+              "id": "q14001",
+              "parentId": "s4001",
+              "title": "Quarter 1: 08/24/2026 - 10/16/2026",
+              "grade": 85,
+              "topLevel": false,
+              "start": "2026-08-24T00:00:00",
+              "end": "2026-10-16T23:59:59"
+            },
+            {
+              "id": "q24001",
+              "parentId": "s4001",
+              "title": "Quarter 2: 10/19/2026 - 12/15/2026",
+              "grade": 92,
+              "topLevel": false,
+              "start": "2026-10-19T00:00:00",
+              "end": "2026-12-15T23:59:59"
+            }
+          ]
         },
         {
           "assignments": [
@@ -54,7 +113,21 @@
               "score": null,
               "sourceUrl": null,
               "status": "pending",
-              "title": "Essay Outline"
+              "title": "Essay Outline",
+              "periodId": "q24002",
+              "categoryId": "q24002-1"
+            },
+            {
+              "due": "2026-09-11T23:59:00",
+              "dueText": "",
+              "id": "9103",
+              "maxPoints": 100,
+              "score": 92,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Summer Reading Essay",
+              "periodId": "q14002",
+              "categoryId": "q14002-1"
             }
           ],
           "grade": 95,
@@ -64,7 +137,36 @@
           "quarterGrade": 95,
           "overallGrade": 93,
           "overallLabel": "Semester",
-          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026",
+          "periods": [
+            {
+              "id": "s4002",
+              "parentId": "4002",
+              "title": "Semester 1: 08/24/2026 - 01/15/2027",
+              "grade": 93,
+              "topLevel": true,
+              "start": "2026-08-24T00:00:00",
+              "end": "2027-01-15T23:59:59"
+            },
+            {
+              "id": "q14002",
+              "parentId": "s4002",
+              "title": "Quarter 1: 08/24/2026 - 10/16/2026",
+              "grade": 95,
+              "topLevel": false,
+              "start": "2026-08-24T00:00:00",
+              "end": "2026-10-16T23:59:59"
+            },
+            {
+              "id": "q24002",
+              "parentId": "s4002",
+              "title": "Quarter 2: 10/19/2026 - 12/15/2026",
+              "grade": 95,
+              "topLevel": false,
+              "start": "2026-10-19T00:00:00",
+              "end": "2026-12-15T23:59:59"
+            }
+          ]
         }
       ],
       "pictureUrl": null,
@@ -85,7 +187,9 @@
               "score": 0,
               "sourceUrl": null,
               "status": "missing",
-              "title": "Persuasive Essay Draft"
+              "title": "Persuasive Essay Draft",
+              "periodId": "q24003",
+              "categoryId": "q24003-1"
             },
             {
               "due": "2026-11-05T23:59:00",
@@ -95,7 +199,9 @@
               "score": 0,
               "sourceUrl": null,
               "status": "missing",
-              "title": "Poetry Analysis Essay"
+              "title": "Poetry Analysis Essay",
+              "periodId": "q24003",
+              "categoryId": "q24003-1"
             },
             {
               "due": "2026-11-06T23:59:00",
@@ -105,7 +211,9 @@
               "score": null,
               "sourceUrl": null,
               "status": "pending",
-              "title": "Reading Response Ch. 4"
+              "title": "Reading Response Ch. 4",
+              "periodId": "q24003",
+              "categoryId": "q24003-1"
             },
             {
               "due": "2026-11-07T23:59:00",
@@ -115,7 +223,9 @@
               "score": null,
               "sourceUrl": null,
               "status": "pending",
-              "title": "Vocabulary Quiz 7"
+              "title": "Vocabulary Quiz 7",
+              "periodId": "q24003",
+              "categoryId": "q24003-1"
             },
             {
               "due": "2026-11-04T23:59:00",
@@ -125,7 +235,9 @@
               "score": 42,
               "sourceUrl": null,
               "status": "graded",
-              "title": "Short Story Draft"
+              "title": "Short Story Draft",
+              "periodId": "q24003",
+              "categoryId": "q24003-1"
             },
             {
               "due": "2026-11-02T23:59:00",
@@ -135,7 +247,33 @@
               "score": 18,
               "sourceUrl": null,
               "status": "graded",
-              "title": "Discussion Post: Theme"
+              "title": "Discussion Post: Theme",
+              "periodId": "q24003",
+              "categoryId": "q24003-1"
+            },
+            {
+              "due": "2026-09-22T23:59:00",
+              "dueText": "",
+              "id": "9104",
+              "maxPoints": 10,
+              "score": 9,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Vocabulary Set 2",
+              "periodId": "q14003",
+              "categoryId": "q14003-1"
+            },
+            {
+              "due": "2026-10-09T23:59:00",
+              "dueText": "",
+              "id": "9105",
+              "maxPoints": 10,
+              "score": 8,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Reading Quiz 3",
+              "periodId": "q14003",
+              "categoryId": "q14003-1"
             }
           ],
           "grade": 55,
@@ -145,7 +283,36 @@
           "quarterGrade": 55,
           "overallGrade": 66,
           "overallLabel": "Semester",
-          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026",
+          "periods": [
+            {
+              "id": "s4003",
+              "parentId": "4003",
+              "title": "Semester 1: 08/24/2026 - 01/15/2027",
+              "grade": 66,
+              "topLevel": true,
+              "start": "2026-08-24T00:00:00",
+              "end": "2027-01-15T23:59:59"
+            },
+            {
+              "id": "q14003",
+              "parentId": "s4003",
+              "title": "Quarter 1: 08/24/2026 - 10/16/2026",
+              "grade": 68,
+              "topLevel": false,
+              "start": "2026-08-24T00:00:00",
+              "end": "2026-10-16T23:59:59"
+            },
+            {
+              "id": "q24003",
+              "parentId": "s4003",
+              "title": "Quarter 2: 10/19/2026 - 12/15/2026",
+              "grade": 55,
+              "topLevel": false,
+              "start": "2026-10-19T00:00:00",
+              "end": "2026-12-15T23:59:59"
+            }
+          ]
         },
         {
           "assignments": [
@@ -157,7 +324,9 @@
               "score": null,
               "sourceUrl": null,
               "status": "pending",
-              "title": "Civil War Timeline"
+              "title": "Civil War Timeline",
+              "periodId": "q24004",
+              "categoryId": "q24004-1"
             },
             {
               "due": "2026-11-05T23:59:00",
@@ -167,7 +336,33 @@
               "score": 47,
               "sourceUrl": null,
               "status": "graded",
-              "title": "Chapter 9 Quiz"
+              "title": "Chapter 9 Quiz",
+              "periodId": "q24004",
+              "categoryId": "q24004-1"
+            },
+            {
+              "due": "2026-09-25T23:59:00",
+              "dueText": "",
+              "id": "9106",
+              "maxPoints": 20,
+              "score": 20,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Map Quiz: Westward Expansion",
+              "periodId": "q14004",
+              "categoryId": "q14004-1"
+            },
+            {
+              "due": "2026-10-14T23:59:00",
+              "dueText": "",
+              "id": "9107",
+              "maxPoints": 20,
+              "score": 18,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Chapter 5 Notes",
+              "periodId": "q14004",
+              "categoryId": "q14004-1"
             }
           ],
           "grade": 94,
@@ -177,7 +372,36 @@
           "quarterGrade": 94,
           "overallGrade": 91,
           "overallLabel": "Semester",
-          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026",
+          "periods": [
+            {
+              "id": "s4004",
+              "parentId": "4004",
+              "title": "Semester 1: 08/24/2026 - 01/15/2027",
+              "grade": 91,
+              "topLevel": true,
+              "start": "2026-08-24T00:00:00",
+              "end": "2027-01-15T23:59:59"
+            },
+            {
+              "id": "q14004",
+              "parentId": "s4004",
+              "title": "Quarter 1: 08/24/2026 - 10/16/2026",
+              "grade": 88,
+              "topLevel": false,
+              "start": "2026-08-24T00:00:00",
+              "end": "2026-10-16T23:59:59"
+            },
+            {
+              "id": "q24004",
+              "parentId": "s4004",
+              "title": "Quarter 2: 10/19/2026 - 12/15/2026",
+              "grade": 94,
+              "topLevel": false,
+              "start": "2026-10-19T00:00:00",
+              "end": "2026-12-15T23:59:59"
+            }
+          ]
         },
         {
           "assignments": [
@@ -189,7 +413,21 @@
               "score": 38,
               "sourceUrl": null,
               "status": "graded",
-              "title": "Bill of Rights Worksheet"
+              "title": "Bill of Rights Worksheet",
+              "periodId": "q24005",
+              "categoryId": "q24005-1"
+            },
+            {
+              "due": "2026-09-24T23:59:00",
+              "dueText": "",
+              "id": "9108",
+              "maxPoints": 20,
+              "score": 18,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Constitution Worksheet",
+              "periodId": "q14005",
+              "categoryId": "q14005-1"
             }
           ],
           "grade": 82,
@@ -199,7 +437,36 @@
           "quarterGrade": 82,
           "overallGrade": 85,
           "overallLabel": "Semester",
-          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026"
+          "gradeSource": "Quarter 2: 10/19/2026 - 12/15/2026",
+          "periods": [
+            {
+              "id": "s4005",
+              "parentId": "4005",
+              "title": "Semester 1: 08/24/2026 - 01/15/2027",
+              "grade": 85,
+              "topLevel": true,
+              "start": "2026-08-24T00:00:00",
+              "end": "2027-01-15T23:59:59"
+            },
+            {
+              "id": "q14005",
+              "parentId": "s4005",
+              "title": "Quarter 1: 08/24/2026 - 10/16/2026",
+              "grade": 79,
+              "topLevel": false,
+              "start": "2026-08-24T00:00:00",
+              "end": "2026-10-16T23:59:59"
+            },
+            {
+              "id": "q24005",
+              "parentId": "s4005",
+              "title": "Quarter 2: 10/19/2026 - 12/15/2026",
+              "grade": 82,
+              "topLevel": false,
+              "start": "2026-10-19T00:00:00",
+              "end": "2026-12-15T23:59:59"
+            }
+          ]
         }
       ],
       "pictureUrl": null,

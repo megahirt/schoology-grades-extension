@@ -6,7 +6,8 @@
 //   → verdict card (GO/NO-GO pill when settings.showGoNoGo, reason, numbers)
 //   → Missing (with "Turned in") → Due soon (with a grey ✓ "Mark as done")
 //   → Classes (grade bars with the passing line) → Doing well / Not so good
-//   → Waiting on teacher (with Undo) → footer.
+//   → Records (personal bests, rewards.js) → Waiting on teacher (with Undo)
+//   → footer. The card also carries this week's ring (parents).
 // Every verdict is recomputed locally with rules.js, so marks show at once.
 //
 // mountDashboard(container, options) renders into any element (a popup body
@@ -30,6 +31,7 @@ import {
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover } from './grade-chart.js';
+import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -197,6 +199,7 @@ export const SECTION_EMOJI = {
   notSoGood: '📉',
   doingWell: '🎉',
   waiting: '📬',
+  records: '🏆',
 };
 
 function sectionHeading(title, emoji, extraClass = '') {
@@ -248,6 +251,14 @@ export function visibleCourses(courses) {
 const drawnCharts = new Map();
 const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
+// "▲ 6% vs Q1" after a class whose quarter grade is up on last quarter.
+function upPill(course) {
+  const ch = quarterChange(course);
+  if (!ch) return '';
+  const title = `Up ${ch.delta}% from ${ch.prevTitle} (${pctText(ch.prevGrade)})`;
+  return `<span class="up-pill" title="${escapeHtml(title)}"><span aria-hidden="true">▲ ${ch.delta}% vs ${escapeHtml(ch.prevShort)}</span><span class="sr-only">${escapeHtml(title)}</span></span>`;
+}
+
 function renderClasses(courses, settings, showGrades, uid, openClass = null) {
   const list = visibleCourses(courses);
   if (!list.length) return '';
@@ -283,7 +294,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const open = showGrades && openClass === key;
     const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
     const name = showGrades
-      ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle')
+      ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>${upPill(c)}`, 'class-toggle')
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
     const barBtn = bar ? toggle(bar, 'bar-toggle', `${open ? 'Hide' : 'Show'} ${c.name} grade chart`) : '';
     let chart = '';
@@ -364,6 +375,54 @@ function renderWaiting(summary, uid) {
   return section(`Waiting on teacher · ${n}`, rows.join('') + disclaimer, SECTION_EMOJI.waiting);
 }
 
+// This week's ring: graded (dark blue), then turned in and waiting for a
+// grade (light blue), out of everything due Monday to Sunday.
+function weekRing(w) {
+  if (!w.total) return '';
+  const R = 42;
+  const C = 2 * Math.PI * R;
+  const g = (w.graded / w.total) * C;
+  const sub = (w.submitted / w.total) * C;
+  const gap = w.graded && w.submitted ? 3 : 0; // a hairline between the two
+  const n = w.graded + w.submitted;
+  const label = `${n} of ${w.total} assignments this week: ${w.graded} graded, ${w.submitted} turned in`;
+  const arc = (len, color, offset) => (len > 0
+    ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.max(0.01, len - gap).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" transform="rotate(-90 50 50)"/>`
+    : '');
+  return `<div class="week" role="img" aria-label="${escapeHtml(label)}"><div class="ring">` +
+    `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="10"/>` +
+    arc(sub, '#93b4f5', -(g + gap / 2)) + arc(g, '#1d4ed8', 0) + '</svg>' +
+    `<div class="ring-text" aria-hidden="true"><div class="ring-n">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div></div>` +
+    '<div class="ring-key" aria-hidden="true"><span><i class="k-graded"></i>graded</span><span><i class="k-sub"></i>turned in</span></div></div>';
+}
+
+function shortDay(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Records: personal bests this school year, saved so they only go up.
+function renderRecords(records, showGrades, now) {
+  if (!records) return '';
+  const rows = [];
+  const add = (icon, title, detail, value, rec) => rows.push(
+    `<div class="record"><span class="record-icon" aria-hidden="true">${icon}</span>` +
+    `<div class="grow"><div class="record-title">${escapeHtml(title)}${isNewRecord(rec, now) ? '<span class="new-tag">NEW</span>' : ''}</div>` +
+    `<div class="sub record-detail">${escapeHtml(detail)}</div></div><span class="record-value">${escapeHtml(value)}</span></div>`);
+  const { highestScore: hs, bestWeek: bw, cleanRun: cr, classGrade: cg } = records;
+  if (hs && showGrades) add('⭐', 'Highest score', [hs.info.title, shortDay(hs.info.date)].filter(Boolean).join(' · '), pctText(hs.value), hs);
+  if (bw) add('🗓️', 'Best week', `Everything turned in · week of ${shortDay(bw.info.start)}`, `${bw.value} of ${bw.value}`, bw);
+  if (cr) {
+    const weeks = Math.floor(cr.value / 7);
+    const value = cr.value >= 14 ? `${weeks} weeks` : `${cr.value} days`;
+    const detail = cr.info.ongoing ? `Since ${shortDay(cr.info.start)} · still going` : `${shortDay(cr.info.start)} to ${shortDay(cr.info.end)}`;
+    add('🔥', 'Longest run with nothing missing', detail, value, cr);
+  }
+  if (cg && showGrades) add('📈', 'Highest class grade', [cg.info.course, cg.info.period].filter(Boolean).join(' · '), pctText(cg.value), cg);
+  if (!rows.length) return '';
+  return section('Records', rows.join('') +
+    '<p class="fineprint">Personal bests this school year. They only ever go up, so a rough week never takes one away.</p>', SECTION_EMOJI.records);
+}
+
 function verdictPill(verdict) {
   const cls = verdict === 'GO' ? 'go' : verdict === 'NO-GO' ? 'nogo' : 'unknown';
   return `<span class="pill ${cls}">${verdict}</span>`;
@@ -386,7 +445,7 @@ function avatarHtml(d) {
 }
 
 // One child's (or the student's own) dashboard body.
-export function renderStudentBody(d, uid, settings, marks, { isParentView, openClass = null }) {
+export function renderStudentBody(d, uid, settings, marks, { isParentView, openClass = null, records = null, now = Date.now() }) {
   // Tidy class names ("07 English" -> "English") for everything below.
   const courses = cleanCourseNames(d.courses || []);
   const summary = summarizeStudent(courses, settings, marks.turnedIn, marks.done);
@@ -422,13 +481,14 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
     const reason = partial ? '<div class="card-reason">Only part of the grades loaded, so no verdict yet. Press Refresh.</div>' : '';
-    html += `<div class="card ${cardTone}">` +
+    const ring = partial ? '' : weekRing(weekProgress(courses, marks, now));
+    html += `<div class="card ${cardTone}${ring ? ' with-ring' : ''}"><div class="card-main">` +
       `<div class="card-head">${showNoGo ? noGoCircle() : avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `${reason}</div>${pill}</div>` +
       (stats.length
         ? `<div class="stats">${stats.map((st) => `<div class="stat"><span class="stat-v${st.bad ? ' low' : ''}">${escapeHtml(st.value)}</span>` +
           `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
-        : '') + '</div>';
+        : '') + `</div>${ring}</div>`;
   } else {
     const note = studentNote(summary, settings, gradeColumns(visibleCourses(courses)).quarter);
     html += note
@@ -445,6 +505,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     html += renderClasses(courses, settings, showGrades, uid, openClass);
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderDoingWell(summary.doingWell, settings, showGrades);
+    html += renderRecords(records, showGrades, now);
     html += renderWaiting(summary, uid);
   }
   return { html, summary };
@@ -461,6 +522,10 @@ export async function loadDemo(browser) {
   const dashboards = data.dashboards || {};
   for (const d of Object.values(dashboards)) {
     for (const c of d.courses || []) {
+      for (const p of c.periods || []) {
+        if (p.start) p.start = new Date(new Date(p.start).getTime() + shiftMs).toISOString();
+        if (p.end) p.end = new Date(new Date(p.end).getTime() + shiftMs).toISOString();
+      }
       for (const a of c.assignments || []) {
         if (a.due) {
           const shifted = new Date(new Date(a.due).getTime() + shiftMs);
@@ -484,6 +549,7 @@ async function loadState() {
     refreshState: (await storageGet('refreshState', null)) || null,
     // The child last picked in any popup or panel (storage key dashboardChild).
     lastChild: (await storageGet('dashboardChild', null)) || null,
+    records: (await storageGet('records', null)) || {},
   };
 }
 
@@ -518,7 +584,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   let statusText = '';
 
   async function render() {
-    const { settings, dashboards, turnedIn, done, refreshState, lastChild } = await loadState();
+    const { settings, dashboards, turnedIn, done, refreshState, lastChild, records } = await loadState();
     const running = refreshRunning(refreshState);
     const uids = Object.keys(dashboards);
     const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
@@ -566,7 +632,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     } else {
       const marks = { turnedIn: turnedIn[pickedUid], done: done[pickedUid] };
       drawnCharts.clear();
-      body = renderStudentBody(current, pickedUid, settings, marks, { isParentView, openClass }).html;
+      body = renderStudentBody(current, pickedUid, settings, marks, { isParentView, openClass, records: records[pickedUid] }).html;
     }
     if (stale && !running) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
     if (running) {
@@ -711,7 +777,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   });
   if (openLinksInActiveTab) root.addEventListener('auxclick', onClick); // middle-click
 
-  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild'];
+  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild', 'records'];
   function onStorageChanged(changes, area) {
     if (area === 'local' && WATCHED.some((k) => k in changes)) render();
   }
