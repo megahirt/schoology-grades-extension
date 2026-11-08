@@ -172,7 +172,6 @@ async function maybeAutoRefresh(pageUrl) {
     sameSite = false;
   }
   if (!sameSite) return { started: false, reason: 'other site' };
-  if (settings.autoRefresh === false) return { started: false, reason: 'turned off in Settings' };
   const dashboards = (await getDashboards()) || {};
   let newest = 0;
   for (const d of Object.values(dashboards)) {

@@ -215,8 +215,6 @@ async function init() {
   bindNumber('doing-well-days', 'doingWellDays', { min: 1, max: 60 });
   bindNumber('notsogood-days', 'notSoGoodDays', { min: 1, max: 60 });
   bindSwitch('show-gonogo', 'showGoNoGo');
-  bindSwitch('show-panel', 'showPanel');
-  bindSwitch('auto-refresh', 'autoRefresh');
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
   $('feedback-link').href = feedbackHref(browser);
