@@ -10,21 +10,26 @@
 // The parent test guards the per-child attribution fix in
 // extension/src/schoology.js (each child gets only their own courses).
 //
-// Tests run in Chromium via Playwright. Safari cannot be automated here —
-// the Safari build is verified separately (see test/README.md). The extension
-// itself is Safari-first; these e2e tests only prove the shared logic in
-// Chromium.
+// Tests run in Chromium and Firefox (two Playwright projects, see
+// playwright.config.js). Chromium loads dist/ with --load-extension; Firefox
+// loads dist-firefox/ (`npm run build:firefox`) as a temporary add-on over
+// its debugger protocol (firefox-addon.js). Playwright's Firefox can't open
+// moz-extension:// pages, so in Firefox "the popup" is the same dashboard
+// in the in-page panel on a mock Schoology page, storage is read and
+// written in the add-on's background page, and the settings-page test is
+// skipped. Safari can't be automated here; see test/README.md.
 //
 // If the DEV build does not exist yet (the extension workstream is still
 // building it), the whole file skips gracefully instead of faking a pass —
 // see the beforeAll check. Run `npm run build:dev` first.
 
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect, chromium, firefox } from '@playwright/test';
 import { existsSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../mock-server/server.js';
+import { FIREFOX_PREFS, freePort, installAddon } from './firefox-addon.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 // The DEV build output: `npm run build:dev` writes to dist/ (with the
@@ -33,6 +38,9 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const DIST_CANDIDATES = [path.join(REPO_ROOT, 'dist'), path.join(REPO_ROOT, 'dist-dev')];
 const DIST_DIR = DIST_CANDIDATES.find((d) => existsSync(path.join(d, 'manifest.json')));
 const HAS_DEV_BUILD = Boolean(DIST_DIR);
+const FIREFOX_DIST_DIR = path.join(REPO_ROOT, 'dist-firefox');
+const HAS_FIREFOX_BUILD = existsSync(path.join(FIREFOX_DIST_DIR, 'manifest.json'));
+const isFirefox = () => test.info().project.use.browserName === 'firefox';
 // Page paths come from the built manifest (options_page, action.default_popup)
 // rather than being hardcoded — the layout is options/options.html and
 // popup/popup.html, not bare options.html / popup.html at the extension root.
@@ -60,7 +68,8 @@ test.afterAll(async () => {
 
 test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   test.beforeEach(async () => {
-    test.skip(!HAS_DEV_BUILD, 'DEV build (dist/) not present yet — run `npm run build:dev` first.');
+    if (isFirefox()) test.skip(!HAS_FIREFOX_BUILD, 'Firefox DEV build (dist-firefox/) not present yet — run `npm run build:firefox` first.');
+    else test.skip(!HAS_DEV_BUILD, 'DEV build (dist/) not present yet — run `npm run build:dev` first.');
   });
 
   // Fresh user-data-dir per test, from the OS temp dir (plain ASCII path).
@@ -75,6 +84,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   // Launch Chromium with the unpacked DEV build and return the context plus
   // the extension id (read from the background service worker target).
   async function launchWithExtension(userDataDir) {
+    if (isFirefox()) return launchFirefoxWithExtension(userDataDir);
     const context = await chromium.launchPersistentContext(userDataDir, {
       // Chrome's headless shell (Playwright's default headless browser since
       // 1.49) ignores --load-extension. channel 'chromium' runs full Chromium
@@ -103,6 +113,22 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     return { context, extensionId, worker };
   }
 
+  // Firefox: install dist-firefox/ as a temporary add-on. `worker` runs code
+  // in the add-on's background page instead of a service worker; there is
+  // no extension id (extension pages aren't opened in Firefox).
+  async function launchFirefoxWithExtension(userDataDir) {
+    const port = await freePort();
+    const context = await firefox.launchPersistentContext(userDataDir, {
+      headless: true,
+      firefoxUserPrefs: FIREFOX_PREFS,
+      args: ['-start-debugger-server', String(port)],
+    });
+    const addon = await installAddon(port, FIREFOX_DIST_DIR);
+    context.on('close', () => addon.close());
+    context.__addon = addon;
+    return { context, extensionId: null, worker: addon };
+  }
+
   // Log in to the mock server as the given persona inside the context.
   async function loginAs(context, persona, base = mockBase) {
     const page = await context.newPage();
@@ -121,6 +147,13 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   // failing, write the same settings via the background service worker
   // (same storage, same result) while the options page stays open.
   async function configureExtension(context, extensionId, worker, base = mockBase) {
+    if (isFirefox()) {
+      await worker.evaluate(async (base) => {
+        const { settings = {} } = await chrome.storage.local.get('settings');
+        await chrome.storage.local.set({ settings: { ...settings, schoologyBase: base, showGoNoGo: true } });
+      }, base);
+      return;
+    }
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
     let lastError;
@@ -158,6 +191,22 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   // dashboards land (up to 30s) — opening the popup immediately after the
   // click would race the background fetch and show "No data yet".
   async function triggerRefresh(context, extensionId) {
+    if (isFirefox()) {
+      // Firefox: a Schoology page load starts a refresh by itself (the
+      // panel's Refresh button is the fallback); wait for it to land.
+      const worker = context.__addon;
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const refresh = page.locator('#sgd-panel-host').getByRole('button', { name: 'Refresh grades' });
+      const count = async () => Object.keys((await worker.evaluate(() => chrome.storage.local.get('dashboards'))).dashboards || {}).length;
+      await expect.poll(async () => {
+        if (await refresh.isEnabled().catch(() => false)) await refresh.click().catch(() => {});
+        return count();
+      }, { timeout: 30000, intervals: [1000] }).toBeGreaterThan(0);
+      await expect(refresh).toBeEnabled({ timeout: 30000 });
+      await page.close();
+      return;
+    }
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/${POPUP_PAGE}`);
     const refresh = page.getByRole('button', { name: /refresh/i });
@@ -177,6 +226,20 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   }
 
   async function openPopup(context, extensionId) {
+    if (isFirefox()) {
+      // The same dashboard, in the panel on a Schoology page. Locator calls
+      // go to the panel; mouse and close to the page.
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      return {
+        getByRole: (...a) => panel.getByRole(...a),
+        getByText: (...a) => panel.getByText(...a),
+        locator: (...a) => panel.locator(...a),
+        mouse: page.mouse,
+        close: () => page.close(),
+      };
+    }
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/${POPUP_PAGE}`);
     return page;
@@ -264,6 +327,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
   });
 
   test('settings page: one auto-saving page; students get no Family rules', async () => {
+    test.skip(isFirefox(), "Playwright's Firefox can't open moz-extension:// pages (the settings page).");
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     try {
@@ -366,7 +430,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
 
       // The camera button copies a picture of the whole dashboard (taller than
       // the visible panel) to the clipboard.
-      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: mockBase });
+      // (Firefox lets the test read the clipboard through a testing pref,
+      // set in firefox-addon.js.)
+      if (!isFirefox()) await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: mockBase });
       await page.bringToFront();
       await panel.getByRole('button', { name: 'Copy a picture of the dashboard' }).click();
       await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
@@ -541,8 +607,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.class', { hasText: 'United States History' })).toBeVisible();
       await expect(popup.locator('.class', { hasText: 'House Group 1' })).toHaveCount(0);
       // Records: personal bests saved with the refresh (they only go up).
-      const records = popup.locator('section', { has: popup.getByRole('heading', { name: 'Records' }) });
-      await expect(records.locator('.record', { hasText: 'Highest score' })).toBeVisible();
+      await expect(popup.locator('.sec-h', { hasText: 'Records' })).toBeVisible();
+      await expect(popup.locator('.record', { hasText: 'Highest score' })).toBeVisible();
       expect(await worker.evaluate(async () => Object.keys((await chrome.storage.local.get('records')).records || {}).length)).toBe(2);
       // Jamie: 1 Missing, all classes >= 90 => GO.
       await jamieTab.click();

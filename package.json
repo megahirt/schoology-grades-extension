@@ -21,7 +21,8 @@
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "screenshots": "node test/screenshots/capture.mjs",
-    "chromium": "node scripts/open-chromium.mjs"
+    "chromium": "node scripts/open-chromium.mjs",
+    "build:firefox": "node scripts/build.mjs --dev --firefox"
   },
   "type": "module",
   "version": "0.1.0"
