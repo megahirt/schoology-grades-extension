@@ -21,7 +21,7 @@
 // (dashboard-view.js). It is only built the first time the panel opens, so
 // a closed panel costs one small button per page.
 
-import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning, MISSING_IMG } from './dashboard-view.js';
+import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning, MISSING_IMG, noGoCircle } from './dashboard-view.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
 import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet } from './storage.js';
 
@@ -74,7 +74,7 @@ const PANEL_CSS = `
 .kid-m { display: flex; align-items: center; gap: 3px; font-size: 11px; line-height: 1; color: #fff; }
 .kid-m .missing-icon { width: 11px; height: 10px; display: block; }
 .kid-m .hg { font-size: 10px; }
-.kid-nogo { font-size: 8px; font-weight: 800; letter-spacing: 0.02em; color: #fff; background: #b42318; border-radius: 4px; padding: 2px 3px; }
+.kid-pic.nogo-circle { background: none; display: block; }
 .kid-unknown { font-size: 10px; font-weight: 800; color: #3d2c00; background: #f2b84b; border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 600px) {
   .wrap { top: auto; left: 0; width: 100%; height: 85vh; transform: translateY(100%); }
@@ -179,13 +179,13 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
       : `Show homework dashboard${parts ? `. ${parts}.` : ''}`);
     tab.classList.toggle('open', isOpen);
     const html = kids.map((k) => {
-      const pic = k.pictureUrl
+      const pic = k.nogo ? noGoCircle('kid-pic nogo-circle') : k.pictureUrl
         ? `<img class="kid-pic" src="${escapeHtml(k.pictureUrl)}" alt="" data-initials="${escapeHtml(initials(k.name))}">`
         : `<span class="kid-pic">${escapeHtml(initials(k.name))}</span>`;
       return `<span class="kid">${pic}` +
         (k.missing ? `<span class="kid-m">${MISSING_IMG}${k.missing}</span>` : '') +
         (k.due ? `<span class="kid-m"><span class="hg">⌛</span>${k.due}</span>` : '') +
-        (k.nogo ? '<span class="kid-nogo">NO-GO</span>' : k.unknown ? '<span class="kid-unknown">?</span>' : '') +
+        (k.unknown ? '<span class="kid-unknown">?</span>' : '') +
         '</span>';
     }).join('');
     const spinner = busy && !isOpen ? `<span class="tab-spin" aria-hidden="true">${SPINNER}</span>` : '';

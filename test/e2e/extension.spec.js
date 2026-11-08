@@ -333,7 +333,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(tab).not.toHaveAttribute('aria-label', /NO-GO/);
       await expect(tab.locator('.kid-pic')).toHaveCount(1);
       await expect(tab.locator('.kid-m').first()).toHaveText('1'); // Schoology Missing icon + 1
-      await expect(tab.locator('.kid-nogo')).toHaveCount(0);
+      await expect(tab.locator('.nogo-circle')).toHaveCount(0);
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
@@ -416,7 +416,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const card = popup.locator('.card');
       // Sam: 2 Missing + lowest class 55% => NO-GO.
       await expect(card.getByText('Sam Rivera', { exact: true })).toBeVisible();
-      await expect(card.getByText('NO-GO', { exact: true })).toBeVisible();
+      // NO-GO replaces Sam's picture with the NO-GO circle; no separate badge.
+      await expect(card.getByRole('img', { name: 'NO-GO' })).toBeVisible();
+      await expect(card.locator('.avatar:not(.nogo-circle)')).toHaveCount(0);
+      await expect(card.locator('.pill')).toHaveCount(0);
       // Sam's essay is marked Missing but has a submission: it waits on the
       // teacher and does not count as Missing.
       await expect(popup.getByText('Missing · 1')).toBeVisible();
@@ -440,8 +443,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Jamie: 1 Missing, all classes >= 90 => GO.
       await jamieTab.click();
       await expect(card.getByText('Jamie Rivera', { exact: true })).toBeVisible();
-      // GO gets no badge (only NO-GO does); the tab dot still shows green.
+      // GO keeps the picture and gets no badge; the tab dot still shows green.
       await expect(card.locator('.pill')).toHaveCount(0);
+      await expect(card.locator('.nogo-circle')).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
       // Shared "07" prefixes are dropped from class names.

@@ -369,6 +369,16 @@ function verdictPill(verdict) {
   return `<span class="pill ${cls}">${verdict}</span>`;
 }
 
+// A red NO-GO disc that takes the place of a child's picture (any size).
+export function noGoCircle(cls = 'avatar nogo-circle') {
+  return `<svg class="${cls}" viewBox="0 0 40 40" role="img" aria-label="NO-GO">` +
+    '<circle cx="20" cy="20" r="20" fill="#b42318"/>' +
+    '<circle cx="20" cy="20" r="17.5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.2"/>' +
+    '<text x="20" y="18.2" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#ffffff" letter-spacing="0.4">NO</text>' +
+    '<text x="20" y="29" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#ffffff" letter-spacing="0.4">GO</text>' +
+    '</svg>';
+}
+
 function avatarHtml(d) {
   return d.pictureUrl
     ? `<img class="avatar" src="${escapeHtml(d.pictureUrl)}" alt="" data-initials="${escapeHtml(initials(d.studentName))}">`
@@ -396,7 +406,10 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     const good = verdict === 'GO';
     // Only a NO-GO earns a badge (GO is the quiet default). UNKNOWN keeps its
     // badge too, since its line underneath explains why there's no verdict.
-    const pill = settings.showGoNoGo && verdict !== 'GO' ? verdictPill(verdict) : '';
+    // NO-GO replaces the child's picture with the NO-GO circle (no separate
+    // badge). UNKNOWN keeps a badge, explained by the line under the name.
+    const showNoGo = settings.showGoNoGo && verdict === 'NO-GO';
+    const pill = settings.showGoNoGo && verdict === 'UNKNOWN' ? verdictPill(verdict) : '';
     // Compact metrics, only when non-zero: Missing and Due soon. (Classes
     // below the passing grade show in the Classes section, in red.)
     const stats = [];
@@ -410,7 +423,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // line under the name is for an UNKNOWN verdict, which needs a reason.
     const reason = partial ? '<div class="card-reason">Only part of the grades loaded, so no verdict yet. Press Refresh.</div>' : '';
     html += `<div class="card ${cardTone}">` +
-      `<div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
+      `<div class="card-head">${showNoGo ? noGoCircle() : avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `${reason}</div>${pill}</div>` +
       (stats.length
         ? `<div class="stats">${stats.map((st) => `<div class="stat"><span class="stat-v${st.bad ? ' low' : ''}">${escapeHtml(st.value)}</span>` +
