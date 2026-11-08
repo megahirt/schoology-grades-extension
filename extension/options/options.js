@@ -39,33 +39,18 @@ async function save(patch) {
 
 // A slider with its value shown beside it. Saved values outside the range
 // (from an older version) show at the nearest end.
-function bindSlider(id, key) {
+function bindSlider(id, key, label = (v) => `${v}%`) {
   const input = $(id);
   const out = $(`${id}-out`);
   const min = Number(input.min);
   const max = Number(input.max);
-  const show = () => { out.textContent = `${input.value}%`; };
+  const show = () => { out.textContent = label(Number(input.value)); };
   input.value = Math.min(max, Math.max(min, Math.round(Number(settings[key]) || min)));
   show();
   input.addEventListener('input', show);
   input.addEventListener('change', () => {
     show();
     save({ [key]: Number(input.value) });
-  });
-}
-
-function bindNumber(id, key, { min, max }) {
-  const input = $(id);
-  input.value = settings[key];
-  input.addEventListener('change', () => {
-    const n = Number(input.value);
-    if (!Number.isFinite(n)) {
-      input.value = settings[key];
-      return;
-    }
-    const v = Math.min(max, Math.max(min, Math.round(n)));
-    input.value = v;
-    save({ [key]: v });
   });
 }
 
@@ -218,7 +203,7 @@ async function init() {
   const stored = (await getSettings()) || {};
   settings = { ...settings, ...stored };
   bindSlider('grade-threshold', 'gradeThreshold');
-  bindNumber('missing-threshold', 'missingThreshold', { min: 1, max: 20 });
+  bindSlider('missing-threshold', 'missingThreshold', (v) => `${v} ${v === 1 ? 'item' : 'items'}`);
   bindSlider('doing-well-percent', 'doingWellPercent');
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;

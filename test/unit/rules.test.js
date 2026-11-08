@@ -381,8 +381,8 @@ describe('effective settings', () => {
   });
   it('holds the slider settings to their ranges', async () => {
     const { effectiveSettings } = await import('../../extension/src/rules.js');
-    expect(effectiveSettings({ gradeThreshold: 95, doingWellPercent: 50 })).toMatchObject({ gradeThreshold: 80, doingWellPercent: 75 });
-    expect(effectiveSettings({ gradeThreshold: 40, doingWellPercent: 99 })).toMatchObject({ gradeThreshold: 60, doingWellPercent: 90 });
+    expect(effectiveSettings({ gradeThreshold: 95, doingWellPercent: 50, missingThreshold: 12 })).toMatchObject({ gradeThreshold: 80, doingWellPercent: 75, missingThreshold: 6 });
+    expect(effectiveSettings({ gradeThreshold: 40, doingWellPercent: 99, missingThreshold: 0 })).toMatchObject({ gradeThreshold: 60, doingWellPercent: 90, missingThreshold: 1 });
     expect(effectiveSettings({ gradeThreshold: 'x' }).gradeThreshold).toBe(75);
   });
 });
