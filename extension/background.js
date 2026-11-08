@@ -7,7 +7,7 @@
 import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
 import { parseGradesHtml } from './src/parser.js';
-import { summarizeStudent, DEFAULT_SETTINGS } from './src/rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, effectiveSettings, isStudentAccount } from './src/rules.js';
 import { coursePagePath, findComposeHref, findParentName } from './src/teacher-email.js';
 import {
   getSettings,
@@ -26,7 +26,8 @@ const REFRESH_PERIOD_MINUTES = 60;
 
 async function loadSettings() {
   const stored = (await getSettings()) || {};
-  return { ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', ...stored };
+  const settings = effectiveSettings(stored, { isStudent: isStudentAccount(await getAccount(), await getDashboards()) });
+  return { schoologyBase: 'https://app.schoology.com', ...settings };
 }
 
 async function writeDashboard(uid, dashboard) {
@@ -269,8 +270,9 @@ async function handleGradesScraped(message, sender) {
 
 browser.runtime.onInstalled.addListener(async () => {
   await browser.alarms.create(ALARM_NAME, { periodInMinutes: REFRESH_PERIOD_MINUTES });
-  const settings = await loadSettings();
-  await setSettings(settings);
+  // Save the stored settings with any new defaults filled in (never the
+  // effective, per-account values: those are worked out on each read).
+  await setSettings({ ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', ...((await getSettings()) || {}) });
 });
 
 browser.runtime.onStartup.addListener(async () => {
@@ -347,7 +349,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     }
     case 'grades-page-url': {
       // Probe URL capture: remember the exact Grades URL the user visited.
-      const settings = await loadSettings();
+      const settings = (await getSettings()) || {};
       if (message.url && message.url !== settings.lastGradesUrl) {
         await setSettings({ ...settings, lastGradesUrl: message.url });
       }

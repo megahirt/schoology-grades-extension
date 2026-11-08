@@ -26,7 +26,7 @@
 <div class="layout">
   <nav class="side" aria-label="Settings sections">
     <a href="#account">Account</a>
-    <a href="#rules">Family rules</a>
+    <a href="#rules" id="rules-link" hidden>Family rules</a>
     <a href="#display">Display</a>
     <a href="#privacy">Privacy &amp; data</a>
     <a href="#developer" class="dev-only" hidden>Developer</a>
@@ -36,7 +36,6 @@
     <section id="account" class="card">
       <div class="card-h">
         <h2>Account</h2>
-        <p class="muted">The dashboard reads Schoology with the account you are signed in with in this browser. It never sees or stores your password.</p>
       </div>
       <div id="account-status" class="status-box">
         <span id="account-dot" class="dot" aria-hidden="true"></span>
@@ -49,10 +48,10 @@
       <div id="kids" class="kids"></div>
     </section>
 
-    <section id="rules" class="card">
+    <section id="rules" class="card" hidden>
       <div class="card-h">
         <h2>Family rules</h2>
-        <p class="muted">How GO and NO-GO are decided. GO/NO-GO is shown to parents only.</p>
+        <p class="muted">How GO and NO-GO are decided. Only parents see GO/NO-GO and these rules.</p>
       </div>
       <div class="row">
         <div class="grow">
@@ -68,13 +67,6 @@
         </div>
         <div class="field"><input id="missing-threshold" type="number" min="1" max="20" inputmode="numeric"><span>items</span></div>
       </div>
-      <div class="row">
-        <div class="grow">
-          <div class="strong" id="badge-label">Show the GO/NO-GO badge</div>
-          <div class="muted">NO-GO on a child's card when a rule is broken, and each child's color on the closed panel tab. Parents only.</div>
-        </div>
-        <button id="show-gonogo" type="button" role="switch" class="switch" aria-labelledby="badge-label"><span></span></button>
-      </div>
     </section>
 
     <section id="display" class="card">
@@ -87,31 +79,7 @@
         <div class="field wrap">
           <label for="doing-well-percent">At least</label>
           <input id="doing-well-percent" type="number" min="0" max="100" inputmode="numeric">
-          <span>% from the past</span>
-          <input id="doing-well-days" type="number" min="1" max="60" inputmode="numeric" aria-label="Doing well window in days">
-          <span>days</span>
-        </div>
-      </div>
-      <div class="row">
-        <div class="grow">
-          <div class="strong">Not so good</div>
-          <div class="muted">Graded work below the passing grade.</div>
-        </div>
-        <div class="field">
-          <span>From the past</span>
-          <input id="notsogood-days" type="number" min="1" max="60" inputmode="numeric" aria-label="Not so good window in days">
-          <span>days</span>
-        </div>
-      </div>
-      <div class="row">
-        <div class="grow">
-          <div class="strong" id="vis-label">Who sees grades</div>
-          <div class="muted">Grade numbers and bars. Missing and due items always show.</div>
-        </div>
-        <div class="seg" role="radiogroup" aria-labelledby="vis-label" data-setting="gradeVisibility">
-          <button type="button" role="radio" data-value="both">Everyone</button>
-          <button type="button" role="radio" data-value="parent">Parents</button>
-          <button type="button" role="radio" data-value="student">Students</button>
+          <span>% from the past 10 days</span>
         </div>
       </div>
       <div class="row">
@@ -130,8 +98,8 @@
       </div>
       <div class="row">
         <div class="grow">
-          <div class="strong">Clear saved grades and marks</div>
-          <div class="muted">Removes the stored dashboards, records, daily log, and your turned-in and done marks. Settings stay.</div>
+          <div class="strong">Clear all saved data</div>
+          <div class="muted">Removes everything this extension saved in this browser: grades, records, the daily log, your turned-in and done marks, and your settings.</div>
         </div>
         <button id="clear-btn" type="button" class="btn danger">Clear data…</button>
       </div>

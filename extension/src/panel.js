@@ -22,7 +22,7 @@
 // a closed panel costs one small button per page.
 
 import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning, MISSING_IMG, noGoCircle } from './dashboard-view.js';
-import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
+import { summarizeStudent, effectiveSettings, isStudentAccount } from './rules.js';
 import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet } from './storage.js';
 
 export const PANEL_HOST_ID = 'sgd-panel-host';
@@ -119,8 +119,8 @@ const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="non
 // Missing and Due soon counts always show (when non-zero). NO-GO (or "?" for
 // UNKNOWN) shows only for parents with the badge turned on; GO shows nothing.
 export async function tabSummaries() {
-  const settings = { ...DEFAULT_SETTINGS, ...((await getSettings()) || {}) };
   const dashboards = (await getDashboards()) || {};
+  const settings = effectiveSettings(await getSettings(), { isStudent: isStudentAccount(await storageGet('account', null), dashboards) });
   const uids = Object.keys(dashboards);
   const isStudent = uids.length === 1 && uids[0] === 'self';
   const verdictsOn = settings.showGoNoGo && !isStudent;

@@ -13,6 +13,30 @@ export const DEFAULT_SETTINGS = {
   doingWellDays: 10, //    ... from the past 10 days
 };
 
+// Settings that are no longer choices: always the defaults, whatever was
+// saved before (Who sees grades, the Doing well / Not so good windows, and
+// the GO/NO-GO badge).
+const FIXED_SETTINGS = ['gradeVisibility', 'notSoGoodDays', 'doingWellDays', 'showGoNoGo'];
+// Family rules are set by parents; a student's dashboard uses the defaults.
+const PARENT_ONLY_SETTINGS = ['gradeThreshold', 'missingThreshold'];
+
+// effectiveSettings(stored, { isStudent }) -> the settings to use.
+export function effectiveSettings(stored, { isStudent = false } = {}) {
+  const out = { ...DEFAULT_SETTINGS, ...(stored || {}) };
+  for (const k of FIXED_SETTINGS) out[k] = DEFAULT_SETTINGS[k];
+  if (isStudent) for (const k of PARENT_ONLY_SETTINGS) out[k] = DEFAULT_SETTINGS[k];
+  return out;
+}
+
+// A student's own dashboard: the account says so, or the only dashboard is
+// the student's own ('self').
+export function isStudentAccount(account, dashboards) {
+  if (account && account.type === 'student') return true;
+  if (account && account.type === 'parent') return false;
+  const uids = Object.keys(dashboards || {});
+  return uids.length === 1 && uids[0] === 'self';
+}
+
 function mergeSettings(settings) {
   return { ...DEFAULT_SETTINGS, ...(settings || {}) };
 }

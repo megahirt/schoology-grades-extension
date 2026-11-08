@@ -15,7 +15,7 @@
 // open popup and panel stays in sync. It only uses APIs that also work in
 // content scripts: browser.storage and browser.runtime.sendMessage/getURL.
 
-import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData, effectiveSettings, isStudentAccount } from './rules.js';
 import {
   getSettings,
   setSettings,
@@ -626,10 +626,12 @@ export async function loadDemo(browser) {
 }
 
 async function loadState() {
-  const settings = { ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', ...((await getSettings()) || {}) };
+  const dashboards = (await getDashboards()) || {};
+  const account = await storageGet('account', null);
+  const settings = { schoologyBase: 'https://app.schoology.com', ...effectiveSettings(await getSettings(), { isStudent: isStudentAccount(account, dashboards) }) };
   return {
     settings,
-    dashboards: (await getDashboards()) || {},
+    dashboards,
     turnedIn: (await getTurnedIn()) || {},
     done: (await getMarkedDone()) || {},
     refreshState: (await storageGet('refreshState', null)) || null,

@@ -358,3 +358,25 @@ describe('Missing work from an earlier grading period', () => {
     expect(summarizeStudent(noPeriods, settings).missingCount).toBe(1);
   });
 });
+
+describe('effective settings', () => {
+  it('removed choices always use the defaults, whatever was saved', async () => {
+    const { effectiveSettings, DEFAULT_SETTINGS } = await import('../../extension/src/rules.js');
+    const s = effectiveSettings({ gradeVisibility: 'parent', notSoGoodDays: 30, doingWellDays: 2, showGoNoGo: false, doingWellPercent: 90 });
+    expect(s.gradeVisibility).toBe(DEFAULT_SETTINGS.gradeVisibility);
+    expect(s.notSoGoodDays).toBe(DEFAULT_SETTINGS.notSoGoodDays);
+    expect(s.doingWellDays).toBe(10);
+    expect(s.showGoNoGo).toBe(true);
+    expect(s.doingWellPercent).toBe(90); // still a choice
+  });
+  it('family rules apply to parents; a student gets the defaults', async () => {
+    const { effectiveSettings, isStudentAccount } = await import('../../extension/src/rules.js');
+    const saved = { gradeThreshold: 85, missingThreshold: 4 };
+    expect(effectiveSettings(saved).gradeThreshold).toBe(85);
+    expect(effectiveSettings(saved, { isStudent: true })).toMatchObject({ gradeThreshold: 75, missingThreshold: 2 });
+    expect(isStudentAccount({ type: 'student' }, {})).toBe(true);
+    expect(isStudentAccount({ type: 'parent' }, { self: {} })).toBe(false);
+    expect(isStudentAccount(null, { self: {} })).toBe(true);
+    expect(isStudentAccount(null, { u1: {}, u2: {} })).toBe(false);
+  });
+});
