@@ -104,7 +104,7 @@ try {
   await shot(page, '03b-grade-chart');
   await lit.locator('button.class-toggle').click();
 
-  await sheet.getByRole('button', { name: 'Turned in' }).first().click();
+  await sheet.getByRole('button', { name: /as turned in$/ }).first().click();
   await sheet.locator('.check-btn').first().click();
   await sheet.getByText('Waiting on teacher · 2').waitFor();
   await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });

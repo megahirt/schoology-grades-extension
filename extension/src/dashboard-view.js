@@ -4,7 +4,7 @@
 //   header (title or "Hi, <name>", updated time, refresh, close in the panel)
 //   → child switcher (parents with 2+ children)
 //   → verdict card (GO/NO-GO pill when settings.showGoNoGo, reason, numbers)
-//   → Missing (with "Turned in") → Due soon (with a grey ✓ "Mark as done")
+//   → Missing (grey ✓ "Mark as turned in") → Due soon (grey ✓ "Mark as done")
 //   → Classes (grade bars with the passing line) → Doing well / Not so good
 //   → Records (personal bests, rewards.js) → Waiting on teacher (with Undo)
 //   → footer. The card also carries this week's ring (parents).
@@ -239,7 +239,7 @@ function renderMissing(summary, uid) {
     const sub = [a.courseName, dueLabel(a), ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
     return `<div class="missing-card"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
-      `<button class="btn btn-sm" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}">Turned in</button></div>`;
+      `<button class="check-btn" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as turned in" title="Mark as turned in">${ICON.check}</button></div>`;
   });
   return section(`Missing · ${summary.missingItems.length}`, rows.join(''), SECTION_EMOJI.missing);
 }
@@ -501,10 +501,10 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // below the passing grade show in the Classes section, in red.)
     const stats = [];
     if (summary.missingCount > 0) {
-      stats.push({ value: String(summary.missingCount), label: 'Missing', bad: summary.missingCount >= settings.missingThreshold });
+      stats.push({ value: String(summary.missingCount), icon: MISSING_IMG, label: 'Missing', bad: summary.missingCount >= settings.missingThreshold });
     }
     const dueCount = summary.dueToday.length + summary.dueTomorrow.length;
-    if (dueCount > 0) stats.push({ value: String(dueCount), label: 'Due soon', bad: false });
+    if (dueCount > 0) stats.push({ value: String(dueCount), icon: '<span class="stat-hg">⌛</span>', label: 'Due soon', bad: false });
     const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
@@ -515,6 +515,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
       `${reason}</div>${pill}</div>` +
       (stats.length
         ? `<div class="stats">${stats.map((st) => `<div class="stat"><span class="stat-v${st.bad ? ' low' : ''}">${escapeHtml(st.value)}</span>` +
+          (st.icon ? `<span class="stat-icon" aria-hidden="true">${st.icon}</span>` : '') +
           `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
         : '') + `</div>${ring}</div>`;
   } else {

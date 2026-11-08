@@ -243,7 +243,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(journal.locator('.missing-tag')).toHaveCount(0); // submitted, but not marked Missing
 
       // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
-      await popup.getByRole('button', { name: 'Turned in' }).click();
+      await popup.getByRole('button', { name: /as turned in$/ }).click();
       // With nothing left, the Missing section disappears entirely.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' })).toHaveCount(0);
       await expect(popup.getByText('Waiting on teacher · 2')).toBeVisible();
