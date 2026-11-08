@@ -86,6 +86,9 @@
 .sgd .chip.today { background: var(--unknown-bg); color: #7a4b00; }
 .sgd .chip.tomorrow { background: #e8eefc; color: #1e3a8a; }
 .sgd .check-btn { flex: 0 0 auto; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #8a94a1; display: flex; align-items: center; justify-content: center; padding: 0; }
+.sgd .mail-btn:hover { color: #1d4ed8; border-color: #c7d4f5; background: #eef3fd; }
+.sgd .feedback-link { color: #4b5563; text-decoration: underline; text-underline-offset: 2px; }
+.sgd .feedback-link:hover { color: #1d4ed8; }
 .sgd .check-btn:hover { color: var(--go); border-color: #b9dcc5; background: var(--go-bg); }
 .sgd .row-grade { font-size: 13px; font-weight: 600; flex: 0 0 auto; }
 /* Compact one-line rows (Doing well): title (class) ... grade. */
