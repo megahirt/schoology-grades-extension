@@ -38,6 +38,8 @@ describe('quarterChange', () => {
 
 describe('weekProgress', () => {
   it('counts this week (Monday to Sunday): graded, then turned in waiting for a grade', () => {
+    // Past due and not marked Missing counts as turned in (as everywhere on
+    // the dashboard); teacher-marked Missing without a submission does not.
     expect(new Date(weekStart(NOW)).getDay()).toBe(1);
     const c = course({
       assignments: [
@@ -47,9 +49,13 @@ describe('weekProgress', () => {
         { id: 'a4', status: 'overdue', due: d(10, 4) }, // marked turned in
         { id: 'a5', status: 'excused', due: d(10, 4) },
         { id: 'a6', status: 'graded', score: 5, maxPoints: 5, due: d(9, 30) }, // last week
+        { id: 'a7', status: 'overdue', due: d(10, 5) }, // past due, no Missing mark
+        { id: 'a8', status: 'missing', due: d(10, 5) }, // teacher-marked Missing
+        { id: 'a9', status: 'pending', due: d(10, 8) }, // Sunday 11:59 pm, still this week
       ],
     });
-    expect(weekProgress([c], { turnedIn: ['a4'] }, NOW)).toEqual({ total: 4, graded: 1, submitted: 2 });
+    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3 });
+    expect(weekProgress([c], { turnedIn: ['a3'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 4 });
   });
 });
 
