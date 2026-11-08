@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coursePagePath, findComposeHref, composeMessage, composeHash, readComposeHash } from '../../extension/src/teacher-email.js';
+import { coursePagePath, findComposeHref, findParentName, composeMessage, composeHash, readComposeHash } from '../../extension/src/teacher-email.js';
 
 describe('teacher email', () => {
   it('reads the course page for the right account type', () => {
@@ -13,14 +13,22 @@ describe('teacher email', () => {
   });
   it('writes as the parent, or as the student', () => {
     const base = { studentName: 'Sam Rivera', title: 'Persuasive Essay Draft', courseName: 'American Literature', dueText: 'Nov 4' };
-    const p = composeMessage({ ...base, isParent: true });
-    expect(p.subject).toBe('Persuasive Essay Draft (due Nov 4)');
-    expect(p.body).toContain("I'm Sam's parent");
+    const p = composeMessage({ ...base, isParent: true, parentName: 'Pat Rivera' });
+    expect(p.subject).toBe('Persuasive Essay Draft (due Nov 4) - marked missing');
+    expect(p.body).not.toContain("parent");
     expect(p.body).toContain('"Persuasive Essay Draft" (due Nov 4) as missing in American Literature');
+    expect(p.body).toContain('what Sam needs to do');
+    expect(p.body.endsWith('Sincerely,\nPat Rivera')).toBe(true);
+    expect(composeMessage({ ...base, isParent: true }).body.endsWith('Sincerely,')).toBe(true);
     const s = composeMessage({ ...base, isParent: false });
     expect(s.body).toContain('what I need to do');
     expect(s.body).not.toContain('parent');
     expect(s.body.endsWith('Sam')).toBe(true);
+  });
+  it('reads the signed-in parent\'s name from Schoology\'s page data', () => {
+    expect(findParentName('{"parentUid":1,"parentName":"Pat Rivera","x":2}')).toBe('Pat Rivera');
+    expect(findParentName('{"parentName":"Zo\\u00eb O\\u0027Neil"}')).toBe("Zoë O'Neil");
+    expect(findParentName('<p>none</p>')).toBe('');
   });
   it('round-trips through the URL hash, and ignores anything else', () => {
     const msg = { subject: 'Quiz & Test (due Nov 4)', body: 'Line 1\n\n"Line 2" #3' };

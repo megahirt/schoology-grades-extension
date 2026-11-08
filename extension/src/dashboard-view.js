@@ -647,7 +647,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     }
     if (!result || !result.ok) { setStatus(`Couldn’t open a message: ${(result && result.error) || 'unknown error'}`); return; }
     const [tidy] = cleanCourseNames([course]);
-    const msg = composeMessage({ isParent: viewIsParent, studentName: d.studentName, title: a.title, courseName: tidy.name, dueText: a.due ? shortDate(a.due) : a.dueText || '' });
+    const msg = composeMessage({ isParent: viewIsParent, studentName: d.studentName, parentName: result.parentName || '', title: a.title, courseName: tidy.name, dueText: a.due ? shortDate(a.due) : a.dueText || '' });
     const url = result.url + composeHash(msg);
     setStatus('');
     if (openLinksInActiveTab) {
