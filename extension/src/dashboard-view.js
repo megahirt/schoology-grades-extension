@@ -251,7 +251,7 @@ export function visibleCourses(courses) {
 const drawnCharts = new Map();
 const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
-// "▲ 6% vs Q1" after a class whose quarter grade is up on last quarter.
+// "▲ 6% vs Q1" for a class whose quarter grade is up on last quarter.
 function upPill(course) {
   const ch = quarterChange(course);
   if (!ch) return '';
@@ -279,7 +279,9 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const overallIsVerdict = cols.quarter && first === null && grade !== null;
     const overallLow = overallIsVerdict && grade < t;
     const grades = showGrades
-      ? `<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
+      // "▲ 6% vs Q1" sits between the quarter and semester grades; the
+      // quarter grade moves left to make room for it.
+      ? `<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>${cols.quarter ? upPill(c) : ''}` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
     // The bar shows the grade GO/NO-GO uses: the quarter, or the semester
@@ -294,7 +296,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const open = showGrades && openClass === key;
     const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
     const name = showGrades
-      ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>${upPill(c)}`, 'class-toggle')
+      ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle')
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
     const barBtn = bar ? toggle(bar, 'bar-toggle', `${open ? 'Hide' : 'Show'} ${c.name} grade chart`) : '';
     let chart = '';
