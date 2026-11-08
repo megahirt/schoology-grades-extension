@@ -337,6 +337,27 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
+      // Docked style: Schoology's page narrows to the space left, no shadow.
+      await page.evaluate(() => { document.body.innerHTML += '<div id="probe" style="width:100%;height:10px"></div>'; });
+      const fullWidth = await page.locator('#probe').evaluate((el) => el.getBoundingClientRect().width);
+      await worker.evaluate(async () => {
+        const { settings } = await chrome.storage.local.get('settings');
+        await chrome.storage.local.set({ settings: { ...settings, panelStyle: 'docked' } });
+      });
+      await expect(page.locator('html')).toHaveClass(/sgd-docked/);
+      await expect.poll(() => page.locator('#probe').evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(fullWidth - 370);
+      await expect(panel).toHaveCSS('box-shadow', 'none');
+      await panel.getByRole('button', { name: 'Close dashboard panel' }).click();
+      await expect(page.locator('html')).not.toHaveClass(/sgd-docked/); // closed: full width again
+      await tab.click();
+      await expect(page.locator('html')).toHaveClass(/sgd-docked/);
+      await worker.evaluate(async () => {
+        const { settings } = await chrome.storage.local.get('settings');
+        await chrome.storage.local.set({ settings: { ...settings, panelStyle: 'floating' } });
+      });
+      await expect(page.locator('html')).not.toHaveClass(/sgd-docked/);
+      await expect(panel).not.toHaveCSS('box-shadow', 'none'); // floating keeps its shadow
+
       // Class and assignment links open in this same tab, not a new one.
       const pagesBefore = context.pages().length;
       await panel.locator('.class', { hasText: 'Algebra 2' }).locator('button.class-toggle').click();

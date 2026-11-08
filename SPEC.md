@@ -169,7 +169,10 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
 - Dashboard panel: Safari has no extension side-panel API, so the content
   script docks the dashboard on the right edge of Schoology pages
   (`src/panel.js`, a shadow root that never touches Schoology's elements; a
-  bottom sheet on phones). The toolbar popup shows the same view
+  bottom sheet on phones). Settings › Display › Panel style: Floating (over
+  the page, with a shadow) or Docked (`panelStyle: 'docked'`: no shadow, and
+  Schoology's page narrows to the space left via a class on <html> and a
+  small style element, both removed when the panel closes). The toolbar popup shows the same view
   (`src/dashboard-view.js`). `settings.showPanel` turns the panel off.
 
 `extension/src/rules.js` (pure JS, no chrome APIs, importable by node tests):
