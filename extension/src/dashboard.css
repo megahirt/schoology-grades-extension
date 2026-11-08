@@ -46,6 +46,7 @@
 /* Body */
 .sgd .body { padding: 16px 18px; display: flex; flex-direction: column; gap: 18px; }
 .sgd .avatar { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; object-fit: cover; background: #e7ecf3; color: #334155; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+.sgd svg.nogo-circle { display: block; background: none; }
 .sgd .card { border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: #f6f7f9; }
 .sgd .card.go { background: var(--go-bg); } .sgd .card.nogo { background: var(--nogo-bg); } .sgd .card.unknown { background: var(--unknown-bg); }
 .sgd .card-head { display: flex; align-items: center; gap: 12px; }
