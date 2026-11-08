@@ -20,8 +20,8 @@ const FIXED_SETTINGS = ['gradeVisibility', 'notSoGoodDays', 'doingWellDays', 'sh
 // Family rules are set by parents; a student's dashboard uses the defaults.
 const PARENT_ONLY_SETTINGS = ['gradeThreshold', 'missingThreshold'];
 // The settings sliders' ranges; a value saved outside one (older versions
-// allowed 0-100) is held to the nearest end, matching what the slider shows.
-export const SETTING_RANGES = { gradeThreshold: [60, 80], doingWellPercent: [75, 90] };
+// allowed 0-100, or up to 20 Missing items) is held to the nearest end, matching what the slider shows.
+export const SETTING_RANGES = { gradeThreshold: [60, 80], missingThreshold: [1, 6], doingWellPercent: [75, 90] };
 
 // effectiveSettings(stored, { isStudent }) -> the settings to use.
 export function effectiveSettings(stored, { isStudent = false } = {}) {
