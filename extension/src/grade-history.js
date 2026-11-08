@@ -19,8 +19,10 @@
 // show (dropped scores, extra credit).
 //
 // gradeHistory(course, { now }) ->
-//   { start, end, points: [{ t, pct, title }],
+//   { start, end, points: [{ t, pct, title, got, max }],
 //     segments: [{ periodId, label, line: [{ t, grade, title, missing }] }] }
+// `got`/`max` are the assignment's points (max is null for a bare percent
+// score with no points), so the chart can size each dot by what it's worth.
 // Times are epoch ms. `start` is the first day of the school year (the
 // earliest top-level period that has started), `end` is `now`.
 
@@ -60,7 +62,7 @@ export function gradeHistory(course, { now = Date.now() } = {}) {
     }
     const sc = pctOf(a);
     if (!sc) continue;
-    points.push({ t, pct: (sc.got / sc.max) * 100, title: a.title });
+    points.push({ t, pct: (sc.got / sc.max) * 100, title: a.title, got: sc.got, max: a.maxPoints > 0 ? a.maxPoints : null });
     if (!groups.has(periodId)) groups.set(periodId, []);
     groups.get(periodId).push({ t, sc, cat, title: a.title });
   }
