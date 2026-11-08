@@ -135,6 +135,22 @@ function gradeText(a, settings) {
   return `${Math.round(pct)}%`;
 }
 
+// What an assignment is worth ("10 pts"), never what was earned (the
+// percent shows that). Empty when Schoology doesn't say: parents only see
+// the total once the work is graded.
+function ptsText(a) {
+  const m = a && a.maxPoints;
+  if (typeof m !== 'number' || !(m > 0)) return '';
+  const n = Math.round(m * 100) / 100;
+  return `${n} ${n === 1 ? 'pt' : 'pts'}`;
+}
+
+// Largest point value first; work with no known value keeps its order, last.
+function byPointsDesc(list, get = (x) => x) {
+  const val = (x) => (typeof get(x).maxPoints === 'number' ? get(x).maxPoints : -1);
+  return list.map((x, i) => ({ x, i })).sort((p, q) => val(q.x) - val(p.x) || p.i - q.i).map(({ x }) => x);
+}
+
 function plural(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -219,8 +235,8 @@ function titleLink(a, cls = 'item-title') {
 
 function renderMissing(summary, uid) {
   if (!summary.missingItems.length) return '';
-  const rows = summary.missingItems.map((a) => {
-    const sub = [a.courseName, dueLabel(a)].filter(Boolean).map(escapeHtml).join(' · ');
+  const rows = byPointsDesc(summary.missingItems).map((a) => {
+    const sub = [a.courseName, dueLabel(a), ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
     return `<div class="missing-card"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
       `<button class="btn btn-sm" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}">Turned in</button></div>`;
@@ -230,12 +246,13 @@ function renderMissing(summary, uid) {
 
 function renderDue(summary, uid) {
   const items = [
-    ...summary.dueToday.map((a) => ({ a, when: 'Today', cls: 'today' })),
-    ...summary.dueTomorrow.map((a) => ({ a, when: 'Tomorrow', cls: 'tomorrow' })),
+    // Within a day, largest point value first.
+    ...byPointsDesc(summary.dueToday).map((a) => ({ a, when: 'Today', cls: 'today' })),
+    ...byPointsDesc(summary.dueTomorrow).map((a) => ({ a, when: 'Tomorrow', cls: 'tomorrow' })),
   ];
   if (!items.length) return '';
   const rows = items.map(({ a, when, cls }) =>
-    `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${escapeHtml(a.courseName || '')}</div></div>` +
+    `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
     `<span class="chip ${cls}">${when}</span>` +
     `<button class="check-btn" type="button" data-act="done" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as done" title="Mark as done">${ICON.check}</button></div>`);
   return section('Due soon', rows.join(''), SECTION_EMOJI.due);
@@ -322,7 +339,7 @@ function renderGradedList(title, items, settings, showGrades, emoji) {
     const g = showGrades ? gradeText(a, settings) : '';
     const pct = assignmentPercent(a);
     const low = pct !== null && pct < settings.gradeThreshold;
-    return `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${escapeHtml(a.courseName || '')}</div></div>` +
+    return `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
       (g ? `<span class="row-grade${low ? ' low' : ''}">${escapeHtml(g)}</span>` : '') + '</div>';
   });
   return section(title, rows.join(''), emoji);
@@ -340,7 +357,8 @@ function renderDoingWell(items, settings, showGrades) {
   const recent = [...items].sort((a, b) => when(b) - when(a)).slice(0, DOING_WELL_MAX);
   const rows = recent.map((a) => {
     const g = showGrades ? gradeText(a, settings) : '';
-    const course = a.courseName ? ` <span class="compact-course">(${escapeHtml(a.courseName)})</span>` : '';
+    const meta = [a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
+    const course = meta ? ` <span class="compact-course">(${meta})</span>` : '';
     return `<div class="row compact"><div class="grow compact-line">${titleLink(a, 'row-title')}${course}</div>` +
       (g ? `<span class="row-grade">${escapeHtml(g)}</span>` : '') + '</div>';
   });
@@ -363,7 +381,7 @@ function renderWaiting(summary, uid) {
   const items = [...summary.waiting].sort((a, b) => order[a.waitingReason] - order[b.waitingReason]);
   const rows = items.map((a) => {
     const how = WAITING_HOW[a.waitingReason] || 'Waiting on teacher';
-    const sub = [a.courseName, dueLabel(a), how].filter(Boolean).map(escapeHtml).join(' · ');
+    const sub = [a.courseName, dueLabel(a), ptsText(a), how].filter(Boolean).map(escapeHtml).join(' · ');
     // Still marked Missing on Schoology (submitted or turned in, not yet graded).
     const missingTag = a.status === 'missing' ? `<span class="missing-tag">${MISSING_IMG}Missing</span>` : '';
     const undo = a.waitingReason === 'submitted'
