@@ -225,7 +225,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
       await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
       await expect(algebra.locator('svg.gchart .gc-tip')).toContainText('Quarter 2');
-      await algebra.locator('.bar-toggle').click(); // the bar toggles too
+      await algebra.locator('.class-row .bar').click(); // anywhere on the row toggles too
       await expect(algebra.locator('svg.gchart')).toHaveCount(0);
       // Assignment titles link to Schoology.
       await expect(popup.locator('.missing-card a.item-title', { hasText: 'Persuasive Essay Draft' })).toHaveAttribute('href', /\/assignment\/5101$/);
