@@ -370,6 +370,17 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(panel.locator('.class.open', { hasText: 'United States History' })).toBeVisible();
       expect(Math.abs((await panelBody.evaluate((el) => el.scrollTop)) - scrolledTo)).toBeLessThanOrEqual(2);
       await panel.locator('.class', { hasText: 'United States History' }).locator('button.class-toggle').click();
+      // With another class's chart open above, opening this one closes that
+      // chart: the clicked row stays put on screen instead of jumping up.
+      await panel.locator('.class', { hasText: 'Algebra 2' }).locator('button.class-toggle').click();
+      await expect(panel.locator('.class.open', { hasText: 'Algebra 2' })).toBeVisible();
+      const ush = panel.locator('.class', { hasText: 'United States History' }).locator('.class-head');
+      await ush.scrollIntoViewIfNeeded();
+      const rowBefore = (await ush.boundingBox()).y;
+      await ush.click();
+      await expect(panel.locator('.class.open', { hasText: 'United States History' })).toBeVisible();
+      expect(Math.abs((await ush.boundingBox()).y - rowBefore)).toBeLessThanOrEqual(2);
+      await ush.click();
       await page.setViewportSize({ width: 1280, height: 720 });
 
       // Class and assignment links open in this same tab, not a new one.

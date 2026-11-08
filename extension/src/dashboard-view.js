@@ -841,8 +841,24 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       return;
     }
     if (act === 'toggle-chart') {
-      openClass = openClass === btn.dataset.key ? null : btn.dataset.key;
+      // Opening a chart closes any other one. When that one is above, the
+      // rows below would shift up: keep the clicked class's row where it
+      // was on screen instead.
+      const key = btn.dataset.key;
+      const rowTop = () => {
+        const row = [...root.querySelectorAll('.class-row, .class-toggle')].find((el) => el.dataset.key === key);
+        return row ? row.getBoundingClientRect().top : null;
+      };
+      const before = rowTop();
+      openClass = openClass === key ? null : key;
       await render();
+      const after = rowTop();
+      if (before !== null && after !== null && Math.abs(after - before) > 0.5) {
+        const body = root.querySelector('.body');
+        const win = container.ownerDocument.defaultView;
+        if (body && body.scrollHeight > body.clientHeight) body.scrollTop += after - before;
+        else if (win) win.scrollBy(0, after - before);
+      }
       return;
     }
     if (act === 'pick') {
