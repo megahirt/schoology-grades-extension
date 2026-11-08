@@ -13,7 +13,7 @@ containing app) and [`chrome-web-store-setup.md`](chrome-web-store-setup.md)
 | Decision | Choice |
 |---|---|
 | Bundle ID (permanent) | `net.hirtfamily.sabaisnoopy.schoology-dashboard`; extension target `net.hirtfamily.sabaisnoopy.schoology-dashboard.Extension` |
-| Product name | "Grades Dashboard for Schoology students and parents". Per-store fit in §1a |
+| Product name | Full: "Grades Dashboard for Schoology students and parents". App Store name: "Grades Dashboard for Schoology", subtitle "For students and parents", short display name "Grades Dashboard" (§1a) |
 | Safari platforms | **iOS and macOS** from the start, one app record |
 | Chrome visibility | **Unlisted** |
 | Going live | **Every store waits for the owner's click.** CI never makes an update live by itself (§5a) |
@@ -131,8 +131,8 @@ convention. Revisit if the bump script becomes a chore.
 
 ### 1a. Product name per store
 
-The chosen name is **51 characters**, which is longer than some stores
-allow:
+The full name is **51 characters**, which is longer than some stores
+allow. Decided per-store names:
 
 | Where | Limit | What goes there |
 |---|---|---|
@@ -443,13 +443,10 @@ Decided 7 Nov 2026: see the table at the top.
 
 Still open:
 
-1. **Short names** (§1a): OK to use "Grades Dashboard for Schoology" as
-   the App Store name (30-char limit) with subtitle "For students and
-   parents", and "Grades Dashboard" as the short display name?
-2. **Apple enrolment** as Individual (seller name = owner's legal name),
+1. **Apple enrolment** as Individual (seller name = owner's legal name),
    $99/yr, and when to start.
-3. **Firefox visibility**: AMO unlisted (matches Chrome; self-hosted
+2. **Firefox visibility**: AMO unlisted (matches Chrome; self-hosted
    updates via GitHub Pages, recommended) or AMO listed (public, simpler
    updates).
-4. **Approval gate** (§5a): keep the `release` environment gate on every
+3. **Approval gate** (§5a): keep the `release` environment gate on every
    store job (recommended) or only on Firefox.
