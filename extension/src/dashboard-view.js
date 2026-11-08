@@ -33,6 +33,7 @@ import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
 import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
 import { composeMessage, composeHash } from './teacher-email.js';
+import { captureDashboard, copyImage } from './screenshot.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -87,6 +88,7 @@ export function escapeHtml(s) {
 const ICON = {
   refresh: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>',
   close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  camera: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
@@ -728,6 +730,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
         : `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>`) +
+      (current ? `<button class="icon-btn" type="button" data-act="screenshot" aria-label="Copy a picture of the dashboard" title="Copy a picture of the dashboard">${ICON.camera}</button>` : '') +
       `<button class="icon-btn" type="button" data-act="options" aria-label="Settings" title="Settings">${ICON.cog}</button>` +
       (onClose ? `<button class="icon-btn ghost" type="button" data-act="close" aria-label="Close dashboard panel" title="Close">${ICON.close}</button>` : '') +
       '</div>';
@@ -836,6 +839,31 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
     const { act, uid, aid } = btn.dataset;
+    if (act === 'screenshot') {
+      // Hand the clipboard the image while it's still being drawn, so the
+      // click counts as the user's gesture.
+      const win = container.ownerDocument.defaultView;
+      const blob = captureDashboard(root, DASHBOARD_CSS);
+      try {
+        await copyImage(blob, win);
+        btn.innerHTML = ICON.check;
+        btn.classList.add('done');
+        btn.setAttribute('aria-label', 'Copied');
+        btn.title = 'Copied';
+        setStatus('Picture copied. Paste it into a message or note.');
+        setTimeout(() => {
+          if (!btn.isConnected) return;
+          btn.innerHTML = ICON.camera;
+          btn.classList.remove('done');
+          btn.setAttribute('aria-label', 'Copy a picture of the dashboard');
+          btn.title = 'Copy a picture of the dashboard';
+          setStatus('');
+        }, 2000);
+      } catch (err) {
+        setStatus(`Couldn’t copy the picture: ${err.message || err}`);
+      }
+      return;
+    }
     if (act === 'email-teacher' && uid && aid) {
       await emailTeacher(uid, btn.dataset.cid, aid);
       return;
