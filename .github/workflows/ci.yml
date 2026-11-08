@@ -1,8 +1,8 @@
 # CI — Schoology Dashboard Extension (Safari-first, Chrome second)
 #
 # Runs on every push and pull request: lint, unit tests, both builds
-# (prod + dev), then the Playwright end-to-end tests against the mock
-# Schoology server. The live probe against real Schoology is NOT part
+# (prod + dev + Firefox dev), then the Playwright end-to-end tests against
+# the mock Schoology server in Chromium and Firefox. The live probe against real Schoology is NOT part
 # of CI — it needs a logged-in browser session; see test/probe/.
 
 name: CI
@@ -41,11 +41,16 @@ jobs:
       - name: Build (dev, mock-server build)
         run: npm run build:dev
 
+      - name: Build (Firefox dev, mock-server build)
+        run: npm run build:firefox
+
       # --no-shell: skip Chrome's headless shell, which cannot load
       # extensions (the e2e tests use full Chromium via channel 'chromium').
-      # --with-deps: install the system libraries full Chromium needs.
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps --no-shell chromium
+      # Firefox is Playwright's own build; the add-on is installed over
+      # Firefox's debugger protocol (test/e2e/firefox-addon.js).
+      # --with-deps: install the system libraries both browsers need.
+      - name: Install Playwright Chromium and Firefox
+        run: npx playwright install --with-deps --no-shell chromium firefox
 
-      - name: End-to-end tests
+      - name: End-to-end tests (Chromium and Firefox)
         run: npm run test:e2e
