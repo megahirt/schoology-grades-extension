@@ -38,6 +38,8 @@ const PANEL_CSS = `
   visibility: hidden;
 }
 .wrap.open { transform: none; visibility: visible; }
+/* Docked beside Schoology: a plain edge, no shadow (desktop only). */
+@media (min-width: 601px) { .wrap.docked .sheet { box-shadow: none; border-left: 1px solid #d3d7dc; } }
 .sheet {
   height: 100%; overflow: hidden; box-sizing: border-box;
   background: #fff; border-left: 1px solid #d3d7dc;
@@ -133,7 +135,19 @@ export async function tabSummaries() {
 //   onOpenChange — called with true/false when the user opens or closes it
 //                  (not when setOpen() is called), so the state can be saved.
 // Returns { setOpen, isOpen, refreshTab, destroy }.
-export function mountPanel({ document, browser, open = false, onOpenChange } = {}) {
+// Docked mode: Schoology's page gives up the panel's width (its content
+// reflows into the space left), and the panel loses its shadow. Applied by a
+// class on <html> plus one small style element; both are removed when the
+// panel closes, is undocked or goes away. Phones keep the bottom sheet.
+const DOCK_CLASS = 'sgd-docked';
+const DOCK_STYLE_ID = 'sgd-dock-style';
+const DOCK_CSS = `
+html.${DOCK_CLASS} { margin-right: min(380px, 92vw) !important; transition: margin-right 0.2s ease; }
+@media (max-width: 600px) { html.${DOCK_CLASS} { margin-right: 0 !important; } }
+@media (prefers-reduced-motion: reduce) { html.${DOCK_CLASS} { transition: none; } }
+`;
+
+export function mountPanel({ document, browser, open = false, onOpenChange, docked = false } = {}) {
   document.getElementById(PANEL_HOST_ID)?.remove();
   const host = document.createElement('div');
   host.id = PANEL_HOST_ID;
@@ -162,6 +176,21 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     : Date.now();
   let dashboard = null;
   let isOpen = false;
+  let isDocked = Boolean(docked);
+
+  function applyDock() {
+    const on = isDocked && isOpen;
+    wrap.classList.toggle('docked', isDocked);
+    tab.classList.toggle('docked', isDocked);
+    let style = document.getElementById(DOCK_STYLE_ID);
+    if (on && !style) {
+      style = document.createElement('style');
+      style.id = DOCK_STYLE_ID;
+      style.textContent = DOCK_CSS;
+      (document.head || document.documentElement).append(style);
+    }
+    document.documentElement.classList.toggle(DOCK_CLASS, on);
+  }
   let kids = [];
   let busy = false;
 
@@ -225,6 +254,7 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     }
     wrap.classList.toggle('open', isOpen);
     backdrop.classList.toggle('open', isOpen);
+    applyDock();
     tab.setAttribute('aria-expanded', String(isOpen));
     drawTab();
   }
@@ -270,9 +300,15 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     setOpen,
     isOpen: () => isOpen,
     refreshTab,
+    setDocked(next) {
+      isDocked = Boolean(next);
+      applyDock();
+    },
     destroy() {
       browser.storage.onChanged.removeListener(onStorageChanged);
       if (dashboard) dashboard.destroy();
+      document.documentElement.classList.remove(DOCK_CLASS);
+      document.getElementById(DOCK_STYLE_ID)?.remove();
       host.remove();
     },
   };

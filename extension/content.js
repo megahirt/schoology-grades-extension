@@ -94,7 +94,10 @@ async function setupPanel() {
         browser,
         open: await storageGet('panelOpen', true),
         onOpenChange: (open) => storageSet('panelOpen', open).catch(() => {}),
+        docked: settings.panelStyle === 'docked',
       });
+    } else if (settings.showPanel && panel) {
+      panel.setDocked(settings.panelStyle === 'docked');
     } else if (!settings.showPanel && panel) {
       panel.destroy();
       panel = null;
