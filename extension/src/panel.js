@@ -1,4 +1,4 @@
-// panel.js — the dashboard as a panel docked to the right edge of Schoology
+// panel.js — the dashboard as a panel on the right edge of Schoology
 // pages. Safari has no side-panel API for extensions (Chrome's sidePanel and
 // Firefox's sidebar_action have no Safari equivalent), so the content script
 // draws this panel inside the Schoology page instead. It works the same in
@@ -27,6 +27,16 @@ import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet } fr
 
 export const PANEL_HOST_ID = 'sgd-panel-host';
 
+// Schoology's layout never gets narrower than 980 px (below that it scrolls
+// sideways; measured on Home, Grades, Courses and Calendar). The panel docks
+// beside Schoology only when both fit side by side: 980 + 380 = 1360 px.
+// Narrower windows get the floating panel over the page, and phones the
+// bottom sheet. Pure CSS media queries, so it follows window resizes and
+// browser zoom on its own.
+export const SCHOOLOGY_MIN_WIDTH = 980;
+export const PANEL_WIDTH = 380;
+export const DOCK_MIN_WIDTH = SCHOOLOGY_MIN_WIDTH + PANEL_WIDTH;
+
 const PANEL_CSS = `
 :host { all: initial; }
 .wrap {
@@ -38,8 +48,6 @@ const PANEL_CSS = `
   visibility: hidden;
 }
 .wrap.open { transform: none; visibility: visible; }
-/* Docked beside Schoology: a plain edge, no shadow (desktop only). */
-@media (min-width: 601px) { .wrap.docked .sheet { box-shadow: none; border-left: 1px solid #d3d7dc; } }
 .sheet {
   height: 100%; overflow: hidden; box-sizing: border-box;
   background: #fff; border-left: 1px solid #d3d7dc;
@@ -47,6 +55,8 @@ const PANEL_CSS = `
   box-shadow: -2px 0 4px rgba(15, 23, 42, 0.20), -10px 0 28px rgba(15, 23, 42, 0.44), -28px 0 64px rgba(15, 23, 42, 0.36);
   display: flex; flex-direction: column;
 }
+/* Docked beside Schoology (wide windows): a plain edge, no shadow. */
+@media (min-width: ${DOCK_MIN_WIDTH}px) { .sheet { box-shadow: none; } }
 .sheet > .body-host { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .sheet .sgd { flex: 1 1 auto; min-height: 0; }
 .sheet .sgd > .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -135,19 +145,20 @@ export async function tabSummaries() {
 //   onOpenChange — called with true/false when the user opens or closes it
 //                  (not when setOpen() is called), so the state can be saved.
 // Returns { setOpen, isOpen, refreshTab, destroy }.
-// Docked mode: Schoology's page gives up the panel's width (its content
-// reflows into the space left), and the panel loses its shadow. Applied by a
-// class on <html> plus one small style element; both are removed when the
-// panel closes, is undocked or goes away. Phones keep the bottom sheet.
-const DOCK_CLASS = 'sgd-docked';
+// Docking: while the panel is open, <html> gets a class; in a window at
+// least DOCK_MIN_WIDTH wide that class makes Schoology's page give up the
+// panel's width (its content reflows into the space left). The class and one
+// small style element are removed when the panel closes or goes away.
+const DOCK_CLASS = 'sgd-panel-open';
 const DOCK_STYLE_ID = 'sgd-dock-style';
 const DOCK_CSS = `
-html.${DOCK_CLASS} { margin-right: min(380px, 92vw) !important; transition: margin-right 0.2s ease; }
-@media (max-width: 600px) { html.${DOCK_CLASS} { margin-right: 0 !important; } }
+@media (min-width: ${DOCK_MIN_WIDTH}px) {
+  html.${DOCK_CLASS} { margin-right: ${PANEL_WIDTH}px !important; transition: margin-right 0.2s ease; }
+}
 @media (prefers-reduced-motion: reduce) { html.${DOCK_CLASS} { transition: none; } }
 `;
 
-export function mountPanel({ document, browser, open = false, onOpenChange, docked = false } = {}) {
+export function mountPanel({ document, browser, open = false, onOpenChange } = {}) {
   document.getElementById(PANEL_HOST_ID)?.remove();
   const host = document.createElement('div');
   host.id = PANEL_HOST_ID;
@@ -176,12 +187,9 @@ export function mountPanel({ document, browser, open = false, onOpenChange, dock
     : Date.now();
   let dashboard = null;
   let isOpen = false;
-  let isDocked = Boolean(docked);
 
   function applyDock() {
-    const on = isDocked && isOpen;
-    wrap.classList.toggle('docked', isDocked);
-    tab.classList.toggle('docked', isDocked);
+    const on = isOpen;
     let style = document.getElementById(DOCK_STYLE_ID);
     if (on && !style) {
       style = document.createElement('style');
@@ -300,10 +308,8 @@ export function mountPanel({ document, browser, open = false, onOpenChange, dock
     setOpen,
     isOpen: () => isOpen,
     refreshTab,
-    setDocked(next) {
-      isDocked = Boolean(next);
-      applyDock();
-    },
+    // True when the open panel sits beside Schoology rather than over it.
+    isDocked: () => isOpen && document.defaultView.matchMedia(`(min-width: ${DOCK_MIN_WIDTH}px)`).matches,
     destroy() {
       browser.storage.onChanged.removeListener(onStorageChanged);
       if (dashboard) dashboard.destroy();
