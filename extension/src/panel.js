@@ -5,7 +5,7 @@
 // Safari on Mac and iPhone and in Chrome.
 //
 // Layout (see the "Schoology Dashboard Panel" design):
-//   - wide screens: a 380 px panel slides in from the right; a tab on its
+//   - wide screens: a 437 px panel slides in from the right; a tab on its
 //     left edge opens and closes it. While closed, the tab shows each child's
 //     initial in their GO/NO-GO color (when the badge is turned on).
 //   - narrow screens (phones, ≤ 600 px): the panel is a bottom sheet over a
@@ -29,19 +29,19 @@ export const PANEL_HOST_ID = 'sgd-panel-host';
 
 // Schoology's layout never gets narrower than 980 px (below that it scrolls
 // sideways; measured on Home, Grades, Courses and Calendar). The panel docks
-// beside Schoology only when both fit side by side: 980 + 380 = 1360 px.
+// beside Schoology only when both fit side by side: 980 + 437 = 1417 px.
 // Narrower windows get the floating panel over the page, and phones the
 // bottom sheet. Pure CSS media queries, so it follows window resizes and
 // browser zoom on its own.
 export const SCHOOLOGY_MIN_WIDTH = 980;
-export const PANEL_WIDTH = 380;
+export const PANEL_WIDTH = 437;
 export const DOCK_MIN_WIDTH = SCHOOLOGY_MIN_WIDTH + PANEL_WIDTH;
 
 const PANEL_CSS = `
 :host { all: initial; }
 .wrap {
   position: fixed; top: 0; right: 0; bottom: 0;
-  width: min(380px, 92vw);
+  width: min(${PANEL_WIDTH}px, 92vw);
   z-index: 2147483646;
   transform: translateX(100%);
   transition: transform 0.2s ease;
@@ -75,7 +75,7 @@ const PANEL_CSS = `
 }
 .edge-tab:hover { background: #111827; }
 .edge-tab:focus-visible { outline: 3px solid #93b4f5; outline-offset: 2px; }
-.edge-tab.open { right: min(380px, 92vw); padding: 15px 0; }
+.edge-tab.open { right: min(${PANEL_WIDTH}px, 92vw); padding: 15px 0; }
 .edge-tab.open .kids { display: none; }
 .edge-tab svg { display: block; }
 .tab-spin { display: block; animation: sgd-tab-spin 0.9s linear infinite; }

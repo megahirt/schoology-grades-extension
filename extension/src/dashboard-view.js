@@ -378,7 +378,9 @@ function renderWaiting(summary, uid) {
 }
 
 // This week's ring: graded (dark blue), then turned in and waiting for a
-// grade (light blue), out of everything due Monday to Sunday.
+// grade (light blue), out of everything due Monday to Sunday. No legend:
+// on desktop, hovering a part of the ring says what it is ("3 graded",
+// "2 turned in", "1 remaining"), via invisible, wider hit arcs on top.
 function weekRing(w) {
   if (!w.total) return '';
   const R = 42;
@@ -387,15 +389,21 @@ function weekRing(w) {
   const sub = (w.submitted / w.total) * C;
   const gap = w.graded && w.submitted ? 3 : 0; // a hairline between the two
   const n = w.graded + w.submitted;
-  const label = `${n} of ${w.total} assignments this week: ${w.graded} graded, ${w.submitted} turned in`;
+  const left = Math.max(0, w.total - n);
+  const label = `${n} of ${w.total} assignments this week: ${w.graded} graded, ${w.submitted} turned in, ${left} remaining`;
+  const rot = 'transform="rotate(-90 50 50)"';
   const arc = (len, color, offset) => (len > 0
-    ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.max(0.01, len - gap).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" transform="rotate(-90 50 50)"/>`
+    ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.max(0.01, len - gap).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" ${rot}/>`
+    : '');
+  const hit = (start, len, tip) => (len > 0
+    ? `<circle class="ring-hit" data-tip="${escapeHtml(tip)}" cx="50" cy="50" r="${R}" fill="none" stroke="transparent" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" ${rot}/>`
     : '');
   return `<div class="week" role="img" aria-label="${escapeHtml(label)}"><div class="ring">` +
     `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="10"/>` +
-    arc(sub, '#93b4f5', -(g + gap / 2)) + arc(g, '#1d4ed8', 0) + '</svg>' +
-    `<div class="ring-text" aria-hidden="true"><div class="ring-n${String(n).length + String(w.total).length >= 4 ? ' long' : ''}">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div></div>` +
-    '<div class="ring-key" aria-hidden="true"><span><i class="k-graded"></i>graded</span><span><i class="k-sub"></i>turned in</span></div></div>';
+    arc(sub, '#93b4f5', -(g + gap / 2)) + arc(g, '#1d4ed8', 0) +
+    hit(0, g, `${w.graded} graded`) + hit(g, sub, `${w.submitted} turned in`) + hit(g + sub, C - g - sub, `${left} remaining`) + '</svg>' +
+    `<div class="ring-text" aria-hidden="true"><div class="ring-n${String(n).length + String(w.total).length >= 4 ? ' long' : ''}">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div>` +
+    '<div class="ring-tip" aria-hidden="true" hidden></div></div></div>';
 }
 
 function shortDay(iso) {
@@ -766,6 +774,20 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   }
   root.addEventListener('click', onClick);
   // Desktop hover on a grade chart: the class grade at that moment.
+  // Desktop hover on this week's ring: what that part of the ring is.
+  root.addEventListener('pointerover', (e) => {
+    const part = e.target.closest && e.target.closest('.ring-hit');
+    if (!part) return;
+    const tip = part.closest('.ring').querySelector('.ring-tip');
+    tip.textContent = part.dataset.tip;
+    tip.hidden = false;
+  });
+  root.addEventListener('pointerout', (e) => {
+    const part = e.target.closest && e.target.closest('.ring-hit');
+    if (!part) return;
+    const next = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.ring-hit');
+    if (!next) part.closest('.ring').querySelector('.ring-tip').hidden = true;
+  });
   root.addEventListener('pointermove', (e) => {
     const svg = e.target.closest && e.target.closest('svg.gchart');
     if (!svg || e.pointerType === 'touch') return;

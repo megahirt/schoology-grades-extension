@@ -339,22 +339,22 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
-      // Wide window (Schoology's 980 px + the 380 px panel fit): the panel
+      // Wide window (Schoology's 980 px + the 437 px panel fit): the panel
       // docks beside Schoology, which narrows to the space left, no shadow.
       await page.evaluate(() => { document.body.innerHTML += '<div id="probe" style="width:100%;height:10px"></div>'; });
       const probeWidth = () => page.locator('#probe').evaluate((el) => el.getBoundingClientRect().width);
-      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.setViewportSize({ width: 1500, height: 900 });
       await expect(page.locator('html')).toHaveClass(/sgd-panel-open/);
-      await expect.poll(probeWidth).toBeLessThanOrEqual(1440 - 380);
+      await expect.poll(probeWidth).toBeLessThanOrEqual(1500 - 437);
       await expect(panel).toHaveCSS('box-shadow', 'none');
       await panel.getByRole('button', { name: 'Close dashboard panel' }).click();
       await expect(page.locator('html')).not.toHaveClass(/sgd-panel-open/); // closed: full width again
-      await expect.poll(probeWidth).toBeGreaterThan(1440 - 380);
+      await expect.poll(probeWidth).toBeGreaterThan(1500 - 437);
       await tab.click();
-      await expect.poll(probeWidth).toBeLessThanOrEqual(1440 - 380);
-      // Narrower than 1360 px: the panel floats over the page with its shadow.
-      await page.setViewportSize({ width: 1300, height: 900 });
-      await expect.poll(probeWidth).toBeGreaterThan(1300 - 380);
+      await expect.poll(probeWidth).toBeLessThanOrEqual(1500 - 437);
+      // Narrower than 1417 px: the panel floats over the page with its shadow.
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await expect.poll(probeWidth).toBeGreaterThan(1400 - 437);
       await expect(panel).not.toHaveCSS('box-shadow', 'none');
       await page.setViewportSize({ width: 1280, height: 720 });
 
