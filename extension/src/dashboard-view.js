@@ -280,7 +280,7 @@ function upPill(course) {
 
 // A class's trend line: the same running grade as the grade chart, since
 // school started, 60×20 px, with an amber band below the passing grade.
-// Needs 5 graded items; before that, "trend after 5 grades". It shares the
+// Needs 5 graded items; before that the spot stays empty. It shares the
 // spot left of the quarter grade with "▲ 6% vs Q1", so a class shows one or
 // the other. Clicking it opens the grade chart.
 const TREND_MIN_GRADES = 5;
@@ -338,8 +338,6 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
         const lastSeg = history.segments[history.segments.length - 1];
         const lastG = lastSeg.line[lastSeg.line.length - 1].grade;
         trend = `<span class="trend-line" role="img" aria-label="${escapeHtml(`${c.name} trend: from ${Math.round(first0)}% to ${Math.round(lastG)}% over ${n} grades`)}">${trendLine(history, t)}</span>`;
-      } else {
-        trend = '<span class="trend-wait">trend after 5 grades</span>';
       }
     }
     const grades = showGrades
