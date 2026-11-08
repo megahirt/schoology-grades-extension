@@ -52,20 +52,6 @@ function bindNumber(id, key, { min, max }) {
   });
 }
 
-function setSwitch(btn, on) {
-  btn.setAttribute('aria-checked', String(Boolean(on)));
-}
-
-function bindSwitch(id, key) {
-  const btn = $(id);
-  setSwitch(btn, settings[key] !== false);
-  btn.addEventListener('click', () => {
-    const on = btn.getAttribute('aria-checked') !== 'true';
-    setSwitch(btn, on);
-    save({ [key]: on });
-  });
-}
-
 function setSeg(seg, value) {
   for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-checked', String(b.dataset.value === value));
 }
@@ -104,6 +90,11 @@ async function renderAccount() {
     }
   })();
   const kids = Object.entries(dashboards);
+  // Family rules are for parents only; a student's dashboard uses the defaults.
+  const uids = Object.keys((await getDashboards()) || {});
+  const isParent = account ? account.type === 'parent' : uids.length > 0 && !(uids.length === 1 && uids[0] === 'self');
+  $('rules').hidden = !isParent;
+  $('rules-link').hidden = !isParent;
   const known = account && (account.type === 'parent' || account.type === 'student');
   $('account-status').classList.toggle('ok', Boolean(known));
   $('account-title').textContent = !account
@@ -142,10 +133,10 @@ $('refresh-btn').addEventListener('click', async () => {
 
 $('clear-btn').addEventListener('click', async () => {
   // eslint-disable-next-line no-alert
-  if (!window.confirm('Clear the saved grades and your turned-in and done marks from this browser? Settings stay. This cannot be undone.')) return;
-  for (const key of ['dashboards', 'turnedIn', 'markedDone', 'refreshState', 'account', 'liveTest', 'records', 'dailyLog']) await storageRemove(key);
-  $('clear-status').textContent = 'Saved grades and marks cleared.';
-  await renderAccount();
+  if (!window.confirm('Clear everything this extension saved in this browser: grades, records, the daily log, your turned-in and done marks, and your settings? This cannot be undone.')) return;
+  await browser.storage.local.clear();
+  // Reload so every setting shows its default again.
+  window.location.reload();
 });
 
 // --- Developer (dev builds only) ------------------------------------------------
@@ -212,9 +203,6 @@ async function init() {
   bindNumber('grade-threshold', 'gradeThreshold', { min: 0, max: 100 });
   bindNumber('missing-threshold', 'missingThreshold', { min: 1, max: 20 });
   bindNumber('doing-well-percent', 'doingWellPercent', { min: 0, max: 100 });
-  bindNumber('doing-well-days', 'doingWellDays', { min: 1, max: 60 });
-  bindNumber('notsogood-days', 'notSoGoodDays', { min: 1, max: 60 });
-  bindSwitch('show-gonogo', 'showGoNoGo');
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
   $('feedback-link').href = feedbackHref(browser);

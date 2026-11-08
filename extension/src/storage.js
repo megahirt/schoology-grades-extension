@@ -18,7 +18,7 @@
 
 import { mergeAllRecords } from './rewards.js';
 import { mergeDailyLog } from './daily-log.js';
-import { DEFAULT_SETTINGS } from './rules.js';
+import { effectiveSettings, isStudentAccount } from './rules.js';
 
 const memoryStore = new Map();
 
@@ -75,7 +75,7 @@ export const getDashboards = () => storageGet('dashboards', {});
 export async function setDashboards(v) {
   await storageSet('dashboards', v);
   if (v && Object.keys(v).length) {
-    const settings = { ...DEFAULT_SETTINGS, ...((await storageGet('settings', null)) || {}) };
+    const settings = effectiveSettings(await storageGet('settings', null), { isStudent: isStudentAccount(await storageGet('account', null), v) });
     const log = mergeDailyLog(await storageGet('dailyLog', {}), v, {
       settings,
       turnedIn: (await storageGet('turnedIn', {})) || {},

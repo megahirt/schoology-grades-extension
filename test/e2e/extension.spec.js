@@ -263,7 +263,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
-  test('settings page: one auto-saving page; changing a rule takes effect', async () => {
+  test('settings page: one auto-saving page; students get no Family rules', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     try {
@@ -275,9 +275,16 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await opts.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
       await expect(opts.getByRole('heading', { name: 'Homework Dashboard settings' })).toBeVisible();
       await expect(opts.locator('#account-title')).toHaveText('Connected as a student');
-      for (const name of ['Account', 'Family rules', 'Display', 'Privacy & data']) {
+      for (const name of ['Account', 'Display', 'Privacy & data']) {
         await expect(opts.getByRole('heading', { name, exact: true })).toBeVisible();
       }
+      // Family rules are for parents only; removed choices are gone.
+      await expect(opts.getByRole('heading', { name: 'Family rules', exact: true })).toBeHidden();
+      for (const gone of ['Who sees grades', 'Not so good', 'Show the GO/NO-GO badge', 'Dashboard panel on Schoology pages']) {
+        await expect(opts.getByText(gone, { exact: true })).toHaveCount(0);
+      }
+      await expect(opts.locator('#doing-well-days')).toHaveCount(0);
+      await expect(opts.getByText('% from the past 10 days')).toBeVisible();
       await expect(opts.getByRole('heading', { name: 'Classes', exact: true })).toHaveCount(0); // no class switches
       await expect(opts.getByRole('heading', { name: 'Developer' })).toBeVisible(); // dev build
       // Only classes with grades posted count (Advisory 11 has none).
@@ -288,12 +295,25 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.class', { hasText: 'Advisory 11' })).toHaveCount(0);
       await expect(popup.locator('.card')).toContainText('bring Algebra 2 up past 75%');
 
-      // Passing grade 85: American Literature (82%) now needs work too. Saved automatically.
-      await opts.locator('#grade-threshold').fill('85');
-      await opts.locator('#grade-threshold').press('Tab');
-      await expect.poll(async () => (await opts.evaluate(() => chrome.storage.local.get('settings'))).settings.gradeThreshold).toBe(85);
-      await expect(popup.locator('.card')).toContainText('bring American Literature up past 85%');
+      // A saved passing grade (from a parent) doesn't apply to a student: the
+      // default 75% stands. A Display choice still saves automatically.
+      await worker.evaluate(async () => {
+        const { settings } = await chrome.storage.local.get('settings');
+        await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 85 } });
+      });
+      await expect(popup.locator('.card')).toContainText('bring Algebra 2 up past 75%');
+      await expect(popup.locator('.card')).not.toContainText('85%');
+      await opts.locator('#doing-well-percent').fill('90');
+      await opts.locator('#doing-well-percent').press('Tab');
+      await expect.poll(async () => (await opts.evaluate(() => chrome.storage.local.get('settings'))).settings.doingWellPercent).toBe(90);
       await popup.close();
+
+      // Clear data removes everything, settings included, and the page
+      // shows the defaults again.
+      opts.once('dialog', (d) => d.accept());
+      await opts.getByRole('button', { name: 'Clear data…' }).click();
+      await expect.poll(async () => Object.keys(await worker.evaluate(() => chrome.storage.local.get(null))).filter((k) => k !== 'settings')).toEqual([]);
+      await expect(opts.locator('#doing-well-percent')).toHaveValue('80');
       await opts.close();
     } finally {
       await context.close();
@@ -510,6 +530,18 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(card.locator('.nogo-circle')).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
+      // A parent's Family rules take effect: at a 95% passing grade one of
+      // Jamie's classes falls short, so the NO-GO circle replaces the picture.
+      await worker.evaluate(async () => {
+        const { settings } = await chrome.storage.local.get('settings');
+        await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 95 } });
+      });
+      await expect(card.locator('.nogo-circle')).toBeVisible();
+      await worker.evaluate(async () => {
+        const { settings } = await chrome.storage.local.get('settings');
+        await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 75 } });
+      });
+      await expect(card.locator('.nogo-circle')).toHaveCount(0);
       // Shared "07" prefixes are dropped from class names.
       await expect(popup.locator('.class .class-name')).toHaveText(['English', 'Math']);
       // The picked child is remembered: a fresh popup (or a page load) stays on Jamie.
