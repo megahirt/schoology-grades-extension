@@ -19,6 +19,7 @@ every store listing is now public.
 | Store visibility | **Public on every store** (Chrome, Edge, Firefox AMO listed, Mac + iOS App Store). Testing still happens in private channels first (§6) |
 | Going live | **Every store waits for the owner's click.** CI never makes an update live by itself (§5a) |
 | Edge and Firefox | **Both in scope**, both public |
+| Approval gate | **On every store job** via the `release` environment (§5a) |
 
 Still open: see §7.
 
@@ -359,9 +360,9 @@ How it combines with each store's own go-live click:
 
 For Chrome, Edge and Safari, the store-side click is what satisfies
 "wait for the owner's click", so the GitHub gate is extra protection
-there. Firefox is the one store where the gate does that job. Recommended:
-keep the gate on for all of them, since one tap per release is cheap. It
-also stops a mistaken version-bump merge from ever touching a store.
+there. Firefox is the one store where the gate does that job. Decided:
+the gate stays on for **every** store job. One tap per release is cheap,
+and it stops a mistaken version-bump merge from ever touching a store.
 
 `GITHUB_TOKEN` (automatic) creates tags and Releases and needs
 `contents: write` on the release job only. Builder/Claude sessions never
@@ -448,5 +449,3 @@ Still open:
 
 1. **Apple enrolment** as Individual (seller name = owner's legal name),
    $99/yr, and when to start.
-2. **Approval gate** (§5a): keep the `release` environment gate on every
-   store job (recommended) or only on Firefox.
