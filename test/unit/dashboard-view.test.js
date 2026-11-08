@@ -58,12 +58,13 @@ describe('trend line next to each class', () => {
   it('shows the ▲ pill instead of a trend line when the class is up on last quarter', () => {
     const out = html([cls({ id: 'a', name: 'Up Class', assignments: graded(6, 'a') })]);
     expect(out).toContain('up-pill');
-    expect(out).not.toContain('trend-toggle');
+    expect(out).not.toContain('trend-line');
   });
-  it('shows a trend line (opening the chart) when there is no pill and 5+ grades', () => {
+  it('shows a trend line when there is no pill and 5+ grades; the whole row opens the chart', () => {
     const out = html([cls({ id: 'b', name: 'Flat Class', quarterGrade: 80, grade: 80, assignments: graded(6, 'b') })]);
     expect(out).not.toContain('up-pill');
-    expect(out).toMatch(/class="trend-toggle" data-act="toggle-chart"[^>]*aria-label="Flat Class trend: from \d+% to \d+% over 6 grades\./);
+    expect(out).toMatch(/class="trend-line" role="img" aria-label="Flat Class trend: from \d+% to \d+% over 6 grades"/);
+    expect(out).toMatch(/class="class-row" data-act="toggle-chart"/); // the whole row opens the chart
   });
   it('says "trend after 5 grades" until there are enough grades', () => {
     const out = html([cls({ id: 'c', name: 'New Class', quarterGrade: 80, grade: 80, assignments: graded(3, 'c') })]);

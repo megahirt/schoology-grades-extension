@@ -103,7 +103,6 @@
 .sgd .class-toggle:hover .class-name { text-decoration: underline; color: #1d4ed8; }
 .sgd .chev { display: inline-flex; color: #8a94a1; transition: transform 0.15s; }
 .sgd .chev.open { transform: rotate(90deg); }
-.sgd .bar-toggle { display: block; width: 100%; padding: 4px 0; margin: -4px 0; border: none; background: none; }
 .sgd .chart-box { margin: 6px 0 4px; padding: 10px 10px 8px; background: #f6f7f9; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
 .sgd .gchart { width: 100%; height: auto; display: block; overflow: visible; }
 .sgd .gchart .gc-grid { stroke: #e3e6ea; stroke-width: 1; }
@@ -201,7 +200,11 @@
 .sgd .record-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sgd .record-value { flex: 0 0 auto; font-size: 15px; font-weight: 700; }
 .sgd .new-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: #c2410c; border-radius: 999px; padding: 1px 6px; }
-.sgd .trend-toggle { flex: 0 0 auto; align-self: center; width: 60px; height: 20px; padding: 0; border: none; background: none; cursor: pointer; display: block; }
-.sgd .trend-toggle svg { display: block; overflow: visible; }
-.sgd .trend-toggle:hover .trend-svg { opacity: 0.8; }
+.sgd .trend-line { flex: 0 0 auto; align-self: center; width: 60px; height: 20px; display: block; }
+.sgd .trend-line svg { display: block; overflow: visible; }
+/* The whole class row is one click target: a soft highlight on hover. */
+.sgd .class-row { cursor: pointer; margin: -4px -8px; padding: 4px 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; transition: background 0.12s; }
+.sgd .class-row:hover { background: #f1f4f8; }
+.sgd .class-row:hover .class-name { color: #1d4ed8; }
+.sgd .class.open > .class-row { background: #f6f7f9; }
 .sgd .trend-wait { flex: 0 0 auto; align-self: center; width: 60px; font-size: 9.5px; line-height: 1.15; color: #8a94a1; text-align: center; }

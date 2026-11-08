@@ -324,8 +324,8 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const firstLow = first !== null && first < t;
     const overallIsVerdict = cols.quarter && first === null && grade !== null;
     const overallLow = overallIsVerdict && grade < t;
-    // Clicking the class name, its bar or its trend line opens the grade
-    // chart; again closes it.
+    // Clicking anywhere on the class's row opens the grade chart; again
+    // closes it.
     const key = `${uid}:${c.id || c.name}`;
     const open = showGrades && openClass === key;
     const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
@@ -337,8 +337,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
         const first0 = history.segments[0].line[0].grade;
         const lastSeg = history.segments[history.segments.length - 1];
         const lastG = lastSeg.line[lastSeg.line.length - 1].grade;
-        trend = toggle(trendLine(history, t), 'trend-toggle',
-          `${c.name} trend: from ${Math.round(first0)}% to ${Math.round(lastG)}% over ${n} grades. ${open ? 'Hide' : 'Show'} the grade chart.`);
+        trend = `<span class="trend-line" role="img" aria-label="${escapeHtml(`${c.name} trend: from ${Math.round(first0)}% to ${Math.round(lastG)}% over ${n} grades`)}">${trendLine(history, t)}</span>`;
       } else {
         trend = '<span class="trend-wait">trend after 5 grades</span>';
       }
@@ -359,7 +358,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const name = showGrades
       ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle')
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
-    const barBtn = bar ? toggle(bar, 'bar-toggle', `${open ? 'Hide' : 'Show'} ${c.name} grade chart`) : '';
+
     let chart = '';
     if (open) {
       const svg = renderGradeChart(history, { threshold: t, name: c.name });
@@ -370,7 +369,12 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
         (svg ? `<div class="chart-legend"><span><i class="lg-dot ok"></i>${t}% or above</span><span><i class="lg-dot low"></i>below ${t}%</span><span><i class="lg-line"></i>class grade</span><span><i class="lg-pass"></i>${t}%</span></div>` : '') +
         link + '</div>';
     }
-    return `<div class="class${open ? ' open' : ''}"><div class="class-head"><span class="grow">${name}</span>${grades}</div>${barBtn}${chart}</div>`;
+    // The whole row (name, trend line, grades and bar) opens the chart; the
+    // class name stays the keyboard and screen-reader control.
+    const row = `<div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}`;
+    return `<div class="class${open ? ' open' : ''}">` +
+      (showGrades ? `<div class="class-row" data-act="toggle-chart" data-key="${escapeHtml(key)}">${row}</div>` : row) +
+      `${chart}</div>`;
   });
   const dates = showGrades ? quarterDatesLine(list) : '';
   return `<section class="sec">${head}${rows.join('')}${dates ? `<p class="legend">${escapeHtml(dates)}</p>` : ''}</section>`;
