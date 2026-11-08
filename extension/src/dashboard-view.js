@@ -279,9 +279,9 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const overallIsVerdict = cols.quarter && first === null && grade !== null;
     const overallLow = overallIsVerdict && grade < t;
     const grades = showGrades
-      // "▲ 6% vs Q1" sits between the quarter and semester grades; the
-      // quarter grade moves left to make room for it.
-      ? `<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>${cols.quarter ? upPill(c) : ''}` +
+      // "▲ 6% vs Q1" sits just left of the quarter grade, so the grades
+      // stay lined up in their columns.
+      ? `${cols.quarter ? upPill(c) : ''}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
     // The bar shows the grade GO/NO-GO uses: the quarter, or the semester
