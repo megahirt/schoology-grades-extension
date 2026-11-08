@@ -7,15 +7,18 @@ All commands run from the repo root.
 > structure** verified on 2026-11-06 (`test/mock-server/markup.js`, see the
 > header of `extension/src/parser-core.js`). All names and grades are made up.
 
-> **Safari note:** the extension is Safari-first (many students use Safari), but these tests run in **Chromium via Playwright** —
-> Safari cannot be automated in this environment. The e2e tests prove the
-> shared logic in Chromium; the Safari build is verified separately.
+> **Browsers:** the e2e tests run in **Chromium and Firefox** via
+> Playwright, locally and in CI. Safari can't be driven by Playwright
+> (its WebKit is not Safari and can't load Safari Web Extensions), so the
+> Safari build is checked by hand (see "Safari" below).
 
 ## Run everything
 
 ```sh
 npm test          # unit tests (vitest, test/unit/)
-npm run test:e2e  # Playwright e2e (test/e2e/) — needs the DEV build first
+npm run build:dev && npm run build:firefox   # the two DEV builds the e2e tests load
+npm run test:e2e  # Playwright e2e (test/e2e/), Chromium + Firefox
+npx playwright test --project=firefox   # one browser only
 npm run mock-server   # start the mock Schoology server alone (port 8123)
 MOCK_DELAY_MS=700 npm run mock-server   # slow answers, to see the refresh banner
 ```
@@ -80,13 +83,24 @@ passes and proves the harness works.
 
 ## E2E tests (`test/e2e/extension.spec.js`, Playwright — `npm run test:e2e`)
 
-1. Build the DEV build first: `npm run build:dev` (produces `dist/` with
-   `http://localhost:*/*` host permissions for the mock server).
-2. The spec starts the mock server on an ephemeral port, launches Chromium
-   with the unpacked DEV build (`chromium.launchPersistentContext` +
-   `--load-extension`), and uses a fresh user-data-dir per test. The
-   extension is pointed at `http://localhost:<port>` (not `127.0.0.1`),
-   because the DEV host permission is `http://localhost:*/*`.
+1. Build the DEV builds first: `npm run build:dev` (produces `dist/` with
+   `http://localhost:*/*` host permissions for the mock server) and
+   `npm run build:firefox` (`dist-firefox/`: the same, with a Firefox
+   add-on id, an event-page background and `http://localhost/*`, since
+   Firefox match patterns can't name a port).
+2. The spec starts the mock server on an ephemeral port and uses a fresh
+   user-data-dir per test. There are two Playwright projects:
+   - **chromium:** Chromium with the unpacked build
+     (`chromium.launchPersistentContext` + `--load-extension`).
+   - **firefox:** Playwright's Firefox, started with its debugger server;
+     `test/e2e/firefox-addon.js` installs `dist-firefox/` as a temporary
+     add-on and runs storage code in its background page over Firefox's
+     remote debugging protocol. Playwright's Firefox can't open
+     `moz-extension://` pages, so in Firefox the dashboard checks run
+     against the same dashboard in the in-page panel, and the settings-page
+     test is skipped.
+   The extension is pointed at `http://localhost:<port>` (not
+   `127.0.0.1`), because the DEV host permission is `http://localhost`.
 3. It logs in to the mock server, sets `settings.schoologyBase` to the mock
    URL via the options page (storage), triggers a refresh, opens
    `popup/popup.html`, and asserts:
@@ -96,12 +110,25 @@ passes and proves the harness works.
    - **Parent:** TWO child dashboards — Sam Rivera **NO-GO** ("Missing · 2")
      and Jamie Rivera **GO** ("Missing · 1", "Poetry Analysis Essay").
 
-If `dist/` does not exist yet, the e2e tests **skip** (they do not fake
-a pass). If Playwright browsers are missing, run first:
+If `dist/` (or `dist-firefox/` for Firefox) does not exist yet, the e2e
+tests **skip** (they do not fake a pass). If Playwright browsers are
+missing, run first:
 
 ```sh
-npx playwright install --no-shell chromium
+npx playwright install --no-shell chromium firefox
 ```
+
+### Safari
+
+Safari can't run these tests automatically yet. Playwright's WebKit is
+not Safari and can't load Safari Web Extensions. Safari's own WebDriver
+(`safaridriver`, which on Safari 27 also speaks WebDriver BiDi) needs
+"Allow remote automation" turned on in Safari's Developer settings
+(or `safaridriver --enable`, which asks for the Mac password) before any
+session can start, and whether it can install an unpacked extension is
+still to be checked. Until then, check Safari by hand: Safari → Develop →
+Web Extension Developer → Add Temporary Extension…, pick `dist/`, and
+allow it on Schoology.
 
 Playwright 1.49 headless launches use the headless shell; if that download
 fails but the full Chromium build is present, `playwright.config.js` falls

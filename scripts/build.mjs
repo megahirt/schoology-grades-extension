@@ -5,6 +5,10 @@
 //           http://localhost:*/* to host_permissions (mock server for
 //           Playwright e2e) and renames the extension "Schoology Dashboard
 //           (Dev)". Prod builds NEVER contain localhost permissions.
+//   --firefox : writes a Firefox build to dist-firefox/ instead (combine
+//           with --dev for the e2e tests). Firefox runs MV3 backgrounds as
+//           event pages (background.scripts, not a service worker) and needs
+//           an add-on id.
 import { build } from 'esbuild';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -13,8 +17,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const extDir = path.join(root, 'extension');
-const distDir = path.join(root, 'dist');
 const isDev = process.argv.includes('--dev');
+const isFirefox = process.argv.includes('--firefox');
+const distDir = path.join(root, isFirefox ? 'dist-firefox' : 'dist');
+const FIREFOX_ID = 'schoology-dashboard@schoologydashboard';
 
 async function main() {
   await rm(distDir, { recursive: true, force: true });
@@ -56,6 +62,16 @@ async function main() {
     // Run the content script (grades scrape + panel) on the mock server too.
     for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost:*/*'];
   }
+  if (isFirefox) {
+    manifest.background = { scripts: ['background.js'] };
+    manifest.options_ui = { page: manifest.options_page, open_in_tab: true };
+    delete manifest.options_page;
+    manifest.browser_specific_settings = { gecko: { id: FIREFOX_ID, strict_min_version: '128.0' } };
+    // Firefox match patterns can't name a port; without one they match any.
+    const noPort = (list) => (list || []).map((m) => m.replace('localhost:*', 'localhost'));
+    manifest.host_permissions = noPort(manifest.host_permissions);
+    for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);
+  }
   await writeFile(path.join(distDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
   // Static assets.
@@ -65,7 +81,7 @@ async function main() {
   await cp(path.join(extDir, 'options', 'options.css'), path.join(distDir, 'options', 'options.css'));
   await cp(path.join(extDir, 'icons'), path.join(distDir, 'icons'), { recursive: true });
 
-  console.log(`Built ${isDev ? 'DEV' : 'PROD'} extension -> ${distDir}`);
+  console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''} extension -> ${distDir}`);
   if (isDev) console.log('Dev build includes http://localhost:*/* host permission.');
 }
 
