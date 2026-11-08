@@ -278,6 +278,32 @@ function upPill(course) {
   return `<span class="up-pill" title="${escapeHtml(title)}"><span aria-hidden="true">▲ ${ch.delta}% vs ${escapeHtml(ch.prevShort)}</span><span class="sr-only">${escapeHtml(title)}</span></span>`;
 }
 
+// A class's trend line: the same running grade as the grade chart, since
+// school started, 60×20 px, with an amber band below the passing grade.
+// Needs 5 graded items; before that, "trend after 5 grades". It shares the
+// spot left of the quarter grade with "▲ 6% vs Q1", so a class shows one or
+// the other. Clicking it opens the grade chart.
+const TREND_MIN_GRADES = 5;
+function trendLine(history, threshold) {
+  const W = 60;
+  const H = 20;
+  const lo = 40;
+  const hi = 100;
+  const span = Math.max(1, history.end - history.start);
+  const x = (t) => ((Math.min(Math.max(t, history.start), history.end) - history.start) / span) * W;
+  const y = (v) => H - 1 - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - 2);
+  const passY = y(threshold);
+  const lines = history.segments.map((seg) => (seg.line.length > 1
+    ? `<polyline points="${seg.line.map((p) => `${x(p.t).toFixed(1)},${y(p.grade).toFixed(1)}`).join(' ')}" fill="none" stroke="#4f6a9a" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`
+    : '')).join('');
+  const lastSeg = history.segments[history.segments.length - 1];
+  const last = lastSeg && lastSeg.line[lastSeg.line.length - 1];
+  return `<svg class="trend-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">` +
+    `<rect x="0" y="${passY.toFixed(1)}" width="${W}" height="${(H - passY).toFixed(1)}" fill="#fdf1d8"/>` +
+    `<line x1="0" x2="${W}" y1="${passY.toFixed(1)}" y2="${passY.toFixed(1)}" stroke="#b9c0ca" stroke-width="1" stroke-dasharray="2 2"/>` +
+    lines + (last ? `<circle cx="${x(last.t).toFixed(1)}" cy="${y(last.grade).toFixed(1)}" r="2.4" fill="#4f6a9a"/>` : '') + '</svg>';
+}
+
 function renderClasses(courses, settings, showGrades, uid, openClass = null) {
   const list = visibleCourses(courses);
   if (!list.length) return '';
@@ -297,10 +323,29 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const firstLow = first !== null && first < t;
     const overallIsVerdict = cols.quarter && first === null && grade !== null;
     const overallLow = overallIsVerdict && grade < t;
+    // Clicking the class name, its bar or its trend line opens the grade
+    // chart; again closes it.
+    const key = `${uid}:${c.id || c.name}`;
+    const open = showGrades && openClass === key;
+    const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
+    const history = showGrades ? gradeHistory(c) : null;
+    let trend = '';
+    if (history && !(cols.quarter && quarterChange(c))) {
+      const n = history.points.length;
+      if (n >= TREND_MIN_GRADES && history.segments.length) {
+        const first0 = history.segments[0].line[0].grade;
+        const lastSeg = history.segments[history.segments.length - 1];
+        const lastG = lastSeg.line[lastSeg.line.length - 1].grade;
+        trend = toggle(trendLine(history, t), 'trend-toggle',
+          `${c.name} trend: from ${Math.round(first0)}% to ${Math.round(lastG)}% over ${n} grades. ${open ? 'Hide' : 'Show'} the grade chart.`);
+      } else {
+        trend = '<span class="trend-wait">trend after 5 grades</span>';
+      }
+    }
     const grades = showGrades
       // "▲ 6% vs Q1" sits just left of the quarter grade, so the grades
       // stay lined up in their columns.
-      ? `${cols.quarter ? upPill(c) : ''}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
+      ? `${(cols.quarter && upPill(c)) || trend}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
     // The bar shows the grade GO/NO-GO uses: the quarter, or the semester
@@ -310,17 +355,12 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     const bar = showGrades && barGrade !== null
       ? `<div class="bar" aria-hidden="true"><div class="bar-fill${barLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, barGrade))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
       : '';
-    // Clicking the class name or its bar opens the grade chart; again closes it.
-    const key = `${uid}:${c.id || c.name}`;
-    const open = showGrades && openClass === key;
-    const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
     const name = showGrades
       ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle')
       : `<span class="class-name">${escapeHtml(c.name)}</span>`;
     const barBtn = bar ? toggle(bar, 'bar-toggle', `${open ? 'Hide' : 'Show'} ${c.name} grade chart`) : '';
     let chart = '';
     if (open) {
-      const history = gradeHistory(c);
       const svg = renderGradeChart(history, { threshold: t, name: c.name });
       if (svg) drawnCharts.set(key, history);
       const link = c.url ? `<a class="chart-link" href="${escapeHtml(c.url)}">Open ${escapeHtml(c.name)} in Schoology</a>` : '';
