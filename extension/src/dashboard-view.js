@@ -394,7 +394,7 @@ function weekRing(w) {
   return `<div class="week" role="img" aria-label="${escapeHtml(label)}"><div class="ring">` +
     `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="10"/>` +
     arc(sub, '#93b4f5', -(g + gap / 2)) + arc(g, '#1d4ed8', 0) + '</svg>' +
-    `<div class="ring-text" aria-hidden="true"><div class="ring-n">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div></div>` +
+    `<div class="ring-text" aria-hidden="true"><div class="ring-n${String(n).length + String(w.total).length >= 4 ? ' long' : ''}">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div></div>` +
     '<div class="ring-key" aria-hidden="true"><span><i class="k-graded"></i>graded</span><span><i class="k-sub"></i>turned in</span></div></div>';
 }
 
