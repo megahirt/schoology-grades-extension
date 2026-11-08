@@ -359,6 +359,23 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
+      // The camera button copies a picture of the whole dashboard (taller than
+      // the visible panel) to the clipboard.
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: mockBase });
+      await page.bringToFront();
+      await panel.getByRole('button', { name: 'Copy a picture of the dashboard' }).click();
+      await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
+      const shot = await page.evaluate(async () => {
+        const [item] = await navigator.clipboard.read();
+        const blob = await item.getType('image/png');
+        const bmp = await createImageBitmap(blob);
+        return { type: blob.type, w: bmp.width, h: bmp.height };
+      });
+      expect(shot.type).toBe('image/png');
+      expect(Math.abs(shot.w - 437 * 2)).toBeLessThanOrEqual(4); // the panel width, at 2×
+      const visible = await panel.locator('main.body').evaluate((el) => el.clientHeight);
+      expect(shot.h / 2).toBeGreaterThan(visible); // the whole dashboard, not just what's on screen
+
       // Wide window (Schoology's 980 px + the 437 px panel fit): the panel
       // docks beside Schoology, which narrows to the space left, no shadow.
       await page.evaluate(() => { document.body.innerHTML += '<div id="probe" style="width:100%;height:10px"></div>'; });

@@ -203,3 +203,6 @@
 .sgd .class-row { cursor: pointer; margin: -4px -8px; padding: 4px 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; transition: background 0.12s; }
 .sgd .class-row:hover { background: #f1f4f8; }
 .sgd .class.open > .class-row { background: #f6f7f9; }
+.sgd .icon-btn.done { color: var(--go); border-color: #b9dcc5; background: var(--go-bg); }
+/* The copy drawn for a screenshot: no scrolling, full height. */
+.sgd.sgd-shot { height: auto; max-height: none; overflow: visible; }
