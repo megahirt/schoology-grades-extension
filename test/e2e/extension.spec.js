@@ -358,6 +358,20 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(panel).not.toHaveCSS('box-shadow', 'none');
       await page.setViewportSize({ width: 1280, height: 720 });
 
+      // Opening a class's chart while scrolled down keeps the panel where it
+      // was (it used to jump back to the top).
+      await page.setViewportSize({ width: 1280, height: 480 });
+      const panelBody = panel.locator('main.body');
+      await panel.locator('.class', { hasText: 'United States History' }).locator('button.class-toggle').scrollIntoViewIfNeeded();
+      await panelBody.evaluate((el) => { el.scrollTop += 40; });
+      const scrolledTo = await panelBody.evaluate((el) => el.scrollTop);
+      expect(scrolledTo).toBeGreaterThan(100);
+      await panel.locator('.class', { hasText: 'United States History' }).locator('button.class-toggle').click();
+      await expect(panel.locator('.class.open', { hasText: 'United States History' })).toBeVisible();
+      expect(Math.abs((await panelBody.evaluate((el) => el.scrollTop)) - scrolledTo)).toBeLessThanOrEqual(2);
+      await panel.locator('.class', { hasText: 'United States History' }).locator('button.class-toggle').click();
+      await page.setViewportSize({ width: 1280, height: 720 });
+
       // Class and assignment links open in this same tab, not a new one.
       const pagesBefore = context.pages().length;
       await panel.locator('.class', { hasText: 'Algebra 2' }).locator('button.class-toggle').click();
