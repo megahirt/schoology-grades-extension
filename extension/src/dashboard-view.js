@@ -32,7 +32,7 @@ import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
 import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
-import { composeMessage, composeHash } from './teacher-email.js';
+import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
 import { captureDashboard, copyImage } from './screenshot.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
@@ -236,13 +236,17 @@ function titleLink(a, cls = 'item-title') {
     : `<span class="${cls}">${escapeHtml(a.title)}</span>`;
 }
 
-function renderMissing(summary, uid) {
+function renderMissing(summary, uid, isParentView = false) {
   if (!summary.missingItems.length) return '';
   const rows = byPointsDesc(summary.missingItems).map((a) => {
     const sub = [a.courseName, dueLabel(a), ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
-    return `<div class="missing-card"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
-      `<button class="check-btn mail-btn" type="button" data-act="email-teacher" data-uid="${escapeHtml(uid)}" data-cid="${escapeHtml(a.courseId ?? '')}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Message the ${escapeHtml(a.courseName || 'class')} teacher about ${escapeHtml(a.title)}" title="Message the teacher">${ICON.mail}</button>` +
+    // Emailing the teacher is for parents only.
+    const mail = isParentView
+      ? `<button class="check-btn mail-btn" type="button" data-act="email-teacher" data-uid="${escapeHtml(uid)}" data-cid="${escapeHtml(a.courseId ?? '')}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Message the ${escapeHtml(a.courseName || 'class')} teacher about ${escapeHtml(a.title)}" title="Message the teacher">${ICON.mail}</button>`
+      : '';
+    return `<div class="missing-card" data-aid="${escapeHtml(a.id ?? '')}"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
+      mail +
       `<button class="check-btn" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as turned in" title="Mark as turned in">${ICON.check}</button></div>`;
   });
   return section(`Missing · ${summary.missingItems.length}`, rows.join(''), SECTION_EMOJI.missing);
@@ -588,7 +592,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     html += `<p class="warn">${d.parseWarnings.map(escapeHtml).join('<br>')}</p>`;
   }
   if (!failed) {
-    html += renderMissing(summary, uid);
+    html += renderMissing(summary, uid, isParentView);
     html += renderDue(summary, uid);
     html += renderClasses(courses, settings, showGrades, uid, openClass);
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
@@ -674,10 +678,17 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   let statusText = '';
   let viewIsParent = false;
 
-  // Message the teacher about a Missing item: Schoology's compose form for
-  // the class, with the subject and message filled in by the content script
-  // (see teacher-email.js). The family reads it and presses Send.
+  // Message the teacher about a Missing item (parents only): Schoology's
+  // compose form for the class, with the subject and message filled in by
+  // the content script (see teacher-email.js). The parent reads it and
+  // presses Send. A class with several admins first asks which teacher;
+  // the pick is remembered per class (storage key `classTeacher`) and
+  // preselected next time.
+  let chooser = null; // { uid, courseId, aid, result, course, a, d, picked }
+
   async function emailTeacher(uid, courseId, aid) {
+    chooser = null;
+    drawChooser();
     setStatus('Opening a message to the teacher…');
     const { dashboards } = await loadState();
     const d = dashboards[uid];
@@ -691,9 +702,30 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       result = { ok: false, error: err.message || String(err) };
     }
     if (!result || !result.ok) { setStatus(`Couldn’t open a message: ${(result && result.error) || 'unknown error'}`); return; }
+    const admins = result.admins || [];
+    if (admins.length <= 1) {
+      await openCompose({ uid, courseId, result, course, a, d }, admins[0] ? admins[0].uid : null);
+      return;
+    }
+    const saved = ((await storageGet('classTeacher', null)) || {})[String(courseId)];
+    const picked = admins.some((t) => t.uid === saved) ? saved : result.likely || null;
+    chooser = { uid, courseId, aid, result, course, a, d, picked, saved: picked === saved ? saved : null };
+    setStatus('');
+    drawChooser();
+    const first = root.querySelector('.teacher-chooser input:checked') || root.querySelector('.teacher-chooser input');
+    if (first) first.focus();
+  }
+
+  async function openCompose({ courseId, result, course, a, d }, teacherUid) {
     const [tidy] = cleanCourseNames([course]);
-    const msg = composeMessage({ isParent: viewIsParent, studentName: d.studentName, parentName: result.parentName || '', title: a.title, courseName: tidy.name, dueText: a.due ? shortDate(a.due) : a.dueText || '' });
-    const url = result.url + composeHash(msg);
+    const msg = composeMessage({ studentName: d.studentName, parentName: result.parentName || '', title: a.title, courseName: tidy.name, dueText: a.due ? shortDate(a.due) : a.dueText || '' });
+    const url = (teacherUid ? composeUrlFor(result.url, teacherUid) : result.url) + composeHash(msg);
+    if (teacherUid && (result.admins || []).length > 1) {
+      const all = (await storageGet('classTeacher', null)) || {};
+      all[String(courseId)] = teacherUid;
+      await storageSet('classTeacher', all).catch(() => {});
+    }
+    chooser = null;
     setStatus('');
     if (openLinksInActiveTab) {
       await browser.tabs.update({ url });
@@ -701,6 +733,41 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     } else {
       container.ownerDocument.defaultView.location.assign(url);
     }
+  }
+
+  // The "Email which teacher?" box, under its Missing item. Drawn after
+  // every render so a refresh doesn't drop it.
+  function drawChooser() {
+    for (const el of root.querySelectorAll('.teacher-chooser')) el.remove();
+    if (!chooser) return;
+    const card = [...root.querySelectorAll('.missing-card')].find((el) => el.dataset.aid === String(chooser.aid));
+    if (!card) return;
+    const [tidy] = cleanCourseNames([chooser.course]);
+    const admins = chooser.result.admins || [];
+    const opts = admins.map((t, i) => {
+      const tag = t.uid === chooser.saved ? 'Last emailed' : t.uid === chooser.result.likely ? 'Likely teacher' : '';
+      return `<label class="tc-opt"><input type="radio" name="sgd-teacher" value="${escapeHtml(t.uid)}"${t.uid === chooser.picked ? ' checked' : ''}>` +
+        `<span class="tc-name">${escapeHtml(t.name || `Class admin ${i + 1}`)}</span>${tag ? `<span class="tc-tag">${tag}</span>` : ''}</label>`;
+    }).join('');
+    const box = root.ownerDocument.createElement('div');
+    box.className = 'teacher-chooser';
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Email which teacher?');
+    box.innerHTML = `<div class="tc-title">Email which teacher?</div>` +
+      `<div class="tc-sub">Schoology lists ${admins.length} people for ${escapeHtml(tidy.name || 'this class')}.</div>` +
+      `<div class="tc-opts">${opts}</div>` +
+      `<div class="tc-actions"><button class="btn" type="button" data-act="tc-cancel">Cancel</button>` +
+      `<button class="btn primary" type="button" data-act="tc-go"${chooser.picked ? '' : ' disabled'}>Write email</button></div>`;
+    box.addEventListener('change', (e) => {
+      if (!chooser || !e.target.matches('input[name="sgd-teacher"]')) return;
+      chooser.picked = e.target.value;
+      const go = box.querySelector('[data-act="tc-go"]');
+      if (go) go.disabled = false;
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { chooser = null; drawChooser(); }
+    });
+    card.after(box);
   }
 
   async function render() {
@@ -807,6 +874,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (nextBody && bodyTop) nextBody.scrollTop = bodyTop;
     if (win && pageTop && win.scrollY !== pageTop) win.scrollTo(win.scrollX, pageTop);
     // A profile picture that fails to load falls back to the initials.
+    drawChooser();
     for (const img of root.querySelectorAll('img.avatar')) {
       img.addEventListener('error', () => {
         const span = root.ownerDocument.createElement('span');
@@ -866,6 +934,15 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     }
     if (act === 'email-teacher' && uid && aid) {
       await emailTeacher(uid, btn.dataset.cid, aid);
+      return;
+    }
+    if (act === 'tc-cancel') {
+      chooser = null;
+      drawChooser();
+      return;
+    }
+    if (act === 'tc-go' && chooser && chooser.picked) {
+      await openCompose(chooser, chooser.picked);
       return;
     }
     if (act === 'toggle-chart') {

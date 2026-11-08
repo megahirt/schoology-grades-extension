@@ -39,6 +39,15 @@ export const DEFAULT_PORT = 8123;
 
 const S1 = 'Semester 1: 8/24/26 - 12/19/26';
 const SUBMITTED = 'This student has completed assignment submission';
+// Made-up class admins for the "Message the teacher" chooser.
+const ADMIN_NAMES = { 9001: 'Ms. Teacher', 9100: 'Mr. Ortiz', 9301: 'Ms. Park', 9302: 'Mr. Chen', 9401: 'Mrs. Hall', 9402: 'Mr. Young' };
+const CLASS_TEACHER = { 3001: 9301, 3002: 9302, 3101: 9401, 3102: 9402 };
+function courseAdmins(courseId) {
+  const t = CLASS_TEACHER[courseId];
+  const list = t ? [9100, t] : [9001];
+  return list.map((uid) => ({ uid: String(uid), name: ADMIN_NAMES[uid] }));
+}
+
 const PENDING = 'This student has made a submission that has not been graded.';
 
 const Q1 = 'Quarter 1: 8/24/2026 - 10/14/2026';
@@ -226,16 +235,22 @@ export function createServer({ delayMs = 0 } = {}) {
         return;
       }
 
-      // A course page with Schoology's "Message Admins" link, and the
-      // compose form it opens (for "Message the teacher").
+      // A course page with Schoology's "Message Admins" link and the admins'
+      // pictures, and the compose form it opens (for "Message the teacher").
+      // The student's classes (1xxx) have one admin; the Rivera children's
+      // classes (3xxx) also list a department admin who is on every one of
+      // them, as live Schoology does.
       const coursePage = pathname.match(/^\/course\/(\d+)\/(materials|preview\/\d+\/parent)$/);
       if (coursePage) {
-        const compose = `${persona === 'parent' ? '/parent' : ''}/messages/new/course/${coursePage[1]}?recipient_uids=9001`;
-        sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">1 Admin</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3>`));
+        const admins = courseAdmins(coursePage[1]);
+        const compose = `${persona === 'parent' ? '/parent' : ''}/messages/new/course/${coursePage[1]}?recipient_uids=${admins.map((a) => a.uid).join('%2C')}`;
+        const pictures = admins.map((a) => `<div class="picture"><a href="/user/${a.uid}" title="${a.name}"><img alt="${a.name}"></a></div>`).join('');
+        sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">${admins.length} Admin${admins.length > 1 ? 's' : ''}</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3><div class='picture_block clearfix'>${pictures}</div>`));
         return;
       }
       if (/^\/(parent\/)?messages\/new\/course\/\d+$/.test(pathname)) {
-        sendHtml(res, 200, renderPage('Compose Message', '<form id="s-messaging-compose-enrollment-form" method="post"><div>To: Ms. Teacher</div>' +
+        const to = String(reqUrl.searchParams.get('recipient_uids') || '').split(',').map((uid) => ADMIN_NAMES[uid] || uid);
+        sendHtml(res, 200, renderPage('Compose Message', `<form id="s-messaging-compose-enrollment-form" method="post"><div class="to">To: ${to.join(', ')}</div>` +
           '<input type="text" name="subject" value=""><textarea name="body"></textarea><input type="submit" name="op" value="Send"></form>'));
         return;
       }

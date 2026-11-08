@@ -9,8 +9,15 @@
 // Schoology's form can't be pre-filled from the link, so the dashboard
 // opens the link with the subject and message in the URL hash
 // (#sgd-compose=…). The content script then fills in the empty Subject and
-// Message fields (content.js). The parent or student reads it, edits it,
-// and presses Send themselves: nothing is ever sent for them.
+// Message fields (content.js). The parent reads it, edits it, and presses
+// Send themselves: nothing is ever sent for them. Parents only: students
+// don't get the button.
+//
+// The link addresses every admin of the class, and a class can have
+// several (a co-teacher, a case manager, a department admin on many
+// classes). Schoology doesn't say which one teaches it, so when there are
+// several the parent picks one (the last pick, or the likely teacher, is
+// preselected) and the message goes to that one teacher only.
 
 export const COMPOSE_HASH_KEY = 'sgd-compose';
 
@@ -34,6 +41,45 @@ export function findComposeHref(html) {
   return href.replace(/&amp;/g, '&');
 }
 
+// The class's admins from its course page: [{ uid, name }] in the order
+// the "Message Admins" link lists them. Names come from the admin pictures
+// beside that link (<a href="/user/<uid>" title="<name>">); an admin
+// without one gets ''.
+export function findCourseAdmins(html) {
+  const s = String(html || '');
+  const href = findComposeHref(s);
+  if (!href) return [];
+  const m = href.match(/[?&]recipient_uids=([^&#]+)/);
+  if (!m) return [];
+  const uids = decodeURIComponent(m[1]).split(',').map((x) => x.trim()).filter((x) => /^\d+$/.test(x));
+  const names = {};
+  for (const a of s.matchAll(/<a\b[^>]*href="\/user\/(\d+)"[^>]*title="([^"]+)"/gi)) {
+    if (!names[a[1]] && !/^view user profile/i.test(a[2])) names[a[1]] = decodeEntities(a[2]).trim();
+  }
+  return [...new Set(uids)].map((uid) => ({ uid, name: names[uid] || '' }));
+}
+
+function decodeEntities(t) {
+  return t.replace(/&#0*39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+// The compose link addressed to one admin only.
+export function composeUrlFor(url, uid) {
+  return String(url).replace(/([?&]recipient_uids=)[^&#]*/, `$1${encodeURIComponent(uid)}`);
+}
+
+// likelyTeacher(admins, classCount) -> uid or null. classCount[uid] is how
+// many of the family's classes list that admin. The admin on the fewest
+// classes is likely the teacher (a case manager or department admin shows
+// up on many); a tie means we can't tell.
+export function likelyTeacher(admins, classCount = {}) {
+  if (!admins || !admins.length) return null;
+  if (admins.length === 1) return admins[0].uid;
+  const n = (a) => classCount[a.uid] || 1;
+  const sorted = [...admins].sort((a, b) => n(a) - n(b));
+  return n(sorted[0]) < n(sorted[1]) ? sorted[0].uid : null;
+}
+
 // The signed-in parent's name, from the page data every Schoology page
 // carries ("parentName":"…"), or ''.
 export function findParentName(html) {
@@ -50,18 +96,15 @@ function firstName(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
-// The pre-filled subject and message. Parents write about their child and
-// sign with their full name; students write for themselves.
-export function composeMessage({ isParent, studentName, parentName = '', title, courseName, dueText }) {
+// The pre-filled subject and message, from the parent about their child,
+// signed with the parent's full name.
+export function composeMessage({ studentName, parentName = '', title, courseName, dueText }) {
   const first = firstName(studentName);
   const due = dueText ? ` (due ${dueText})` : '';
   const inClass = courseName ? ` in ${courseName}` : '';
   const subject = `${title}${due} - marked missing`;
-  const body = isParent
-    ? `Hello,\n\nSchoology shows "${title}"${due} as missing${inClass}. ` +
-      `Could you let me know what ${first || 'my child'} needs to do to turn it in?\n\nSincerely,${parentName ? `\n${parentName}` : ''}`
-    : `Hello,\n\nSchoology shows "${title}"${due} as missing${inClass}. ` +
-      `Could you let me know what I need to do to turn it in?\n\nThank you!${first ? `\n${first}` : ''}`;
+  const body = `Hello,\n\nSchoology shows "${title}"${due} as missing${inClass}. ` +
+    `Could you let me know what ${first || 'my child'} needs to do to turn it in?\n\nSincerely,${parentName ? `\n${parentName}` : ''}`;
   return { subject, body };
 }
 

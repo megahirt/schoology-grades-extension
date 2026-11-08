@@ -432,17 +432,9 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(page).toHaveURL(`${mockBase}/course/1001/student_grades`);
       expect(context.pages().length).toBe(pagesBefore);
 
-      // Message the teacher about a Missing item: Schoology's compose form
-      // opens in this tab with the subject and message filled in, unsent.
+      // Emailing the teacher is for parents: a student gets no envelope.
       await expect(panel.locator('.missing-card').first()).toBeVisible({ timeout: 15000 });
-      const missingTitle = (await panel.locator('.missing-card .item-title').first().textContent()).trim();
-      let posted = false;
-      page.on('request', (r) => { if (r.method() === 'POST' && /messages/.test(r.url())) posted = true; });
-      await panel.locator('.missing-card').first().getByRole('button', { name: /^Message the .* teacher about / }).click();
-      await expect(page).toHaveURL(/\/messages\/new\/course\/\d+\?recipient_uids=9001$/);
-      await expect(page.locator('input[name="subject"]')).toHaveValue(new RegExp(`^${missingTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-      await expect(page.locator('textarea[name="body"]')).toHaveValue(/what I need to do to turn it in/); // a student writing
-      expect(posted).toBe(false);
+      await expect(panel.locator('.missing-card .mail-btn')).toHaveCount(0);
       await page.close();
     } finally {
       await context.close();
@@ -572,6 +564,41 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(again.locator('.card').getByText('Jamie Rivera', { exact: true })).toBeVisible();
       await again.close();
       await popup.close();
+
+      // Email the teacher (parents only). Sam's class lists two admins (its
+      // teacher and a department admin on every class), so the panel asks
+      // which one, with the likely teacher preselected. The message goes
+      // to that one teacher, filled in and unsent.
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await panel.getByRole('tab', { name: 'Sam' }).click();
+      const essay = panel.locator('.missing-card', { hasText: 'Unit 2 Essay' });
+      await expect(essay).toBeVisible({ timeout: 15000 });
+      let posted = false;
+      page.on('request', (r) => { if (r.method() === 'POST' && /messages/.test(r.url())) posted = true; });
+      const mail = essay.getByRole('button', { name: /^Message the .* teacher about / });
+      await mail.click();
+      const chooser = panel.getByRole('group', { name: 'Email which teacher?' });
+      await expect(chooser).toBeVisible();
+      await expect(chooser.locator('.tc-name')).toHaveText(['Mr. Ortiz', 'Ms. Park']);
+      await expect(chooser.getByRole('radio', { name: /Ms\. Park/ })).toBeChecked();
+      await expect(chooser.locator('.tc-opt', { hasText: 'Ms. Park' })).toContainText('Likely teacher');
+      await chooser.getByRole('button', { name: 'Cancel' }).click();
+      await expect(chooser).toHaveCount(0);
+      await mail.click();
+      await panel.getByRole('group', { name: 'Email which teacher?' }).getByRole('button', { name: 'Write email' }).click();
+      await expect(page).toHaveURL(/\/parent\/messages\/new\/course\/3001\?recipient_uids=9301$/);
+      await expect(page.locator('.to')).toHaveText('To: Ms. Park');
+      await expect(page.locator('input[name="subject"]')).toHaveValue(/^Unit 2 Essay.* - marked missing$/);
+      await expect(page.locator('textarea[name="body"]')).toHaveValue(/what Sam needs to do to turn it in\?\n\nSincerely,/);
+      expect(posted).toBe(false);
+      // The pick is remembered for that class and preselected next time.
+      await page.goto(`${mockBase}/home`);
+      await panel.locator('.missing-card', { hasText: 'Unit 2 Essay' }).getByRole('button', { name: /^Message the / }).click();
+      await expect(panel.locator('.tc-opt', { hasText: 'Ms. Park' })).toContainText('Last emailed');
+      await expect(panel.getByRole('radio', { name: /Ms\. Park/ })).toBeChecked();
+      await page.close();
     } finally {
       await context.close();
       rmSync(userDataDir, { recursive: true, force: true });

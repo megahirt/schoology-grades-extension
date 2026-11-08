@@ -35,7 +35,7 @@ function buildCopy(root) {
     b.style.height = 'auto';
     b.style.maxHeight = 'none';
     b.style.flex = 'none';
-    for (const el of b.querySelectorAll('button.check-btn, .refreshing, .stale, .gc-hover, .gc-hit, .ring-tip, .chart-link')) el.remove();
+    for (const el of b.querySelectorAll('button.check-btn, .teacher-chooser, .refreshing, .stale, .gc-hover, .gc-hit, .ring-tip, .chart-link')) el.remove();
     copy.append(b);
   }
   const credit = root.querySelector('.credit');

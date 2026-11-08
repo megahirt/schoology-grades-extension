@@ -80,6 +80,18 @@
 .sgd .note { display: inline-block; margin-top: 4px; font-size: 12px; color: #7a4b00; background: var(--unknown-bg); border-radius: 6px; padding: 3px 8px; }
 .sgd .btn { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink-2); font-size: 12px; font-weight: 500; flex: 0 0 auto; }
 .sgd .btn:hover { background: #f6f7f9; }
+.sgd .btn.primary { background: #1d4ed8; border-color: #1d4ed8; color: #fff; font-weight: 600; }
+.sgd .btn.primary:hover { background: #1e40af; }
+.sgd .btn:disabled { opacity: 0.5; cursor: default; }
+.sgd .teacher-chooser { margin: -2px 0 6px; padding: 12px; border: 1px solid #c7d4f5; background: #f5f8fe; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; }
+.sgd .tc-title { font-weight: 600; font-size: 13px; color: var(--ink); }
+.sgd .tc-sub { font-size: 12px; color: var(--ink-2); margin-top: -6px; }
+.sgd .tc-opts { display: flex; flex-direction: column; gap: 2px; }
+.sgd .tc-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.sgd .tc-opt:hover { background: #eaf0fc; }
+.sgd .tc-opt input { margin: 0; accent-color: #1d4ed8; }
+.sgd .tc-tag { margin-left: auto; font-size: 11px; color: #1d4ed8; background: #e3ebfc; border-radius: 999px; padding: 1px 8px; }
+.sgd .tc-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .sgd .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f3f5; }
 .sgd .chip { flex: 0 0 auto; font-size: 12px; font-weight: 600; border-radius: 6px; padding: 3px 8px; }
