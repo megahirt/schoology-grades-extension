@@ -17,7 +17,7 @@ containing app) and [`chrome-web-store-setup.md`](chrome-web-store-setup.md)
 | Safari platforms | **iOS and macOS** from the start, one app record |
 | Chrome visibility | **Unlisted** |
 | Going live | **Every store waits for the owner's click.** CI never makes an update live by itself (§5a) |
-| Edge and Firefox | **Both in scope** |
+| Edge and Firefox | **Both in scope.** Edge **Hidden** (link-only); Firefox **AMO listed** (public, AMO handles updates) |
 
 Still open: see §7.
 
@@ -118,7 +118,7 @@ push to main ──▶ release.yml: "is manifest version untagged?"
   - `schoology-dashboard-<v>-chrome.zip`: prod `dist/` for Chrome and Edge,
     also good for Safari "Add Temporary Extension" and Apple's web
     packager.
-  - `schoology-dashboard-<v>-firefox.zip` (Firefox build; plus the signed `.xpi` if AMO unlisted, from Phase 4).
+  - `schoology-dashboard-<v>-firefox.zip` (Firefox build, Phase 4; the signed copy comes from AMO).
   - `SHA256SUMS.txt`.
   - No signed Apple binaries; those go to App Store Connect only.
 - Releases stay public. The repo is public anyway, and the ZIP is
@@ -295,12 +295,13 @@ Firefox (Playwright's e2e stays Chromium-only).
   option name in Partner Center).
 - **Firefox:** AMO has no "wait after review" state; a submission goes
   live once approved. So the click is the GitHub approval gate (§5a) on
-  the Firefox job, before `web-ext sign` submits. Visibility to match
-  Chrome Unlisted: **AMO unlisted**. AMO signs the `.xpi` without listing
-  it, the signed `.xpi` is attached to the GitHub Release, and Firefox
-  updates through an `update_url` → `updates.json` hosted on GitHub Pages
-  (the same site as the privacy policy). The alternative is AMO
-  **listed**: public and searchable, but AMO handles updates. See §7.
+  the Firefox job, before `web-ext sign --channel=listed` submits.
+  Visibility: **AMO listed** (owner decision). It is public and searchable
+  on addons.mozilla.org, unlike Chrome/Edge, and AMO hosts the signed
+  add-on and pushes updates, so no `update_url` or self-hosting is
+  needed. A listed add-on needs a full listing: description, screenshots
+  (demo data only), privacy policy link, and likely the source ZIP for
+  the esbuild bundle.
 
 ---
 
@@ -424,8 +425,9 @@ demo-data screenshots.
 - Build: `--target=firefox` manifest transform, Firefox ZIP, manual test
   in Firefox (temporary add-on via `about:debugging`).
 - Owner: Firefox Account → AMO API keys.
-- First submission by hand (with source ZIP if reviewers ask), as
-  unlisted or listed per §7. Then the CI job runs behind the approval gate.
+- First submission by hand as **listed** (listing, screenshots, privacy
+  policy, source ZIP if reviewers ask). Then the CI job runs behind the
+  approval gate.
 
 ### What ships first
 
@@ -445,8 +447,5 @@ Still open:
 
 1. **Apple enrolment** as Individual (seller name = owner's legal name),
    $99/yr, and when to start.
-2. **Firefox visibility**: AMO unlisted (matches Chrome; self-hosted
-   updates via GitHub Pages, recommended) or AMO listed (public, simpler
-   updates).
-3. **Approval gate** (§5a): keep the `release` environment gate on every
+2. **Approval gate** (§5a): keep the `release` environment gate on every
    store job (recommended) or only on Firefox.
