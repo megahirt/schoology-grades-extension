@@ -7,8 +7,8 @@ window.SITE_LINKS = {
   chrome: '',        // Chrome Web Store listing
   edge: '',          // Microsoft Edge Add-ons listing (Edge can also install from the Chrome Web Store)
   firefox: '',       // addons.mozilla.org listing (desktop and Android)
-  releases: 'https://github.com/sabaisnoopy/schoology-grades-extension/releases',
-  source: 'https://github.com/sabaisnoopy/schoology-grades-extension',
+  releases: 'https://github.com/megahirt/schoology-grades-extension/releases',
+  source: 'https://github.com/megahirt/schoology-grades-extension',
 };
 
 (function () {

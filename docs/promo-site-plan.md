@@ -174,7 +174,7 @@ branch drifts from the code, and eight pages don't need a generator.
 
 One-time step for Chris: GitHub → repo **Settings → Pages → Source: GitHub
 Actions**. The site will then be at
-`https://sabaisnoopy.github.io/schoology-grades-extension/`.
+`https://megahirt.github.io/schoology-grades-extension/`.
 
 ## Not in v1 (later)
 
