@@ -1,8 +1,7 @@
 # Privacy Policy: Grades Dashboard for Schoology
 
-> **DRAFT, not yet published.** Owner to review, fill in the contact
-> email, and set the effective date before this is linked from any store
-> listing.
+> **DRAFT, not yet published.** Owner to review and set the effective
+> date before this is linked from any store listing.
 
 **Effective date:** _[date of first store release]_
 **Applies to:** the "Grades Dashboard for Schoology students and parents"
@@ -114,4 +113,4 @@ Schoology or PowerSchool. "Schoology" is a trademark of its owner.
 
 Questions or concerns:
 [open an issue on GitHub](https://github.com/sabaisnoopy/schoology-grades-extension/issues)
-or email _[contact email, owner to fill in]_.
+or email [schoologydashboard@gmail.com](mailto:schoologydashboard@gmail.com).
