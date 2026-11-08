@@ -34,20 +34,32 @@ export function findComposeHref(html) {
   return href.replace(/&amp;/g, '&');
 }
 
+// The signed-in parent's name, from the page data every Schoology page
+// carries ("parentName":"…"), or ''.
+export function findParentName(html) {
+  const m = String(html || '').match(/"parentName"\s*:\s*"((?:[^"\\]|\\.){1,120})"/);
+  if (!m) return '';
+  try {
+    return JSON.parse(`"${m[1]}"`).trim();
+  } catch {
+    return '';
+  }
+}
+
 function firstName(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
-// The pre-filled subject and message. Parents write about their child;
-// students write for themselves.
-export function composeMessage({ isParent, studentName, title, courseName, dueText }) {
+// The pre-filled subject and message. Parents write about their child and
+// sign with their full name; students write for themselves.
+export function composeMessage({ isParent, studentName, parentName = '', title, courseName, dueText }) {
   const first = firstName(studentName);
   const due = dueText ? ` (due ${dueText})` : '';
   const inClass = courseName ? ` in ${courseName}` : '';
-  const subject = `${title}${due}`;
+  const subject = `${title}${due} - marked missing`;
   const body = isParent
-    ? `Hello,\n\nI'm ${first || 'my child'}'s parent. Schoology shows "${title}"${due} as missing${inClass}. ` +
-      `Could you let me know what ${first || 'they'} needs to do to turn it in?\n\nThank you!`
+    ? `Hello,\n\nSchoology shows "${title}"${due} as missing${inClass}. ` +
+      `Could you let me know what ${first || 'my child'} needs to do to turn it in?\n\nSincerely,${parentName ? `\n${parentName}` : ''}`
     : `Hello,\n\nSchoology shows "${title}"${due} as missing${inClass}. ` +
       `Could you let me know what I need to do to turn it in?\n\nThank you!${first ? `\n${first}` : ''}`;
   return { subject, body };

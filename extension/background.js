@@ -8,7 +8,7 @@ import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
 import { parseGradesHtml } from './src/parser.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './src/rules.js';
-import { coursePagePath, findComposeHref } from './src/teacher-email.js';
+import { coursePagePath, findComposeHref, findParentName } from './src/teacher-email.js';
 import {
   getSettings,
   setSettings,
@@ -298,7 +298,7 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 
 // "Email the teacher" on a Missing item: read the class's course page
 // (read-only GET) for Schoology's "Message Admins" link, the compose form
-// addressed to the class's teachers. Returns { ok, url } (absolute).
+// addressed to the class's teachers. Returns { ok, url, parentName }.
 async function teacherComposeUrl({ uid, courseId }) {
   if (!courseId) return { ok: false, error: 'No class' };
   try {
@@ -308,9 +308,10 @@ async function teacherComposeUrl({ uid, courseId }) {
     const base = settings.schoologyBase.replace(/\/$/, '');
     const res = await fetch(base + coursePagePath({ isParent, childUid: uid, courseId }), { credentials: 'include' });
     if (!res.ok) return { ok: false, error: `Schoology answered ${res.status}` };
-    const href = findComposeHref(await res.text());
+    const html = await res.text();
+    const href = findComposeHref(html);
     if (!href) return { ok: false, error: 'No teacher to message for this class' };
-    return { ok: true, url: new URL(href, base + '/').href };
+    return { ok: true, url: new URL(href, base + '/').href, parentName: isParent ? findParentName(html) : '' };
   } catch (e) {
     return { ok: false, error: String(e && e.message ? e.message : e) };
   }
