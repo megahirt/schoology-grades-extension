@@ -364,11 +364,12 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
-      // The camera button copies a picture of the whole dashboard (taller than
-      // the visible panel) to the clipboard.
+      // Share copies a picture of the whole dashboard (taller than the
+      // visible panel) to the clipboard. (Headless Chromium has no share
+      // menu, so here it only copies; the popup test below covers sharing.)
       await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: mockBase });
       await page.bringToFront();
-      await panel.getByRole('button', { name: 'Copy a picture of the dashboard' }).click();
+      await panel.getByRole('button', { name: 'Share a picture of the dashboard' }).click();
       await expect(panel.getByRole('button', { name: 'Copied' })).toBeVisible();
       const shot = await page.evaluate(async () => {
         const [item] = await navigator.clipboard.read();
@@ -556,6 +557,25 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
         await chrome.storage.local.set({ settings: { ...settings, missingThreshold: 2 } });
       });
       await expect(card.locator('.nogo-circle')).toHaveCount(0);
+      // Share: the picture goes to the clipboard and the system share menu
+      // (stubbed here: headless Chromium has none). When the share menu
+      // needs a fresh click, a second press shares the finished picture.
+      await popup.evaluate(() => {
+        window.__shared = [];
+        window.__shareCalls = 0;
+        navigator.canShare = () => true;
+        navigator.share = async (data) => {
+          window.__shareCalls += 1;
+          if (window.__shareCalls === 1) throw new DOMException('needs a click', 'NotAllowedError');
+          window.__shared.push(data.files.map((f) => `${f.name} ${f.type}`));
+        };
+      });
+      const shareBtn = popup.getByRole('button', { name: 'Share a picture of the dashboard' });
+      await shareBtn.click();
+      await expect(popup.locator('.status')).toHaveText(/Press Share again to send it\.$/);
+      await shareBtn.click();
+      await expect(popup.locator('.status')).toHaveText(/shared\.$/);
+      expect(await popup.evaluate(() => window.__shared)).toEqual([[expect.stringMatching(/^homework-dashboard-jamie-\d{4}-\d{2}-\d{2}\.png image\/png$/)]]);
       // Shared "07" prefixes are dropped from class names.
       await expect(popup.locator('.class .class-name')).toHaveText(['English', 'Math']);
       // The picked child is remembered: a fresh popup (or a page load) stays on Jamie.
