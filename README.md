@@ -153,6 +153,7 @@ second (skipped gracefully until the CWS secrets are configured).
 | `test/unit/` | Vitest unit tests |
 | `test/e2e/` | Playwright e2e tests |
 | `test/probe/` | Live-test probe extension + results (Safari first) |
+| `site/` | Promo site (GitHub Pages, `.github/workflows/pages.yml`); plan in `docs/promo-site-plan.md`. Screenshots: `npm run build:dev && npm run site:screenshots` (on a Mac) |
 | `docs/safari.md` | Safari distribution pipeline |
 | `docs/chrome-web-store-setup.md` | Chrome Web Store setup |
 | `SPEC.md` | Build contract between workstreams |
