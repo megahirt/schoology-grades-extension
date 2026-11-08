@@ -143,7 +143,7 @@ $('refresh-btn').addEventListener('click', async () => {
 $('clear-btn').addEventListener('click', async () => {
   // eslint-disable-next-line no-alert
   if (!window.confirm('Clear the saved grades and your turned-in and done marks from this browser? Settings stay. This cannot be undone.')) return;
-  for (const key of ['dashboards', 'turnedIn', 'markedDone', 'refreshState', 'account', 'liveTest', 'records']) await storageRemove(key);
+  for (const key of ['dashboards', 'turnedIn', 'markedDone', 'refreshState', 'account', 'liveTest', 'records', 'dailyLog']) await storageRemove(key);
   $('clear-status').textContent = 'Saved grades and marks cleared.';
   await renderAccount();
 });

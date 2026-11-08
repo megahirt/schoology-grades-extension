@@ -11,11 +11,14 @@
 // unavailable, an in-memory store is used instead so tests can import this
 // module and exercise the same get/set surface.
 //
-// Storage keys (SPEC.md): settings, dashboards, liveTest, account, records.
+// Storage keys (SPEC.md): settings, dashboards, liveTest, account, records,
+// dailyLog.
 // Extra key: turnedIn — { [studentUid]: [assignmentId, ...] } for items
 // manually marked as turned in.
 
 import { mergeAllRecords } from './rewards.js';
+import { mergeDailyLog } from './daily-log.js';
+import { DEFAULT_SETTINGS } from './rules.js';
 
 const memoryStore = new Map();
 
@@ -67,14 +70,23 @@ export const getSettings = () => storageGet('settings', null);
 export const setSettings = (v) => storageSet('settings', v);
 export const getDashboards = () => storageGet('dashboards', {});
 // Saving dashboards also updates each child's records (personal bests that
-// only go up; see rewards.js).
+// only go up; see rewards.js) and today's entry in the daily log
+// (daily-log.js).
 export async function setDashboards(v) {
   await storageSet('dashboards', v);
   if (v && Object.keys(v).length) {
-    const records = mergeAllRecords(await storageGet('records', {}), v);
+    const settings = { ...DEFAULT_SETTINGS, ...((await storageGet('settings', null)) || {}) };
+    const log = mergeDailyLog(await storageGet('dailyLog', {}), v, {
+      settings,
+      turnedIn: (await storageGet('turnedIn', {})) || {},
+      done: (await storageGet('markedDone', {})) || {},
+    });
+    await storageSet('dailyLog', log);
+    const records = mergeAllRecords(await storageGet('records', {}), v, Date.now(), log);
     await storageSet('records', records);
   }
 }
+export const getDailyLog = () => storageGet('dailyLog', {});
 export const getRecords = () => storageGet('records', {});
 export const getLiveTest = () => storageGet('liveTest', null);
 export const setLiveTest = (v) => storageSet('liveTest', v);
