@@ -9,10 +9,8 @@ export const DEFAULT_SETTINGS = {
   showGoNoGo: true,
   gradeVisibility: 'both',
   gradeDisplay: 'percent',
-  showPanel: true, // dashboard panel on Schoology pages
   doingWellPercent: 80, // "Doing well": graded B (80%) or higher ...
   doingWellDays: 10, //    ... from the past 10 days
-  autoRefresh: true, // refresh when a Schoology page loads (at most every 5 min)
 };
 
 function mergeSettings(settings) {

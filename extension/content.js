@@ -4,13 +4,12 @@
 // to the background service worker and reports the current page URL (for
 // probe URL capture). Never changes Schoology's own content; the only thing
 // it adds is the dashboard panel (src/panel.js), in its own shadow root,
-// which settings.showPanel turns off.
+// which is always on.
 
 import browser from 'webextension-polyfill';
 import { parseGradesRoot } from './src/parser-core.js';
 import { mountPanel } from './src/panel.js';
-import { DEFAULT_SETTINGS } from './src/rules.js';
-import { getSettings, storageGet, storageSet } from './src/storage.js';
+import { storageGet, storageSet } from './src/storage.js';
 import { readComposeHash } from './src/teacher-email.js';
 
 // Same parser as the service worker (parser-core.js), run on the live DOM.
@@ -83,30 +82,19 @@ browser.runtime.onMessage.addListener((message) => {
 
 // Dashboard panel on the right edge of the page (top frame only). Whether it
 // is open is shared by every Schoology tab (storage key panelOpen; open by
-// default the first time), and settings.showPanel adds or removes it live.
+// default the first time). The panel is always on.
 async function setupPanel() {
   if (window.top !== window) return;
-  let panel = null;
-  async function apply() {
-    const settings = { ...DEFAULT_SETTINGS, ...((await getSettings()) || {}) };
-    if (settings.showPanel && !panel) {
-      panel = mountPanel({
-        document,
-        browser,
-        open: await storageGet('panelOpen', true),
-        onOpenChange: (open) => storageSet('panelOpen', open).catch(() => {}),
-      });
-    } else if (!settings.showPanel && panel) {
-      panel.destroy();
-      panel = null;
-    }
-  }
+  const panel = mountPanel({
+    document,
+    browser,
+    open: await storageGet('panelOpen', true),
+    onOpenChange: (open) => storageSet('panelOpen', open).catch(() => {}),
+  });
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if ('settings' in changes) apply();
-    if ('panelOpen' in changes && panel) panel.setOpen(changes.panelOpen.newValue !== false);
+    if ('panelOpen' in changes) panel.setOpen(changes.panelOpen.newValue !== false);
   });
-  await apply();
 }
 
 // "Message the teacher" (teacher-email.js): on Schoology's compose form,
