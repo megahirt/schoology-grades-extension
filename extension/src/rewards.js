@@ -68,8 +68,12 @@ function isGraded(a) {
 
 // weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted }
 // total: everything due this week (Monday to Sunday), excused work left out.
-// graded: has a grade. submitted: turned in on Schoology (or marked turned
-// in / done by the family) and not graded yet.
+// graded: has a grade. submitted: not graded yet but counted as turned in,
+// matching the rest of the dashboard, where work only counts as Missing when
+// the teacher marks it Missing: past-due work without a Missing mark,
+// Missing work with a submission, and work the family marked turned in or
+// done. Parents can't see submissions on Schoology's grades page, so this is
+// the same assumption the Missing count makes.
 export function weekProgress(courses, marks = {}, now = Date.now()) {
   const from = weekStart(now);
   const to = from + 7 * DAY;
@@ -85,8 +89,10 @@ export function weekProgress(courses, marks = {}, now = Date.now()) {
       if (Number.isNaN(t) || t < from || t >= to) continue;
       total += 1;
       const id = a.id !== undefined && a.id !== null ? String(a.id) : null;
+      const marked = id !== null && (turnedIn.has(id) || done.has(id));
+      const pastDueNotMissing = t <= now && a.status !== 'missing' && a.status !== 'incomplete';
       if (isGraded(a)) graded += 1;
-      else if (a.submitted === true || (id !== null && (turnedIn.has(id) || done.has(id)))) submitted += 1;
+      else if (a.submitted === true || marked || pastDueNotMissing) submitted += 1;
     }
   }
   return { total, graded, submitted };
