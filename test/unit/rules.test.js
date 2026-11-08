@@ -371,12 +371,18 @@ describe('effective settings', () => {
   });
   it('family rules apply to parents; a student gets the defaults', async () => {
     const { effectiveSettings, isStudentAccount } = await import('../../extension/src/rules.js');
-    const saved = { gradeThreshold: 85, missingThreshold: 4 };
-    expect(effectiveSettings(saved).gradeThreshold).toBe(85);
+    const saved = { gradeThreshold: 70, missingThreshold: 4 };
+    expect(effectiveSettings(saved).gradeThreshold).toBe(70);
     expect(effectiveSettings(saved, { isStudent: true })).toMatchObject({ gradeThreshold: 75, missingThreshold: 2 });
     expect(isStudentAccount({ type: 'student' }, {})).toBe(true);
     expect(isStudentAccount({ type: 'parent' }, { self: {} })).toBe(false);
     expect(isStudentAccount(null, { self: {} })).toBe(true);
     expect(isStudentAccount(null, { u1: {}, u2: {} })).toBe(false);
+  });
+  it('holds the slider settings to their ranges', async () => {
+    const { effectiveSettings } = await import('../../extension/src/rules.js');
+    expect(effectiveSettings({ gradeThreshold: 95, doingWellPercent: 50 })).toMatchObject({ gradeThreshold: 80, doingWellPercent: 75 });
+    expect(effectiveSettings({ gradeThreshold: 40, doingWellPercent: 99 })).toMatchObject({ gradeThreshold: 60, doingWellPercent: 90 });
+    expect(effectiveSettings({ gradeThreshold: 'x' }).gradeThreshold).toBe(75);
   });
 });

@@ -83,6 +83,6 @@ describe('the daily log is saved with the dashboards', () => {
     const log = await storageGet('dailyLog');
     const entry = Object.values(log.u1)[0];
     expect(entry.missing).toBe(1);
-    expect(entry.lowClasses).toBe(0); // 55% passes a 50% rule
+    expect(entry.lowClasses).toBe(1); // a saved 50% rule is held to the slider's 60%, so 55% is low
   });
 });

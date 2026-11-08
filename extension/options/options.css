@@ -36,6 +36,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .row > .grow { flex: 1 1 0; min-width: 240px; } /* text wraps; the control stays on the right */
 .field { display: flex; align-items: center; gap: 6px; color: #4b5563; }
 .field.wrap { flex-wrap: wrap; }
+.field.slider { gap: 12px; }
+.field input[type="range"] { width: 180px; height: 28px; padding: 0; border: none; accent-color: var(--blue); cursor: pointer; }
+.field output { min-width: 40px; font-size: 15px; font-weight: 600; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
 .field input { width: 64px; height: 38px; border: 1px solid #d3d7dc; border-radius: 8px; padding: 0 10px; font: inherit; font-size: 15px; text-align: right; color: var(--ink); }
 
 .switch { flex: 0 0 auto; width: 46px; height: 28px; border: none; border-radius: 999px; padding: 3px; display: flex; justify-content: flex-start; background: #c9ced5; }

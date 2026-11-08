@@ -284,7 +284,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
         await expect(opts.getByText(gone, { exact: true })).toHaveCount(0);
       }
       await expect(opts.locator('#doing-well-days')).toHaveCount(0);
-      await expect(opts.getByText('% from the past 10 days')).toBeVisible();
+      await expect(opts.getByText('Graded work from the past 10 days at or above this.')).toBeVisible();
+      await expect(opts.locator('#doing-well-percent')).toHaveAttribute('type', 'range');
+      await expect(opts.locator('#doing-well-percent-out')).toHaveText('80%');
+      await expect(opts.getByText('Nothing is sent, and marking work turned in or done does not notify anyone.')).toBeVisible();
       await expect(opts.getByRole('heading', { name: 'Classes', exact: true })).toHaveCount(0); // no class switches
       await expect(opts.getByRole('heading', { name: 'Developer' })).toBeVisible(); // dev build
       // Only classes with grades posted count (Advisory 11 has none).
@@ -303,8 +306,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       });
       await expect(popup.locator('.card')).toContainText('bring Algebra 2 up past 75%');
       await expect(popup.locator('.card')).not.toContainText('85%');
-      await opts.locator('#doing-well-percent').fill('90');
-      await opts.locator('#doing-well-percent').press('Tab');
+      // The slider: End jumps to the top of its range (90%).
+      await opts.locator('#doing-well-percent').focus();
+      await opts.keyboard.press('End');
+      await expect(opts.locator('#doing-well-percent-out')).toHaveText('90%');
       await expect.poll(async () => (await opts.evaluate(() => chrome.storage.local.get('settings'))).settings.doingWellPercent).toBe(90);
       await popup.close();
 
@@ -547,16 +552,16 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(card.locator('.nogo-circle')).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.getByText('Poetry Analysis Essay')).toBeVisible();
-      // A parent's Family rules take effect: at a 95% passing grade one of
-      // Jamie's classes falls short, so the NO-GO circle replaces the picture.
+      // A parent's Family rules take effect: with a Missing limit of 1,
+      // Jamie's one Missing item is NO-GO, so the circle replaces the picture.
       await worker.evaluate(async () => {
         const { settings } = await chrome.storage.local.get('settings');
-        await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 95 } });
+        await chrome.storage.local.set({ settings: { ...settings, missingThreshold: 1 } });
       });
       await expect(card.locator('.nogo-circle')).toBeVisible();
       await worker.evaluate(async () => {
         const { settings } = await chrome.storage.local.get('settings');
-        await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 75 } });
+        await chrome.storage.local.set({ settings: { ...settings, missingThreshold: 2 } });
       });
       await expect(card.locator('.nogo-circle')).toHaveCount(0);
       // Shared "07" prefixes are dropped from class names.
