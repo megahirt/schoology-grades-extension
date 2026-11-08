@@ -787,7 +787,17 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       `<div class="credit"><span>Made with <span role="img" aria-label="love">❤️</span> for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span>` +
       `<span aria-hidden="true">·</span><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a></div>`;
 
+    // Re-rendering replaces the whole view; keep where the reader was
+    // scrolled (the panel scrolls .body, the popup scrolls the page), so
+    // opening a class's chart or marking an item never jumps to the top.
+    const win = container.ownerDocument.defaultView;
+    const prevBody = root.querySelector('.body');
+    const bodyTop = prevBody ? prevBody.scrollTop : 0;
+    const pageTop = win ? win.scrollY : 0;
     root.innerHTML = header + `<main class="body">${body}</main>` + footer;
+    const nextBody = root.querySelector('.body');
+    if (nextBody && bodyTop) nextBody.scrollTop = bodyTop;
+    if (win && pageTop && win.scrollY !== pageTop) win.scrollTo(win.scrollX, pageTop);
     // A profile picture that fails to load falls back to the initials.
     for (const img of root.querySelectorAll('img.avatar')) {
       img.addEventListener('error', () => {
