@@ -6,7 +6,8 @@ ready to publish.
 
 Related docs: [`safari.md`](safari.md) (Safari packaging, review, the
 containing app) and [`chrome-web-store-setup.md`](chrome-web-store-setup.md)
-(listing assets and privacy tab). This plan supersedes their CI sections.
+(listing assets and privacy tab). This plan supersedes their CI sections and their "Unlisted" advice:
+every store listing is now public.
 
 ### Owner decisions (7 Nov 2026)
 
@@ -15,9 +16,9 @@ containing app) and [`chrome-web-store-setup.md`](chrome-web-store-setup.md)
 | Bundle ID (permanent) | `net.hirtfamily.sabaisnoopy.schoology-dashboard`; extension target `net.hirtfamily.sabaisnoopy.schoology-dashboard.Extension` |
 | Product name | Full: "Grades Dashboard for Schoology students and parents". App Store name: "Grades Dashboard for Schoology", subtitle "For students and parents", short display name "Grades Dashboard" (§1a) |
 | Safari platforms | **iOS and macOS** from the start, one app record |
-| Chrome visibility | **Unlisted** |
+| Store visibility | **Public on every store** (Chrome, Edge, Firefox AMO listed, Mac + iOS App Store). Testing still happens in private channels first (§6) |
 | Going live | **Every store waits for the owner's click.** CI never makes an update live by itself (§5a) |
-| Edge and Firefox | **Both in scope.** Edge **Hidden** (link-only); Firefox **AMO listed** (public, AMO handles updates) |
+| Edge and Firefox | **Both in scope**, both public |
 
 Still open: see §7.
 
@@ -291,13 +292,13 @@ Firefox (Playwright's e2e stays Chromium-only).
 - **Edge:** CI uploads the new package as a draft (API "upload" only).
   The owner clicks **Publish** in Partner Center, which sends it to
   certification, and it goes live when certification passes. Visibility:
-  **Hidden** (Edge's equivalent of Chrome Unlisted, link-only; verify the
-  option name in Partner Center).
+  **Public**. For testing first, Partner Center can hide the listing
+  (link-only) before switching it to public; verify the option name.
 - **Firefox:** AMO has no "wait after review" state; a submission goes
   live once approved. So the click is the GitHub approval gate (§5a) on
   the Firefox job, before `web-ext sign --channel=listed` submits.
   Visibility: **AMO listed** (owner decision). It is public and searchable
-  on addons.mozilla.org, unlike Chrome/Edge, and AMO hosts the signed
+  on addons.mozilla.org, like the other stores, and AMO hosts the signed
   add-on and pushes updates, so no `update_url` or self-hosting is
   needed. A listed add-on needs a full listing: description, screenshots
   (demo data only), privacy policy link, and likely the source ZIP for
@@ -397,12 +398,12 @@ demo-data screenshots.
 - **Test channel:** first listing as **Private** with **trusted testers**
   (owner + family Google accounts added in the dashboard). Nobody else can
   see or install it, but it goes through real review and real
-  auto-updates. When happy, switch visibility to **Unlisted** (link-only,
-  the planned steady state for the family and NPC) and do one manual
-  publish so API publishing works afterwards (see §2 gotcha).
+  auto-updates. When happy, switch visibility to **Public** (owner decision)
+  and do one manual publish so API publishing works afterwards (see §2
+  gotcha).
 - Enable the CI publish job with `STAGED_PUBLISH`.
 - **Edge** ships here too. Owner: Partner Center account (free), first
-  manual submission as **Hidden**, then the API key. CI uploads drafts
+  manual submission (hidden while testing, then **Public**), then the API key. CI uploads drafts
   and the owner clicks Publish.
 
 ### Phase 3: Safari (owner: $99/yr membership)
