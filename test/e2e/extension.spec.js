@@ -337,26 +337,24 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await tab.click();
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
 
-      // Docked style: Schoology's page narrows to the space left, no shadow.
+      // Wide window (Schoology's 980 px + the 380 px panel fit): the panel
+      // docks beside Schoology, which narrows to the space left, no shadow.
       await page.evaluate(() => { document.body.innerHTML += '<div id="probe" style="width:100%;height:10px"></div>'; });
-      const fullWidth = await page.locator('#probe').evaluate((el) => el.getBoundingClientRect().width);
-      await worker.evaluate(async () => {
-        const { settings } = await chrome.storage.local.get('settings');
-        await chrome.storage.local.set({ settings: { ...settings, panelStyle: 'docked' } });
-      });
-      await expect(page.locator('html')).toHaveClass(/sgd-docked/);
-      await expect.poll(() => page.locator('#probe').evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(fullWidth - 370);
+      const probeWidth = () => page.locator('#probe').evaluate((el) => el.getBoundingClientRect().width);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(page.locator('html')).toHaveClass(/sgd-panel-open/);
+      await expect.poll(probeWidth).toBeLessThanOrEqual(1440 - 380);
       await expect(panel).toHaveCSS('box-shadow', 'none');
       await panel.getByRole('button', { name: 'Close dashboard panel' }).click();
-      await expect(page.locator('html')).not.toHaveClass(/sgd-docked/); // closed: full width again
+      await expect(page.locator('html')).not.toHaveClass(/sgd-panel-open/); // closed: full width again
+      await expect.poll(probeWidth).toBeGreaterThan(1440 - 380);
       await tab.click();
-      await expect(page.locator('html')).toHaveClass(/sgd-docked/);
-      await worker.evaluate(async () => {
-        const { settings } = await chrome.storage.local.get('settings');
-        await chrome.storage.local.set({ settings: { ...settings, panelStyle: 'floating' } });
-      });
-      await expect(page.locator('html')).not.toHaveClass(/sgd-docked/);
-      await expect(panel).not.toHaveCSS('box-shadow', 'none'); // floating keeps its shadow
+      await expect.poll(probeWidth).toBeLessThanOrEqual(1440 - 380);
+      // Narrower than 1360 px: the panel floats over the page with its shadow.
+      await page.setViewportSize({ width: 1300, height: 900 });
+      await expect.poll(probeWidth).toBeGreaterThan(1300 - 380);
+      await expect(panel).not.toHaveCSS('box-shadow', 'none');
+      await page.setViewportSize({ width: 1280, height: 720 });
 
       // Class and assignment links open in this same tab, not a new one.
       const pagesBefore = context.pages().length;

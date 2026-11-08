@@ -13,7 +13,6 @@ export const DEFAULT_SETTINGS = {
   doingWellPercent: 80, // "Doing well": graded B (80%) or higher ...
   doingWellDays: 10, //    ... from the past 10 days
   autoRefresh: true, // refresh when a Schoology page loads (at most every 5 min)
-  panelStyle: 'floating', // 'floating' over Schoology, or 'docked' beside it
 };
 
 function mergeSettings(settings) {
