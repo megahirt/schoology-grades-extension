@@ -30,7 +30,7 @@ import {
 } from './storage.js';
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
-import { renderGradeChart, chartHover, chartUnhover } from './grade-chart.js';
+import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
 import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
 import { composeMessage, composeHash } from './teacher-email.js';
 import css from './dashboard.css';
@@ -293,11 +293,12 @@ function trendLine(history, threshold) {
   const x = (t) => ((Math.min(Math.max(t, history.start), history.end) - history.start) / span) * W;
   const y = (v) => H - 1 - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * (H - 2);
   const passY = y(threshold);
-  const lines = history.segments.map((seg) => (seg.line.length > 1
-    ? `<polyline points="${seg.line.map((p) => `${x(p.t).toFixed(1)},${y(p.grade).toFixed(1)}`).join(' ')}" fill="none" stroke="#4f6a9a" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`
-    : '')).join('');
-  const lastSeg = history.segments[history.segments.length - 1];
-  const last = lastSeg && lastSeg.line[lastSeg.line.length - 1];
+  // One smooth, connected stroke through every point (as in the chart).
+  const all = linePoints(history);
+  const lines = all.length > 1
+    ? `<path d="${smoothPath(all.map((p) => [x(p.t), y(p.grade)]))}" fill="none" stroke="#4f6a9a" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`
+    : '';
+  const last = all[all.length - 1];
   return `<svg class="trend-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">` +
     `<rect x="0" y="${passY.toFixed(1)}" width="${W}" height="${(H - passY).toFixed(1)}" fill="#fdf1d8"/>` +
     `<line x1="0" x2="${W}" y1="${passY.toFixed(1)}" y2="${passY.toFixed(1)}" stroke="#b9c0ca" stroke-width="1" stroke-dasharray="2 2"/>` +

@@ -1,0 +1,48 @@
+import { describe, it, expect } from 'vitest';
+import { smoothPath, linePoints, renderGradeChart } from '../../extension/src/grade-chart.js';
+
+// Sample a cubic Bézier path "M…C…C…" at many t values.
+function samples(d) {
+  const nums = d.match(/-?\d+(\.\d+)?/g).map(Number);
+  let [x0, y0] = nums.slice(0, 2);
+  const out = [];
+  for (let i = 2; i < nums.length; i += 6) {
+    const [x1, y1, x2, y2, x3, y3] = nums.slice(i, i + 6);
+    for (let k = 0; k <= 20; k++) {
+      const t = k / 20; const u = 1 - t;
+      out.push({ seg: (i - 2) / 6, y: u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3 });
+    }
+    x0 = x3; y0 = y3;
+  }
+  return out;
+}
+
+describe('smooth class-grade line', () => {
+  const pts = [[0, 50], [10, 40], [20, 40], [30, 70], [40, 65]];
+  it('passes through every point', () => {
+    const d = smoothPath(pts);
+    for (const [x, y] of pts.slice(1)) expect(d).toContain(`${x.toFixed(1)},${y.toFixed(1)}`);
+    expect(d.startsWith('M0.0,50.0')).toBe(true);
+  });
+  it('never overshoots between two grades', () => {
+    for (const s of samples(smoothPath(pts))) {
+      const [a, b] = [pts[s.seg][1], pts[s.seg + 1][1]];
+      expect(s.y).toBeGreaterThanOrEqual(Math.min(a, b) - 0.06);
+      expect(s.y).toBeLessThanOrEqual(Math.max(a, b) + 0.06);
+    }
+  });
+  it('joins every grading period into one connected stroke', () => {
+    const history = {
+      start: 0, end: 100,
+      points: [{ t: 10, pct: 80, title: 'a' }, { t: 60, pct: 90, title: 'b' }],
+      segments: [
+        { periodId: 'Q1', label: 'Quarter 1', line: [{ t: 10, grade: 80 }, { t: 30, grade: 85 }] },
+        { periodId: 'Q2', label: 'Quarter 2', line: [{ t: 60, grade: 90 }, { t: 80, grade: 88 }] },
+      ],
+    };
+    expect(linePoints(history).map((p) => p.t)).toEqual([10, 30, 60, 80]);
+    const svg = renderGradeChart(history, { threshold: 75, name: 'Math' });
+    expect(svg.match(/class="gc-line"/g)).toHaveLength(1);
+    expect(svg).not.toContain('<polyline');
+  });
+});
