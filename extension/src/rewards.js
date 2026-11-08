@@ -6,7 +6,8 @@
 //     how much is graded and how much is turned in waiting for a grade.
 //   - computeRecords / mergeRecords: personal bests this school year. They
 //     are saved (storage key `records`) and only ever go up, so a rough week
-//     or a teacher changing an old grade never takes one away.
+//     or a teacher changing an old grade never takes one away. The
+//     nothing-missing run comes from the daily log (daily-log.js).
 
 import { assignmentPercent } from './rules.js';
 import { cleanCourseNames } from './names.js';
@@ -98,23 +99,8 @@ export function weekProgress(courses, marks = {}, now = Date.now()) {
   return { total, graded, submitted };
 }
 
-// The first day of the school year: the earliest grading period start, or
-// the earliest due date when no period has dates.
-function schoolStart(courses, now) {
-  const starts = [];
-  for (const c of courses) {
-    for (const p of c.periods || []) {
-      const t = Date.parse(p.start || '');
-      if (!Number.isNaN(t) && t <= now) starts.push(t);
-    }
-  }
-  if (starts.length) return startOfDay(Math.min(...starts));
-  const dues = courses.flatMap((c) => (c.assignments || []).map((a) => Date.parse(a.due || ''))).filter((t) => !Number.isNaN(t) && t <= now);
-  return dues.length ? startOfDay(Math.min(...dues)) : null;
-}
-
 // computeRecords(courses, now) -> this school year's bests from today's data:
-// { highestScore, bestWeek, cleanRun, classGrade }, each { value, key, info }
+// { highestScore, bestWeek, classGrade }, each { value, key, info }
 // or absent. `key` names the event, so a record that is beaten by a different
 // event can be marked NEW.
 export function computeRecords(courses, now = Date.now()) {
@@ -164,36 +150,6 @@ export function computeRecords(courses, now = Date.now()) {
     out.bestWeek = { value: bestWeek.count, key: String(bestWeek.w), info: { start: new Date(bestWeek.w).toISOString() } };
   }
 
-  // Longest run of days with nothing marked Missing, from the first day of
-  // school to today.
-  const start = schoolStart(list, now);
-  if (start !== null) {
-    const today = startOfDay(now);
-    const missingDays = [...new Set(list.flatMap((c) => (c.assignments || [])
-      .filter((a) => a.status === 'missing' && a.submitted !== true)
-      .map((a) => Date.parse(a.due || ''))
-      .filter((t) => !Number.isNaN(t) && t <= now)
-      .map((t) => startOfDay(t))))].sort((a, b) => a - b);
-    let run = null;
-    let from = start;
-    const consider = (a, b, ongoing) => {
-      const days = Math.round((b - a) / DAY) + 1;
-      if (days >= 1 && (!run || days > run.days)) run = { a, b, days, ongoing };
-    };
-    for (const m of missingDays) {
-      if (m >= from) consider(from, m - DAY, false);
-      from = Math.max(from, m + DAY);
-    }
-    if (from <= today) consider(from, today, true);
-    if (run && run.days >= 3) {
-      out.cleanRun = {
-        value: run.days,
-        key: String(run.a),
-        info: { start: new Date(run.a).toISOString(), end: new Date(run.b).toISOString(), ongoing: run.ongoing },
-      };
-    }
-  }
-
   // Highest class grade in any quarter (or semester, for classes without
   // quarters), the current one included.
   let bestGrade = null;
@@ -240,17 +196,72 @@ export function isNewRecord(rec, now = Date.now()) {
   return !Number.isNaN(t) && now - t < NEW_FOR_MS;
 }
 
-// mergeAllRecords(allStored, dashboards, now): update every child's saved
+// Longest run with nothing missing, from the daily log (daily-log.js)
+// only: Schoology drops the Missing mark once work is turned in, so today's
+// grades can't say what was missing on past days. A run is consecutive
+// logged days with nothing teacher-marked Missing; gaps of up to
+// MAX_GAP_DAYS between logged days (weekends, a few days without opening
+// Schoology) are bridged, longer gaps end the run. Needs at least
+// MIN_RUN_DAYS of history, so nothing shows until the log backs it up.
+// days = { 'YYYY-MM-DD': entry }.
+const MAX_GAP_DAYS = 3;
+const MIN_RUN_DAYS = 3;
+function dayTime(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
+export function cleanRunFromLog(days, now = Date.now()) {
+  const keys = Object.keys(days || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  let best = null;
+  let run = null;
+  let prev = null;
+  for (const k of keys) {
+    const e = days[k] || {};
+    const t = dayTime(k);
+    const clean = typeof e.teacherMissing === 'number' && e.teacherMissing === 0;
+    const gapOk = prev !== null && Math.round((t - prev) / DAY) <= MAX_GAP_DAYS + 1;
+    if (!clean) run = null;
+    else if (run && gapOk) run.end = t;
+    else run = { start: t, end: t };
+    if (run) {
+      const len = Math.round((run.end - run.start) / DAY) + 1;
+      if (!best || len > best.days) best = { ...run, days: len };
+    }
+    prev = t;
+  }
+  if (!best || best.days < MIN_RUN_DAYS) return null;
+  const today = startOfDay(now);
+  const ongoing = run !== null && run.start === best.start && today - best.end <= DAY;
+  return {
+    value: best.days,
+    key: String(best.start),
+    source: 'log',
+    info: { start: new Date(best.start).toISOString(), end: new Date(best.end).toISOString(), ongoing },
+  };
+}
+
+// mergeAllRecords(allStored, dashboards, now, dailyLog): update every child's saved
 // records from freshly stored dashboards ({ [uid]: dashboard }). Children
 // whose dashboard failed or only partly loaded keep what they had.
-export function mergeAllRecords(allStored, dashboards, now = Date.now()) {
+export function mergeAllRecords(allStored, dashboards, now = Date.now(), dailyLog = {}) {
   const out = { ...(allStored || {}) };
+  // An earlier version worked the run out from today's grades, which can't
+  // know past Missing work: drop those.
+  for (const uid of Object.keys(out)) {
+    if (out[uid] && out[uid].cleanRun && out[uid].cleanRun.source !== 'log') {
+      const { cleanRun, ...rest } = out[uid];
+      out[uid] = rest;
+    }
+  }
   for (const [uid, d] of Object.entries(dashboards || {})) {
     if (!d || d.error || !Array.isArray(d.courses) || !d.courses.length) continue;
     // Only part of the grades loaded: a missing row could fake a record.
     const partial = Array.isArray(d.parseWarnings) && d.parseWarnings.some((w) => /could not be read|did not parse/i.test(String(w)));
     if (partial) continue;
-    out[uid] = mergeRecords(out[uid], computeRecords(cleanCourseNames(d.courses), now), now);
+    const computed = computeRecords(cleanCourseNames(d.courses), now);
+    const run = cleanRunFromLog((dailyLog || {})[uid], now);
+    if (run) computed.cleanRun = run;
+    out[uid] = mergeRecords(out[uid], computed, now);
   }
   return out;
 }

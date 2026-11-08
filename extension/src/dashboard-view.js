@@ -449,8 +449,7 @@ function renderRecords(records, showGrades, now) {
   }
   if (cg && showGrades) add('📈', 'Highest class grade', [cg.info.course, cg.info.period].filter(Boolean).join(' · '), pctText(cg.value), cg);
   if (!rows.length) return '';
-  return section('Records', rows.join('') +
-    '<p class="fineprint">Personal bests this school year. They only ever go up, so a rough week never takes one away.</p>', SECTION_EMOJI.records);
+  return section('Records', rows.join(''), SECTION_EMOJI.records);
 }
 
 export const FEEDBACK_EMAIL = 'schoologydashboard@gmail.com';

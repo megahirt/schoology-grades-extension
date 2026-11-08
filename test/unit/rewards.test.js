@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { quarterChange, weekProgress, weekStart, computeRecords, mergeRecords, isNewRecord, mergeAllRecords } from '../../extension/src/rewards.js';
+import { quarterChange, weekProgress, weekStart, computeRecords, mergeRecords, isNewRecord, mergeAllRecords, cleanRunFromLog } from '../../extension/src/rewards.js';
 import { setDashboards, storageGet, __clearMemoryStore } from '../../extension/src/storage.js';
 
 // Made-up data only. "Today" is Friday 2026-11-06 at noon.
@@ -82,10 +82,8 @@ describe('computeRecords', () => {
     expect(r.bestWeek.value).toBe(1);
     expect(new Date(r.bestWeek.info.start).getDate()).toBe(31); // Aug 31, the earliest 1-item week
   });
-  it('longest run with nothing Missing: from school start, or since the last Missing', () => {
-    // Aug 24 -> Oct 13 (51 days) beats Oct 15 -> today (23 days, ongoing).
-    expect(r.cleanRun.value).toBe(51);
-    expect(r.cleanRun.info.ongoing).toBe(false);
+  it('has no nothing-missing run: that needs the daily log', () => {
+    expect(r.cleanRun).toBeUndefined();
   });
   it('highest class grade: best quarter', () => {
     expect(r.classGrade.value).toBe(84.4);
@@ -127,5 +125,38 @@ describe('records are saved with the dashboards', () => {
     expect((await storageGet('records')).u1.highestScore.value).toBe(90);
     const merged = mergeAllRecords({}, { u2: { ...good, parseWarnings: ['3 rows could not be read'] } });
     expect(merged.u2).toBeUndefined();
+  });
+});
+
+describe('longest run with nothing missing (from the daily log)', () => {
+  const day = (k, teacherMissing) => [k, { v: 1, teacherMissing }];
+  it('stays hidden until the log has at least 3 days of history', () => {
+    expect(cleanRunFromLog({}, NOW)).toBeNull();
+    expect(cleanRunFromLog(Object.fromEntries([day('2026-11-05', 0), day('2026-11-06', 0)]), NOW)).toBeNull();
+  });
+  it('counts calendar days across short gaps (weekends); a Missing day or a long gap ends it', () => {
+    const log = Object.fromEntries([
+      day('2026-10-01', 0), day('2026-10-02', 0), day('2026-10-05', 0), day('2026-10-06', 0), // Thu..Tue over a weekend: 6 days
+      day('2026-10-07', 1), // something Missing
+      day('2026-10-08', 0), day('2026-10-09', 0),
+      day('2026-10-20', 0), day('2026-10-21', 0), // after an 11-day gap: a new run
+    ]);
+    const r = cleanRunFromLog(log, NOW);
+    expect(r.value).toBe(6);
+    expect(r.source).toBe('log');
+    expect(r.info.ongoing).toBe(false);
+  });
+  it('is still going when it reaches today', () => {
+    const log = Object.fromEntries([day('2026-11-02', 0), day('2026-11-03', 0), day('2026-11-04', 0), day('2026-11-06', 0)]);
+    const r = cleanRunFromLog(log, NOW);
+    expect(r.value).toBe(5);
+    expect(r.info.ongoing).toBe(true);
+  });
+  it('drops a run saved by the old grades-based version, and uses the log', () => {
+    const stored = { u1: { cleanRun: { value: 70, key: 'x', info: {}, newAt: null } } };
+    const dashboards = { u1: { courses: [course({ assignments: [{ id: 'q', title: 'Quiz', status: 'graded', score: 9, maxPoints: 10, due: d(9, 1) }] })] } };
+    expect(mergeAllRecords(stored, dashboards, NOW).u1.cleanRun).toBeUndefined();
+    const log = { u1: Object.fromEntries([day('2026-11-04', 0), day('2026-11-05', 0), day('2026-11-06', 0)]) };
+    expect(mergeAllRecords(stored, dashboards, NOW, log).u1.cleanRun.value).toBe(3);
   });
 });
