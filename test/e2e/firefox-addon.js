@@ -143,7 +143,13 @@ export async function installAddon(port, addonPath) {
       if (target === t) target = null; // stale: wait for the new one
       throw Object.assign(new Error(`${s.error}: ${s.message || ''}`), { stale: true });
     }
-    return client.wait((m) => m.type === 'evaluationResult' && m.resultID === s.resultID, 15000, `result for ${text.slice(0, 120)}`);
+    try {
+      return await client.wait((m) => m.type === 'evaluationResult' && m.resultID === s.resultID, 5000, `result for ${text.slice(0, 120)}`);
+    } catch (e) {
+      // Now and then Firefox starts an evaluation and never answers. The
+      // tests only read and write storage, so asking again is safe.
+      throw Object.assign(e, { stale: true });
+    }
   }
 
   async function evaluate(fn, arg) {
@@ -154,7 +160,7 @@ export async function installAddon(port, addonPath) {
         res = await evaluateOnce(text);
         break;
       } catch (e) {
-        if (!e.stale || attempt >= 3) throw e;
+        if (!e.stale || attempt >= 4) throw e;
       }
     }
     if (res.hasException) {
