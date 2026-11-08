@@ -1,7 +1,9 @@
 // grade-chart.js — draws a class's grade over time (from grade-history.js)
 // as an inline SVG string. Time runs left to right from the first day of
 // school to today; percent runs bottom to top. Each graded assignment is a
-// dot (green at/above the passing grade, red below); the line is the
+// dot (green at/above the passing grade, red below), sized by its points:
+// the dot's area grows with what it's worth, so a 100-point test stands
+// out from a 5-point check-in. The line is the
 // class grade at each moment, one smooth stroke joining every grading
 // period; a dashed line marks the passing grade. Hover is handled by the
 // dashboard (see chartHover) so the SVG itself stays plain markup.
@@ -72,6 +74,20 @@ export function linePoints(history) {
   return history.segments.flatMap((seg) => seg.line).sort((a, b) => a.t - b.t);
 }
 
+// dotRadius(max, biggest) -> the radius of an assignment's dot: its area is
+// in proportion to its points, relative to the class's biggest assignment
+// (DOT_R.max). Tiny items keep DOT_R.min so they can still be seen; a score
+// with no points shown gets DOT_R.unknown.
+export const DOT_R = { min: 2.2, max: 7, unknown: 3.5 };
+export function dotRadius(max, biggest) {
+  if (!(max > 0) || !(biggest > 0)) return DOT_R.unknown;
+  return Math.max(DOT_R.min, DOT_R.max * Math.sqrt(Math.min(1, max / biggest)));
+}
+
+function ptsText(n) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 // renderGradeChart(history, { threshold, name }) -> '<svg …>' (or '' when
 // there is nothing to draw).
 export function renderGradeChart(history, { threshold = 75, name = 'Class' } = {}) {
@@ -102,10 +118,14 @@ export function renderGradeChart(history, { threshold = 75, name = 'Class' } = {
   const all = linePoints(history);
   if (all.length > 1) parts.push(`<path d="${smoothPath(all.map((p) => [s.x(p.t), s.y(p.grade)]))}" class="gc-line"/>`);
   else if (all.length === 1) parts.push(`<circle cx="${s.x(all[0].t).toFixed(1)}" cy="${s.y(all[0].grade).toFixed(1)}" r="2.5" class="gc-line-dot"/>`);
-  // Assignment dots.
-  for (const p of history.points) {
+  // Assignment dots, sized by points. The big ones are drawn first so a
+  // small dot on top of a big one stays visible.
+  const biggest = Math.max(0, ...history.points.map((p) => p.max || 0));
+  const dots = history.points.map((p) => ({ p, r: dotRadius(p.max, biggest) })).sort((a, b) => b.r - a.r);
+  for (const { p, r } of dots) {
     const cls = p.pct >= threshold ? 'gc-dot ok' : 'gc-dot low';
-    parts.push(`<circle cx="${s.x(p.t).toFixed(1)}" cy="${s.y(p.pct).toFixed(1)}" r="3.5" class="${cls}"><title>${esc(p.title)} · ${fmtDay(p.t)} · ${Math.round(p.pct)}%</title></circle>`);
+    const pts = p.max > 0 ? ` · ${ptsText(p.got)}/${ptsText(p.max)} pts` : '';
+    parts.push(`<circle cx="${s.x(p.t).toFixed(1)}" cy="${s.y(p.pct).toFixed(1)}" r="${r.toFixed(1)}" class="${cls}"><title>${esc(p.title)} · ${fmtDay(p.t)}${pts} · ${Math.round(p.pct)}%</title></circle>`);
   }
   // Hover layer (positioned by chartHover) and the area that receives it.
   parts.push('<g class="gc-hover" visibility="hidden"><line class="gc-hline" y1="' + T + '" y2="' + B + '"/><circle class="gc-hdot" r="4.5"/>' +

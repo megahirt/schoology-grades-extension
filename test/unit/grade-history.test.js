@@ -27,6 +27,7 @@ describe('gradeHistory', () => {
     expect(h.segments[0].line.map((p) => Math.round(p.grade))).toEqual([80, 93]); // 8/10, 28/30
     expect(last(h.segments[1])).toBe(60); // fresh start: 6/10
     expect(h.points.map((p) => p.pct)).toEqual([80, 100, 60]);
+    expect(h.points.map((p) => [p.got, p.max])).toEqual([[8, 10], [20, 20], [6, 10]]); // points, for the dot sizes
     expect(h.start).toBe(Date.parse(day(8, 24)));
   });
 

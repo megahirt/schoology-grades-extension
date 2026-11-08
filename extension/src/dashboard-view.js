@@ -374,7 +374,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
       const link = c.url ? `<a class="chart-link" href="${escapeHtml(c.url)}">Open ${escapeHtml(c.name)} in Schoology</a>` : '';
       chart = `<div class="chart-box" data-key="${escapeHtml(key)}">` +
         (svg || '<p class="empty">No graded assignments with dates yet.</p>') +
-        (svg ? `<div class="chart-legend"><span><i class="lg-dot ok"></i>${t}% or above</span><span><i class="lg-dot low"></i>below ${t}%</span><span><i class="lg-line"></i>class grade</span><span><i class="lg-pass"></i>${t}%</span></div>` : '') +
+        (svg ? `<div class="chart-legend"><span><i class="lg-dot ok"></i>${t}% or above</span><span><i class="lg-dot low"></i>below ${t}%</span><span><i class="lg-size"><i></i><i></i></i>bigger dot, more points</span><span><i class="lg-line"></i>class grade</span><span><i class="lg-pass"></i>${t}%</span></div>` : '') +
         link + '</div>';
     }
     // The whole row (name, trend line, grades and bar) opens the chart; the

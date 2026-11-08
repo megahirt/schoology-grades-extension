@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { smoothPath, linePoints, renderGradeChart } from '../../extension/src/grade-chart.js';
+import { smoothPath, linePoints, renderGradeChart, dotRadius, DOT_R } from '../../extension/src/grade-chart.js';
 
 // Sample a cubic Bézier path "M…C…C…" at many t values.
 function samples(d) {
@@ -44,5 +44,33 @@ describe('smooth class-grade line', () => {
     const svg = renderGradeChart(history, { threshold: 75, name: 'Math' });
     expect(svg.match(/class="gc-line"/g)).toHaveLength(1);
     expect(svg).not.toContain('<polyline');
+  });
+});
+
+describe('assignment dots sized by points', () => {
+  const NOW = new Date(2026, 10, 7).getTime();
+  const START = new Date(2026, 7, 24).getTime();
+  const pt = (day, got, max, title) => ({ t: new Date(2026, 9, day).getTime(), pct: (got / max) * 100, title, got, max });
+  const history = {
+    start: START,
+    end: NOW,
+    points: [pt(1, 9, 10, 'Check-in'), pt(5, 80, 100, 'Unit Test'), { t: new Date(2026, 9, 9).getTime(), pct: 90, title: 'Bare', got: 90, max: null }],
+    segments: [{ periodId: 'Q1', label: 'Quarter 1', line: [{ t: new Date(2026, 9, 1).getTime(), grade: 90 }, { t: new Date(2026, 9, 5).getTime(), grade: 80.9 }] }],
+  };
+  const radius = (svg, title) => Number(svg.match(new RegExp(`r="([\\d.]+)" class="gc-dot[^"]*"><title>${title}`))[1]);
+
+  it('area grows with points: a 10-point item is a third the width of a 100-point one', () => {
+    expect(dotRadius(100, 100)).toBe(DOT_R.max);
+    expect(dotRadius(10, 100)).toBeCloseTo(DOT_R.max * Math.sqrt(0.1));
+    expect(dotRadius(1, 1000)).toBe(DOT_R.min);
+    expect(dotRadius(null, 100)).toBe(DOT_R.unknown);
+  });
+  it('draws the biggest dots first and shows the points in the tooltip', () => {
+    const svg = renderGradeChart(history, { threshold: 75, name: 'Math' });
+    expect(radius(svg, 'Unit Test')).toBe(7);
+    expect(radius(svg, 'Check-in')).toBeCloseTo(2.2, 1);
+    expect(svg.indexOf('Unit Test')).toBeLessThan(svg.indexOf('Check-in'));
+    expect(svg).toContain('Unit Test · Oct 5 · 80/100 pts · 80%');
+    expect(svg).toContain('Bare · Oct 9 · 90%');
   });
 });

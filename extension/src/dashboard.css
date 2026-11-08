@@ -137,6 +137,9 @@
 .sgd .chart-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .sgd .lg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .sgd .lg-dot.ok { background: var(--go); } .sgd .lg-dot.low { background: var(--nogo); }
+.sgd .lg-size { display: inline-flex; align-items: center; gap: 2px; }
+.sgd .lg-size i { display: inline-block; border-radius: 50%; background: var(--muted); }
+.sgd .lg-size i:first-child { width: 5px; height: 5px; } .sgd .lg-size i:last-child { width: 10px; height: 10px; }
 .sgd .lg-line { width: 14px; height: 2px; background: var(--ink-2); display: inline-block; }
 .sgd .lg-pass { width: 14px; border-top: 2px dashed #9aa4b1; display: inline-block; }
 .sgd a.chart-link { font-size: 12px; color: #1d4ed8; text-decoration: none; }
