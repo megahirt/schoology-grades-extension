@@ -188,7 +188,7 @@
 .sgd .ring-key span { display: inline-flex; align-items: center; gap: 3px; }
 .sgd .ring-key i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .sgd .ring-key .k-graded { background: #1d4ed8; } .sgd .ring-key .k-sub { background: #93b4f5; }
-.sgd .up-pill { flex: 0 0 auto; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--go-bg); color: var(--go); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.sgd .up-pill { flex: 0 0 auto; align-self: center; padding: 1px 7px; border-radius: 999px; background: var(--go-bg); color: var(--go); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .sgd .record { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .sgd .record-icon { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: #fff7e0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
 .sgd .record-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
