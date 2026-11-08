@@ -6,7 +6,7 @@
 import browser from 'webextension-polyfill';
 import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
 import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, storageRemove } from '../src/storage.js';
-import { loadDemo, initials, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
+import { loadDemo, initials, feedbackHref, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
 import npcLogo from '../icons/npc_icon_tiny.png';
 
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
@@ -219,6 +219,7 @@ async function init() {
   bindSwitch('auto-refresh', 'autoRefresh');
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
+  $('feedback-link').href = feedbackHref(browser);
   $('version').textContent = `Homework Dashboard ${browser.runtime.getManifest().version}`;
   setupDev();
   setupMenu();

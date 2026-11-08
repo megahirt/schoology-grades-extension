@@ -226,6 +226,20 @@ export function createServer({ delayMs = 0 } = {}) {
         return;
       }
 
+      // A course page with Schoology's "Message Admins" link, and the
+      // compose form it opens (for "Message the teacher").
+      const coursePage = pathname.match(/^\/course\/(\d+)\/(materials|preview\/\d+\/parent)$/);
+      if (coursePage) {
+        const compose = `${persona === 'parent' ? '/parent' : ''}/messages/new/course/${coursePage[1]}?recipient_uids=9001`;
+        sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">1 Admin</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3>`));
+        return;
+      }
+      if (/^\/(parent\/)?messages\/new\/course\/\d+$/.test(pathname)) {
+        sendHtml(res, 200, renderPage('Compose Message', '<form id="s-messaging-compose-enrollment-form" method="post"><div>To: Ms. Teacher</div>' +
+          '<input type="text" name="subject" value=""><textarea name="body"></textarea><input type="submit" name="op" value="Send"></form>'));
+        return;
+      }
+
       if (pathname === '/iapi/parent/info') {
         if (persona !== 'parent') {
           sendJson(res, 403, { response_code: 403 });

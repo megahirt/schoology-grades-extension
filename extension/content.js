@@ -11,6 +11,7 @@ import { parseGradesRoot } from './src/parser-core.js';
 import { mountPanel } from './src/panel.js';
 import { DEFAULT_SETTINGS } from './src/rules.js';
 import { getSettings, storageGet, storageSet } from './src/storage.js';
+import { readComposeHash } from './src/teacher-email.js';
 
 // Same parser as the service worker (parser-core.js), run on the live DOM.
 function scrapeGrades() {
@@ -108,5 +109,34 @@ async function setupPanel() {
   await apply();
 }
 
+// "Message the teacher" (teacher-email.js): on Schoology's compose form,
+// fill in the empty Subject and Message from the link's hash, then drop the
+// hash. Never presses Send: the family reviews the message and sends it.
+function fillComposeForm() {
+  const msg = readComposeHash(window.location.hash);
+  if (!msg || !/\/messages\/new\//.test(window.location.pathname)) return;
+  const tryFill = () => {
+    const subject = document.querySelector('form input[name="subject"]');
+    const body = document.querySelector('form textarea[name="body"]');
+    if (!subject || !body) return false;
+    if (!subject.value) {
+      subject.value = msg.subject;
+      subject.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (!body.value) {
+      body.value = msg.body;
+      body.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    body.focus();
+    return true;
+  };
+  if (tryFill()) return;
+  const observer = new MutationObserver(() => { if (tryFill()) observer.disconnect(); });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(() => observer.disconnect(), 10000);
+}
+
+fillComposeForm();
 init();
 setupPanel().catch((e) => console.warn('Schoology Dashboard panel failed:', e));

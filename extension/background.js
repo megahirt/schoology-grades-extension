@@ -8,6 +8,7 @@ import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
 import { parseGradesHtml } from './src/parser.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './src/rules.js';
+import { coursePagePath, findComposeHref } from './src/teacher-email.js';
 import {
   getSettings,
   setSettings,
@@ -295,6 +296,26 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
+// "Email the teacher" on a Missing item: read the class's course page
+// (read-only GET) for Schoology's "Message Admins" link, the compose form
+// addressed to the class's teachers. Returns { ok, url } (absolute).
+async function teacherComposeUrl({ uid, courseId }) {
+  if (!courseId) return { ok: false, error: 'No class' };
+  try {
+    const settings = await loadSettings();
+    const account = (await getAccount()) || {};
+    const isParent = account.type === 'parent';
+    const base = settings.schoologyBase.replace(/\/$/, '');
+    const res = await fetch(base + coursePagePath({ isParent, childUid: uid, courseId }), { credentials: 'include' });
+    if (!res.ok) return { ok: false, error: `Schoology answered ${res.status}` };
+    const href = findComposeHref(await res.text());
+    if (!href) return { ok: false, error: 'No teacher to message for this class' };
+    return { ok: true, url: new URL(href, base + '/').href };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message ? e.message : e) };
+  }
+}
+
 browser.runtime.onMessage.addListener(async (message, sender) => {
   if (!message || typeof message.type !== 'string') return undefined;
   switch (message.type) {
@@ -331,6 +352,9 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         await setSettings({ ...settings, lastGradesUrl: message.url });
       }
       return { ok: true };
+    }
+    case 'teacher-compose-url': {
+      return teacherComposeUrl(message);
     }
     case 'refresh-via-hidden-tab': {
       if (!message.url) return { ok: false, error: 'No Grades URL supplied' };

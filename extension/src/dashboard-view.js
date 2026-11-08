@@ -32,6 +32,7 @@ import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover } from './grade-chart.js';
 import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
+import { composeMessage, composeHash } from './teacher-email.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -86,6 +87,7 @@ export function escapeHtml(s) {
 const ICON = {
   refresh: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>',
   close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
   cog: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
@@ -239,6 +241,7 @@ function renderMissing(summary, uid) {
     const sub = [a.courseName, dueLabel(a), ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
     return `<div class="missing-card"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
+      `<button class="check-btn mail-btn" type="button" data-act="email-teacher" data-uid="${escapeHtml(uid)}" data-cid="${escapeHtml(a.courseId ?? '')}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Message the ${escapeHtml(a.courseName || 'class')} teacher about ${escapeHtml(a.title)}" title="Message the teacher">${ICON.mail}</button>` +
       `<button class="check-btn" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as turned in" title="Mark as turned in">${ICON.check}</button></div>`;
   });
   return section(`Missing · ${summary.missingItems.length}`, rows.join(''), SECTION_EMOJI.missing);
@@ -451,6 +454,19 @@ function renderRecords(records, showGrades, now) {
     '<p class="fineprint">Personal bests this school year. They only ever go up, so a rough week never takes one away.</p>', SECTION_EMOJI.records);
 }
 
+export const FEEDBACK_EMAIL = 'schoologydashboard@gmail.com';
+
+// "Send feedback": the family's own mail app, with the version and browser
+// in the subject. Never any grades or names.
+export function feedbackHref(browser) {
+  let version = '';
+  try { version = browser.runtime.getManifest().version || ''; } catch { version = ''; }
+  const ua = (globalThis.navigator && navigator.userAgent) || '';
+  const name = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+  const subject = `Homework Dashboard feedback (${['v' + version, name].filter((x) => x && x !== 'v').join(', ')})`;
+  return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}`;
+}
+
 function verdictPill(verdict) {
   const cls = verdict === 'GO' ? 'go' : verdict === 'NO-GO' ? 'nogo' : 'unknown';
   return `<span class="pill ${cls}">${verdict}</span>`;
@@ -611,12 +627,43 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   let pickedUid = null;
   let openClass = null; // "<uid>:<courseId>" whose grade chart is open
   let statusText = '';
+  let viewIsParent = false;
+
+  // Message the teacher about a Missing item: Schoology's compose form for
+  // the class, with the subject and message filled in by the content script
+  // (see teacher-email.js). The family reads it and presses Send.
+  async function emailTeacher(uid, courseId, aid) {
+    setStatus('Opening a message to the teacher…');
+    const { dashboards } = await loadState();
+    const d = dashboards[uid];
+    const course = d && (d.courses || []).find((c) => String(c.id) === String(courseId));
+    const a = course && (course.assignments || []).find((x) => String(x.id) === String(aid));
+    if (!a) { setStatus('Couldn’t find that assignment. Press Refresh and try again.'); return; }
+    let result;
+    try {
+      result = await browser.runtime.sendMessage({ type: 'teacher-compose-url', uid, courseId });
+    } catch (err) {
+      result = { ok: false, error: err.message || String(err) };
+    }
+    if (!result || !result.ok) { setStatus(`Couldn’t open a message: ${(result && result.error) || 'unknown error'}`); return; }
+    const [tidy] = cleanCourseNames([course]);
+    const msg = composeMessage({ isParent: viewIsParent, studentName: d.studentName, title: a.title, courseName: tidy.name, dueText: a.due ? shortDate(a.due) : a.dueText || '' });
+    const url = result.url + composeHash(msg);
+    setStatus('');
+    if (openLinksInActiveTab) {
+      await browser.tabs.update({ url });
+      container.ownerDocument.defaultView.close();
+    } else {
+      container.ownerDocument.defaultView.location.assign(url);
+    }
+  }
 
   async function render() {
     const { settings, dashboards, turnedIn, done, refreshState, lastChild, records } = await loadState();
     const running = refreshRunning(refreshState);
     const uids = Object.keys(dashboards);
     const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
+    viewIsParent = isParentView;
     // Stay on the child picked last (also after a page load or in another
     // popup/panel); fall back to the first child.
     if (lastChild && uids.includes(lastChild)) pickedUid = lastChild;
@@ -699,7 +746,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       `<div class="status" role="status">${escapeHtml(statusText)}</div>` +
       (showDemo ? '<div class="foot-row"><button class="btn btn-sm" type="button" data-act="demo">Load demo data</button></div>' : '') +
       '</footer>' +
-      `<div class="credit">${ICON.heart}<span>Made with love for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span></div>`;
+      `<div class="credit">${ICON.heart}<span>Made with love for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span>` +
+      `<span aria-hidden="true">·</span><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a></div>`;
 
     root.innerHTML = header + `<main class="body">${body}</main>` + footer;
     // A profile picture that fails to load falls back to the initials.
@@ -722,7 +770,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
 
   async function onClick(e) {
     const link = openLinksInActiveTab && e.target.closest('a[href]');
-    if (link && root.contains(link)) {
+    if (link && root.contains(link) && !link.href.startsWith('mailto:')) {
       e.preventDefault();
       // Cmd/Ctrl/Shift-click or middle-click still opens a new tab.
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) await browser.tabs.create({ url: link.href });
@@ -735,6 +783,10 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
     const { act, uid, aid } = btn.dataset;
+    if (act === 'email-teacher' && uid && aid) {
+      await emailTeacher(uid, btn.dataset.cid, aid);
+      return;
+    }
     if (act === 'toggle-chart') {
       openClass = openClass === btn.dataset.key ? null : btn.dataset.key;
       await render();

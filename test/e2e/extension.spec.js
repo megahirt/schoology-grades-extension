@@ -364,6 +364,18 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await panel.locator('.class', { hasText: 'Algebra 2' }).locator('a.chart-link').click();
       await expect(page).toHaveURL(`${mockBase}/course/1001/student_grades`);
       expect(context.pages().length).toBe(pagesBefore);
+
+      // Message the teacher about a Missing item: Schoology's compose form
+      // opens in this tab with the subject and message filled in, unsent.
+      await expect(panel.locator('.missing-card').first()).toBeVisible({ timeout: 15000 });
+      const missingTitle = (await panel.locator('.missing-card .item-title').first().textContent()).trim();
+      let posted = false;
+      page.on('request', (r) => { if (r.method() === 'POST' && /messages/.test(r.url())) posted = true; });
+      await panel.locator('.missing-card').first().getByRole('button', { name: /^Message the .* teacher about / }).click();
+      await expect(page).toHaveURL(/\/messages\/new\/course\/\d+\?recipient_uids=9001$/);
+      await expect(page.locator('input[name="subject"]')).toHaveValue(new RegExp(`^${missingTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+      await expect(page.locator('textarea[name="body"]')).toHaveValue(/what I need to do to turn it in/); // a student writing
+      expect(posted).toBe(false);
       await page.close();
     } finally {
       await context.close();
