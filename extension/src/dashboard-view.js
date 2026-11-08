@@ -33,7 +33,7 @@ import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
 import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
-import { captureDashboard, copyImage } from './screenshot.js';
+import { captureDashboard, copyImage, shareImage } from './screenshot.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -88,7 +88,7 @@ export function escapeHtml(s) {
 const ICON = {
   refresh: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>',
   close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-  camera: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/></svg>',
   mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
@@ -211,6 +211,7 @@ function studentNote(summary, settings, period = null) {
 }
 
 // Section headings carry an emoji; sections with no items are left out.
+const SHARE_LABEL = 'Share a picture of the dashboard';
 export const SECTION_EMOJI = {
   missing: MISSING_IMG, // Schoology's Missing icon rather than an emoji
   due: '⌛',
@@ -781,6 +782,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (lastChild && uids.includes(lastChild)) pickedUid = lastChild;
     if (!uids.includes(pickedUid)) pickedUid = uids[0] || null;
     const current = pickedUid ? dashboards[pickedUid] : null;
+    lastDashboards = dashboards;
 
     let latest = null;
     for (const d of Object.values(dashboards)) {
@@ -797,7 +799,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
         : `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>`) +
-      (current ? `<button class="icon-btn" type="button" data-act="screenshot" aria-label="Copy a picture of the dashboard" title="Copy a picture of the dashboard">${ICON.camera}</button>` : '') +
+      (current ? `<button class="icon-btn" type="button" data-act="share" aria-label="${SHARE_LABEL}" title="${SHARE_LABEL}">${ICON.share}</button>` : '') +
       `<button class="icon-btn" type="button" data-act="options" aria-label="Settings" title="Settings">${ICON.cog}</button>` +
       (onClose ? `<button class="icon-btn ghost" type="button" data-act="close" aria-label="Close dashboard panel" title="Close">${ICON.close}</button>` : '') +
       '</div>';
@@ -892,6 +894,100 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (el) el.textContent = text;
   }
 
+  // Share: copy a picture of the whole dashboard to the clipboard, then
+  // open the system share menu with it where the browser has one. The
+  // clipboard gets the picture while it's still being drawn, so the click
+  // still counts as the user's own. If the share menu then needs a fresh
+  // click (Safari allows only a moment), the finished picture waits for a
+  // second press, which shares it at once.
+  let lastDashboards = null;
+  let readyToShare = null; // { blob, fileName, title, until, uid }
+
+  function shareNames() {
+    const d = pickedUid && lastDashboards ? lastDashboards[pickedUid] : null;
+    const first = d && d.studentName ? String(d.studentName).trim().split(/\s+/)[0] : '';
+    const day = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const date = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+    const slug = first.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return {
+      fileName: `homework-dashboard${slug ? `-${slug}` : ''}-${date}.png`,
+      title: first ? `Homework Dashboard: ${first}` : 'Homework Dashboard',
+    };
+  }
+
+  // The check mark and "Copied" for a moment, with a status line.
+  function showShared(btn, text) {
+    btn.innerHTML = ICON.check;
+    btn.classList.add('done');
+    btn.setAttribute('aria-label', 'Copied');
+    btn.title = 'Copied';
+    setStatus(text);
+    clearTimeout(showShared.timer);
+    showShared.timer = setTimeout(() => {
+      if (btn.isConnected) resetShareBtn(btn);
+      if (statusText === text) setStatus('');
+    }, 2500);
+  }
+
+  function resetShareBtn(btn) {
+    btn.innerHTML = ICON.share;
+    btn.classList.remove('done');
+    btn.setAttribute('aria-label', SHARE_LABEL);
+    btn.title = SHARE_LABEL;
+  }
+
+  async function share(btn, blob, names, copied) {
+    const win = container.ownerDocument.defaultView;
+    let result;
+    try {
+      result = await shareImage(blob, win, names);
+    } catch {
+      result = 'failed';
+    }
+    if (result === 'needs-click') {
+      readyToShare = { blob, ...names, uid: pickedUid, until: Date.now() + 60000 };
+      clearTimeout(showShared.timer);
+      if (btn.isConnected) resetShareBtn(btn);
+      setStatus(copied ? 'Picture copied. Press Share again to send it.' : 'Picture ready. Press Share again to send it.');
+    } else if (result === 'shared') {
+      showShared(btn, copied ? 'Picture copied and shared.' : 'Picture shared.');
+    } else if (copied && result !== 'cancelled') {
+      showShared(btn, 'Picture copied. Paste it into a message or note.');
+    } else if (!copied && result !== 'cancelled') {
+      setStatus('Couldn’t copy or share the picture in this browser.');
+    }
+  }
+
+  async function sharePicture(btn) {
+    const win = container.ownerDocument.defaultView;
+    // Second press after the share menu needed a fresh click.
+    if (readyToShare && readyToShare.uid === pickedUid && Date.now() < readyToShare.until) {
+      const { blob, fileName, title } = readyToShare;
+      readyToShare = null;
+      await share(btn, blob, { fileName, title }, true);
+      return;
+    }
+    readyToShare = null;
+    const names = shareNames();
+    const blobPromise = captureDashboard(root, DASHBOARD_CSS);
+    let copied = false;
+    try {
+      copied = await copyImage(blobPromise, win);
+    } catch {
+      copied = false;
+    }
+    if (copied) showShared(btn, 'Picture copied.');
+    let blob;
+    try {
+      blob = await blobPromise;
+    } catch (err) {
+      setStatus(`Couldn’t make the picture: ${err.message || err}`);
+      return;
+    }
+    await share(btn, blob, names, copied);
+  }
+
   async function onClick(e) {
     const link = openLinksInActiveTab && e.target.closest('a[href]');
     if (link && root.contains(link) && !link.href.startsWith('mailto:')) {
@@ -907,29 +1003,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
     const { act, uid, aid } = btn.dataset;
-    if (act === 'screenshot') {
-      // Hand the clipboard the image while it's still being drawn, so the
-      // click counts as the user's gesture.
-      const win = container.ownerDocument.defaultView;
-      const blob = captureDashboard(root, DASHBOARD_CSS);
-      try {
-        await copyImage(blob, win);
-        btn.innerHTML = ICON.check;
-        btn.classList.add('done');
-        btn.setAttribute('aria-label', 'Copied');
-        btn.title = 'Copied';
-        setStatus('Picture copied. Paste it into a message or note.');
-        setTimeout(() => {
-          if (!btn.isConnected) return;
-          btn.innerHTML = ICON.camera;
-          btn.classList.remove('done');
-          btn.setAttribute('aria-label', 'Copy a picture of the dashboard');
-          btn.title = 'Copy a picture of the dashboard';
-          setStatus('');
-        }, 2000);
-      } catch (err) {
-        setStatus(`Couldn’t copy the picture: ${err.message || err}`);
-      }
+    if (act === 'share') {
+      await sharePicture(btn);
       return;
     }
     if (act === 'email-teacher' && uid && aid) {

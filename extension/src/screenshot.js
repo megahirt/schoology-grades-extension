@@ -1,4 +1,5 @@
-// screenshot.js — a picture of the whole dashboard for the clipboard.
+// screenshot.js — a picture of the whole dashboard, for the clipboard and
+// the system share menu (Share button).
 //
 // The browser's own capture only sees what's on screen, and the panel
 // scrolls, so the dashboard draws itself instead: a copy of the view (the
@@ -112,4 +113,25 @@ export async function copyImage(blobPromise, win) {
     await nav.clipboard.write([new win.ClipboardItem({ 'image/png': blob })]);
   }
   return true;
+}
+
+// shareImage(blob, win, { fileName, title }) -> 'shared' | 'cancelled' |
+// 'unsupported' | 'needs-click'. Opens the system share menu (Safari on
+// Mac and iPhone, Chrome on Mac and Windows) with the picture. Browsers
+// only open it right after a click; when drawing the picture took too
+// long for that, the answer is 'needs-click' and a second press shares the
+// finished picture straight away.
+export async function shareImage(blob, win, { fileName = 'homework-dashboard.png', title = 'Homework Dashboard' } = {}) {
+  const nav = win.navigator;
+  if (typeof nav.share !== 'function' || typeof win.File !== 'function') return 'unsupported';
+  const file = new win.File([blob], fileName, { type: 'image/png' });
+  if (typeof nav.canShare === 'function' && !nav.canShare({ files: [file] })) return 'unsupported';
+  try {
+    await nav.share({ files: [file], title });
+    return 'shared';
+  } catch (err) {
+    if (err && err.name === 'AbortError') return 'cancelled';
+    if (err && err.name === 'NotAllowedError') return 'needs-click';
+    throw err;
+  }
 }
