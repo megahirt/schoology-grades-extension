@@ -58,7 +58,7 @@
           <label for="grade-threshold" class="strong">Passing grade</label>
           <div class="muted">NO-GO if any class is below this. Uses the current quarter grade (the semester grade until the quarter has one).</div>
         </div>
-        <div class="field"><input id="grade-threshold" type="number" min="0" max="100" inputmode="numeric"><span>%</span></div>
+        <div class="field slider"><input id="grade-threshold" type="range" min="60" max="80" step="1"><output for="grade-threshold" id="grade-threshold-out"></output></div>
       </div>
       <div class="row">
         <div class="grow">
@@ -73,14 +73,10 @@
       <div class="card-h"><h2>Display</h2></div>
       <div class="row">
         <div class="grow">
-          <div class="strong">Doing well</div>
-          <div class="muted">Recent graded work worth celebrating.</div>
+          <label for="doing-well-percent" class="strong">Doing well</label>
+          <div class="muted">Graded work from the past 10 days at or above this.</div>
         </div>
-        <div class="field wrap">
-          <label for="doing-well-percent">At least</label>
-          <input id="doing-well-percent" type="number" min="0" max="100" inputmode="numeric">
-          <span>% from the past 10 days</span>
-        </div>
+        <div class="field slider"><input id="doing-well-percent" type="range" min="75" max="90" step="1"><output for="doing-well-percent" id="doing-well-percent-out"></output></div>
       </div>
       <div class="row">
         <div class="grow"><div class="strong" id="fmt-label">Assignment grades as</div></div>
@@ -94,7 +90,7 @@
     <section id="privacy" class="card">
       <div class="card-h">
         <h2>Privacy &amp; data</h2>
-        <p class="muted">Grades are read from Schoology in this browser and stay here. Nothing is sent anywhere else, and marking work turned in or done never notifies anyone.</p>
+        <p class="muted">Grades are read from Schoology in this browser and stay here. Nothing is sent, and marking work <em>turned in</em> or <em>done</em> does not notify anyone.</p>
       </div>
       <div class="row">
         <div class="grow">

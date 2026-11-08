@@ -37,6 +37,23 @@ async function save(patch) {
 
 // --- Controls -----------------------------------------------------------------
 
+// A slider with its value shown beside it. Saved values outside the range
+// (from an older version) show at the nearest end.
+function bindSlider(id, key) {
+  const input = $(id);
+  const out = $(`${id}-out`);
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const show = () => { out.textContent = `${input.value}%`; };
+  input.value = Math.min(max, Math.max(min, Math.round(Number(settings[key]) || min)));
+  show();
+  input.addEventListener('input', show);
+  input.addEventListener('change', () => {
+    show();
+    save({ [key]: Number(input.value) });
+  });
+}
+
 function bindNumber(id, key, { min, max }) {
   const input = $(id);
   input.value = settings[key];
@@ -200,9 +217,9 @@ function setupMenu() {
 async function init() {
   const stored = (await getSettings()) || {};
   settings = { ...settings, ...stored };
-  bindNumber('grade-threshold', 'gradeThreshold', { min: 0, max: 100 });
+  bindSlider('grade-threshold', 'gradeThreshold');
   bindNumber('missing-threshold', 'missingThreshold', { min: 1, max: 20 });
-  bindNumber('doing-well-percent', 'doingWellPercent', { min: 0, max: 100 });
+  bindSlider('doing-well-percent', 'doingWellPercent');
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
   $('feedback-link').href = feedbackHref(browser);

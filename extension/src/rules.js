@@ -19,12 +19,19 @@ export const DEFAULT_SETTINGS = {
 const FIXED_SETTINGS = ['gradeVisibility', 'notSoGoodDays', 'doingWellDays', 'showGoNoGo'];
 // Family rules are set by parents; a student's dashboard uses the defaults.
 const PARENT_ONLY_SETTINGS = ['gradeThreshold', 'missingThreshold'];
+// The settings sliders' ranges; a value saved outside one (older versions
+// allowed 0-100) is held to the nearest end, matching what the slider shows.
+export const SETTING_RANGES = { gradeThreshold: [60, 80], doingWellPercent: [75, 90] };
 
 // effectiveSettings(stored, { isStudent }) -> the settings to use.
 export function effectiveSettings(stored, { isStudent = false } = {}) {
   const out = { ...DEFAULT_SETTINGS, ...(stored || {}) };
   for (const k of FIXED_SETTINGS) out[k] = DEFAULT_SETTINGS[k];
   if (isStudent) for (const k of PARENT_ONLY_SETTINGS) out[k] = DEFAULT_SETTINGS[k];
+  for (const [k, [min, max]] of Object.entries(SETTING_RANGES)) {
+    const n = Number(out[k]);
+    out[k] = Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : DEFAULT_SETTINGS[k];
+  }
   return out;
 }
 
