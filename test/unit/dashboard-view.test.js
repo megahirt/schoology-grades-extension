@@ -66,8 +66,9 @@ describe('trend line next to each class', () => {
     expect(out).toMatch(/class="trend-line" role="img" aria-label="Flat Class trend: from \d+% to \d+% over 6 grades"/);
     expect(out).toMatch(/class="class-row" data-act="toggle-chart"/); // the whole row opens the chart
   });
-  it('says "trend after 5 grades" until there are enough grades', () => {
+  it('leaves the spot empty until there are 5 grades', () => {
     const out = html([cls({ id: 'c', name: 'New Class', quarterGrade: 80, grade: 80, assignments: graded(3, 'c') })]);
-    expect(out).toContain('trend after 5 grades');
+    expect(out).not.toContain('trend-line');
+    expect(out).not.toContain('trend after');
   });
 });
