@@ -8,7 +8,7 @@ import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
 import { parseGradesHtml } from './src/parser.js';
 import { summarizeStudent, DEFAULT_SETTINGS, effectiveSettings, isStudentAccount } from './src/rules.js';
-import { coursePagePath, findComposeHref, findParentName } from './src/teacher-email.js';
+import { coursePagePath, findComposeHref, findCourseAdmins, findParentName, likelyTeacher } from './src/teacher-email.js';
 import {
   getSettings,
   setSettings,
@@ -19,6 +19,8 @@ import {
   getAccount,
   getTurnedIn,
   getMarkedDone,
+  storageGet,
+  storageSet,
 } from './src/storage.js';
 
 const ALARM_NAME = 'refresh-grades';
@@ -300,6 +302,53 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 // "Email the teacher" on a Missing item: read the class's course page
 // (read-only GET) for Schoology's "Message Admins" link, the compose form
 // addressed to the class's teachers. Returns { ok, url, parentName }.
+// Each class's admin list (storage key `classAdmins`: { [courseId]:
+// { uids, at } }), kept a month, for guessing which admin teaches a class.
+const ADMINS_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+
+async function fetchCoursePage(base, isParent, uid, courseId) {
+  const res = await fetch(base + coursePagePath({ isParent, childUid: uid, courseId }), { credentials: 'include' });
+  if (!res.ok) throw new Error(`Schoology answered ${res.status}`);
+  return res.text();
+}
+
+// How many of the family's classes list each admin: { [adminUid]: n }.
+// Reads course pages not seen in the past month (a few at a time).
+async function adminClassCounts(base, isParent, known) {
+  const now = Date.now();
+  const cache = { ...((await storageGet('classAdmins', {})) || {}), ...known };
+  const dashboards = (await getDashboards()) || {};
+  const todo = [];
+  const current = new Set();
+  for (const [uid, d] of Object.entries(dashboards)) {
+    for (const c of (d && d.courses) || []) {
+      if (c.id === undefined || c.id === null) continue;
+      const id = String(c.id);
+      current.add(id);
+      const hit = cache[id];
+      if (!hit || !(now - Date.parse(hit.at) < ADMINS_KEEP_MS)) todo.push({ uid, id });
+    }
+  }
+  const queue = [...todo];
+  await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+    for (let job = queue.shift(); job; job = queue.shift()) {
+      try {
+        const html = await fetchCoursePage(base, isParent, job.uid, job.id);
+        cache[job.id] = { uids: findCourseAdmins(html).map((a) => a.uid), at: new Date().toISOString() };
+      } catch {
+        // Skip this class; the guess just has less to go on.
+      }
+    }
+  }));
+  for (const id of Object.keys(cache)) if (!current.has(id)) delete cache[id];
+  await storageSet('classAdmins', cache);
+  const counts = {};
+  for (const id of current) for (const a of (cache[id] && cache[id].uids) || []) counts[a] = (counts[a] || 0) + 1;
+  return counts;
+}
+
+// The compose link for a class plus its admins, for the parent's "Email
+// the teacher": { ok, url, admins: [{ uid, name }], likely, parentName }.
 async function teacherComposeUrl({ uid, courseId }) {
   if (!courseId) return { ok: false, error: 'No class' };
   try {
@@ -307,12 +356,18 @@ async function teacherComposeUrl({ uid, courseId }) {
     const account = (await getAccount()) || {};
     const isParent = account.type === 'parent';
     const base = settings.schoologyBase.replace(/\/$/, '');
-    const res = await fetch(base + coursePagePath({ isParent, childUid: uid, courseId }), { credentials: 'include' });
-    if (!res.ok) return { ok: false, error: `Schoology answered ${res.status}` };
-    const html = await res.text();
+    const html = await fetchCoursePage(base, isParent, uid, courseId);
     const href = findComposeHref(html);
     if (!href) return { ok: false, error: 'No teacher to message for this class' };
-    return { ok: true, url: new URL(href, base + '/').href, parentName: isParent ? findParentName(html) : '' };
+    const admins = findCourseAdmins(html);
+    let likely = admins.length === 1 ? admins[0].uid : null;
+    if (admins.length > 1) {
+      const counts = await adminClassCounts(base, isParent, {
+        [String(courseId)]: { uids: admins.map((a) => a.uid), at: new Date().toISOString() },
+      });
+      likely = likelyTeacher(admins, counts);
+    }
+    return { ok: true, url: new URL(href, base + '/').href, admins, likely, parentName: isParent ? findParentName(html) : '' };
   } catch (e) {
     return { ok: false, error: String(e && e.message ? e.message : e) };
   }
