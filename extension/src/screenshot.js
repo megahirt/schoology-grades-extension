@@ -135,3 +135,14 @@ export async function shareImage(blob, win, { fileName = 'homework-dashboard.png
     throw err;
   }
 }
+
+// isApplePlatform(navigator) -> true on a Mac, iPhone or iPad, whose Share
+// icon is a box with an arrow up. Everywhere else (Android, Windows,
+// ChromeOS, Linux) the familiar Share icon is three connected dots.
+// iPads report themselves as a Mac, which is still Apple.
+export function isApplePlatform(nav) {
+  if (!nav) return false;
+  const p = nav.userAgentData && nav.userAgentData.platform;
+  if (p) return /^(macos|ios)$/i.test(p);
+  return /mac|iphone|ipad|ipod/i.test(`${nav.platform || ''} ${nav.userAgent || ''}`) && !/android/i.test(nav.userAgent || '');
+}
