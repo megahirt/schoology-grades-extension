@@ -11,9 +11,11 @@
 // unavailable, an in-memory store is used instead so tests can import this
 // module and exercise the same get/set surface.
 //
-// Storage keys (SPEC.md): settings, dashboards, liveTest, account.
+// Storage keys (SPEC.md): settings, dashboards, liveTest, account, records.
 // Extra key: turnedIn — { [studentUid]: [assignmentId, ...] } for items
 // manually marked as turned in.
+
+import { mergeAllRecords } from './rewards.js';
 
 const memoryStore = new Map();
 
@@ -64,7 +66,16 @@ export function __clearMemoryStore() {
 export const getSettings = () => storageGet('settings', null);
 export const setSettings = (v) => storageSet('settings', v);
 export const getDashboards = () => storageGet('dashboards', {});
-export const setDashboards = (v) => storageSet('dashboards', v);
+// Saving dashboards also updates each child's records (personal bests that
+// only go up; see rewards.js).
+export async function setDashboards(v) {
+  await storageSet('dashboards', v);
+  if (v && Object.keys(v).length) {
+    const records = mergeAllRecords(await storageGet('records', {}), v);
+    await storageSet('records', records);
+  }
+}
+export const getRecords = () => storageGet('records', {});
 export const getLiveTest = () => storageGet('liveTest', null);
 export const setLiveTest = (v) => storageSet('liveTest', v);
 export const getAccount = () => storageGet('account', null);
