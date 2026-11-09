@@ -100,6 +100,17 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
     if (!html) return null;
     const attr = html.match(/data-user-name=["']([^"']+)["']/i);
     if (attr && attr[1].trim()) return attr[1].trim();
+    // Schoology's page settings (JSON in the page): …"uid":123,"name":"Sam Rivera",…
+    // VERIFIED on a student's /home (a school's own Schoology address).
+    const json = html.match(/"uid":\d+,"name":"((?:[^"\\]|\\.)+)"/);
+    if (json) {
+      try {
+        const name = JSON.parse(`"${json[1]}"`).trim();
+        if (name) return name;
+      } catch {
+        // not valid JSON text; try the next pattern
+      }
+    }
     const welcome = html.match(/Welcome,\s*([^<,\n\r]+)/i);
     if (welcome && welcome[1].trim()) return welcome[1].trim();
     return null;

@@ -179,3 +179,17 @@ describe('runLiveProbe', () => {
     expect(ev).toMatchObject({ loggedIn: true, containsAssignmentTitle: true, containsGrade: true, containsMissing: true, parsedMissing: 1 });
   });
 });
+
+describe('student name from Schoology\'s page settings', () => {
+  it('reads "uid":…,"name":"…" when the page has no other name', async () => {
+    const page = '<html><body><a href="/logout">Log out</a><script>jQuery.extend(Drupal.settings, {"s_common":{"user":{"uid":2000001,"name":"Sam Rivera","profilePictureUrl":"x.png"}}});</script></body></html>';
+    const fetchImpl = async (url) => {
+      const u = String(url);
+      if (u.endsWith('/iapi/parent/info')) return new Response('{}', { status: 403, headers: { 'Content-Type': 'application/json' } });
+      return new Response(page, { status: 200, headers: { 'Content-Type': 'text/html' } });
+    };
+    const account = await createClient({ baseUrl: 'https://schoology.example.org', fetchImpl }).detectAccount();
+    expect(account.type).toBe('student');
+    expect(account.studentName).toBe('Sam Rivera');
+  });
+});

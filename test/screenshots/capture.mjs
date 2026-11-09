@@ -55,7 +55,10 @@ try {
   const popup = await ctx.newPage();
   await popup.setViewportSize({ width: 400, height: 600 });
   await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
-  await popup.evaluate(() => chrome.storage.local.set({ settings: { showGoNoGo: true }, turnedIn: {}, markedDone: {} }));
+  // Data is kept per Schoology site ("<key>@<origin>"); the screenshots use
+  // demo.schoology.com, so the popup is pointed there too.
+  await popup.evaluate(() => chrome.storage.local.set({ settings: { showGoNoGo: true, schoologyBase: 'https://demo.schoology.com' }, 'turnedIn@https://demo.schoology.com': {}, 'markedDone@https://demo.schoology.com': {} }));
+  await popup.reload();
   await popup.getByRole('button', { name: 'Demo data' }).click();
   await popup.getByText('Demo data loaded.').waitFor();
   await popup.screenshot({ path: path.join(OUT, '01-popup.png'), fullPage: true });
@@ -80,12 +83,12 @@ try {
 
   // Refresh in progress (state written directly; no network needed).
   await popup.evaluate(() => chrome.storage.local.set({
-    refreshState: { running: true, reason: 'page-load', startedAt: new Date().toISOString(), done: 2, total: 4, label: 'Reading Jamie’s grades' },
+    'refreshState@https://demo.schoology.com': { running: true, reason: 'page-load', startedAt: new Date().toISOString(), done: 2, total: 4, label: 'Reading Jamie’s grades' },
   }));
   await sheet.getByText('Refreshing grades…').waitFor();
   await shot(page, '02b-refreshing');
   await popup.evaluate(() => chrome.storage.local.set({
-    refreshState: { running: false, ok: true, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), done: 4, total: 4, label: 'Done' },
+    'refreshState@https://demo.schoology.com': { running: false, ok: true, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), done: 4, total: 4, label: 'Done' },
   }));
   await sheet.getByText('Refreshing grades…').waitFor({ state: 'hidden' });
 
@@ -116,12 +119,13 @@ try {
 
   // Student view: one dashboard keyed 'self', badge hidden (student default).
   await popup.evaluate(async () => {
-    const { dashboards } = await chrome.storage.local.get('dashboards');
+    const K = (k) => `${k}@https://demo.schoology.com`;
+    const dashboards = (await chrome.storage.local.get(K('dashboards')))[K('dashboards')];
     await chrome.storage.local.set({
-      dashboards: { self: { ...dashboards['demo-sam'], studentName: 'Alex Student' } },
-      settings: { showGoNoGo: false },
-      turnedIn: {},
-      markedDone: {},
+      [K('dashboards')]: { self: { ...dashboards['demo-sam'], studentName: 'Alex Student' } },
+      settings: { showGoNoGo: false, schoologyBase: 'https://demo.schoology.com' },
+      [K('turnedIn')]: {},
+      [K('markedDone')]: {},
     });
   });
   await page.locator('#sgd-panel-host button.edge-tab').click();

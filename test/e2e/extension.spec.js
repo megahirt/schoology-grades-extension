@@ -198,7 +198,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const page = await context.newPage();
       await page.goto(`${mockBase}/home`);
       const refresh = page.locator('#sgd-panel-host').getByRole('button', { name: 'Refresh grades' });
-      const count = async () => Object.keys((await worker.evaluate(() => chrome.storage.local.get('dashboards'))).dashboards || {}).length;
+      const count = async () => Object.keys((await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('dashboards@'))?.[1])) || {}).length;
       await expect.poll(async () => {
         if (await refresh.isEnabled().catch(() => false)) await refresh.click().catch(() => {});
         return count();
@@ -217,7 +217,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
     await expect.poll(
       async () => {
-        const { dashboards = {} } = await page.evaluate(() => chrome.storage.local.get('dashboards'));
+        // Data is kept per Schoology site ("dashboards@<origin>").
+        const dashboards = (await page.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('dashboards@'))?.[1])) || {};
         return Object.keys(dashboards).length;
       },
       { timeout: 30000 },
@@ -566,11 +567,11 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await during.close();
 
       // Fresh data: loading another Schoology page does not refresh again.
-      const before = await worker.evaluate(async () => (await chrome.storage.local.get('refreshState')).refreshState.startedAt);
+      const before = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('refreshState@'))[1].startedAt);
       await page.goto(`${slowBase}/home`);
       await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 15000 });
       await page.waitForTimeout(1500);
-      const after = await worker.evaluate(async () => (await chrome.storage.local.get('refreshState')).refreshState.startedAt);
+      const after = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('refreshState@'))[1].startedAt);
       expect(after).toBe(before);
       await page.close();
     } finally {
@@ -624,7 +625,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Records: personal bests saved with the refresh (they only go up).
       await expect(popup.locator('.sec-h', { hasText: 'Records' })).toBeVisible();
       await expect(popup.locator('.record', { hasText: 'Highest score' })).toBeVisible();
-      expect(await worker.evaluate(async () => Object.keys((await chrome.storage.local.get('records')).records || {}).length)).toBe(2);
+      expect(await worker.evaluate(async () => Object.keys(Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('records@'))?.[1] || {}).length)).toBe(2);
       // Jamie: 1 Missing, all classes >= 90 => GO.
       await jamieTab.click();
       await expect(card.getByText('Jamie Rivera', { exact: true })).toBeVisible();

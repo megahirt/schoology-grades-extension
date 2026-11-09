@@ -5,7 +5,7 @@
 
 import browser from 'webextension-polyfill';
 import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
-import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, storageRemove } from '../src/storage.js';
+import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, setSite, siteKey } from '../src/storage.js';
 import { loadDemo, initials, feedbackHref, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
 import npcLogo from '../icons/npc_icon_tiny.png';
 
@@ -156,7 +156,7 @@ function setupDev() {
     if (!b) return;
     setSeg(seg, b.dataset.value);
     await save({ schoologyBase: b.dataset.value === 'mock' ? MOCK_SCHOOLOGY : REAL_SCHOOLOGY });
-    await storageRemove('dashboards');
+    setSite(settings.schoologyBase);
     await renderAccount();
   });
   const out = $('dev-result');
@@ -202,6 +202,9 @@ function setupMenu() {
 async function init() {
   const stored = (await getSettings()) || {};
   settings = { ...settings, ...stored };
+  // The account box shows the Schoology site used last (each site has its
+  // own account and data).
+  setSite(settings.schoologyBase);
   bindSlider('grade-threshold', 'gradeThreshold');
   bindSlider('missing-threshold', 'missingThreshold', (v) => `${v} ${v === 1 ? 'item' : 'items'}`);
   bindSlider('doing-well-percent', 'doingWellPercent');
@@ -215,7 +218,12 @@ async function init() {
   requestAnimationFrame(() => document.body.classList.add('ready'));
   // Keep the account box and class list current if a refresh finishes.
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && ('dashboards' in changes || 'account' in changes)) renderAccount();
+    if (area !== 'local') return;
+    if ('settings' in changes) {
+      const base = (changes.settings.newValue || {}).schoologyBase;
+      if (base && base !== settings.schoologyBase) { settings = { ...settings, schoologyBase: base }; setSite(base); renderAccount(); }
+    }
+    if (siteKey('dashboards') in changes || siteKey('account') in changes) renderAccount();
   });
 }
 

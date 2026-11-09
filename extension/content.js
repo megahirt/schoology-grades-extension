@@ -9,7 +9,7 @@
 import browser from 'webextension-polyfill';
 import { parseGradesRoot } from './src/parser-core.js';
 import { mountPanel } from './src/panel.js';
-import { storageGet, storageSet } from './src/storage.js';
+import { storageGet, storageSet, setSite } from './src/storage.js';
 import { readComposeHash } from './src/teacher-email.js';
 
 // Same parser as the service worker (parser-core.js), run on the live DOM.
@@ -85,6 +85,8 @@ browser.runtime.onMessage.addListener((message) => {
 // default the first time). The panel is always on.
 async function setupPanel() {
   if (window.top !== window) return;
+  // This page's Schoology site: the panel shows that site's account.
+  setSite(window.location.origin);
   const panel = mountPanel({
     document,
     browser,

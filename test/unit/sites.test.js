@@ -31,11 +31,12 @@ describe('siteForPage', () => {
     expect(siteForPage(`${NPC}/home`, APP)).toBe('other');
     expect(siteForPage(`${APP}/grades/grades`, NPC)).toBe('other');
   });
-  it('ignores login pages, other websites and the dev mock server', () => {
+  it('ignores login pages and other websites', () => {
     expect(siteForPage(`${NPC}/login?destination=home`, APP)).toBe('ignore');
     expect(siteForPage(`${NPC}/login/saml/initial`, APP)).toBe('ignore');
     expect(siteForPage('https://example.com/', APP)).toBe('ignore');
-    expect(siteForPage(`${APP}/home`, 'http://localhost:8123')).toBe('ignore');
+    expect(siteForPage(`${APP}/home`, 'http://localhost:8123')).toBe('other'); // each site has its own data
+    expect(siteForPage('http://localhost:9999/home', APP)).toBe('ignore');
     expect(siteForPage('http://localhost:8123/home', 'http://localhost:8123')).toBe('same');
   });
 });

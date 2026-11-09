@@ -85,8 +85,11 @@ async function setStorage(worker, values) {
   for (let i = 0; i < 20; i++) {
     try {
       await worker.evaluate(async (v) => {
+        // Account data is kept per Schoology site ("<key>@<origin>").
+        const site = new URL(v.settings.schoologyBase).origin;
+        const scoped = Object.fromEntries(Object.entries(v).map(([k, val]) => [k === 'settings' ? k : `${k}@${site}`, val]));
         const { settings = {} } = await chrome.storage.local.get('settings');
-        await chrome.storage.local.set({ ...v, settings: { ...settings, ...v.settings } });
+        await chrome.storage.local.set({ ...scoped, settings: { ...settings, ...v.settings } });
       }, values);
       await new Promise((r) => setTimeout(r, 500));
       const { settings = {} } = await worker.evaluate(() => chrome.storage.local.get('settings'));
@@ -126,7 +129,11 @@ async function refresh(ctx, extId, worker, expected) {
   await page.goto(`chrome-extension://${extId}/popup/popup.html`);
   await page.evaluate(() => chrome.runtime.sendMessage({ type: 'refresh-now' }));
   for (let i = 0; i < 60; i++) {
-    const { dashboards = {}, refreshState = {} } = await worker.evaluate(() => chrome.storage.local.get(['dashboards', 'refreshState']));
+    const { dashboards = {}, refreshState = {} } = await worker.evaluate(async () => {
+      const all = await chrome.storage.local.get(null);
+      const pick = (k) => Object.entries(all).find(([key]) => key.startsWith(`${k}@`))?.[1];
+      return { dashboards: pick('dashboards') || {}, refreshState: pick('refreshState') || {} };
+    });
     if (Object.keys(dashboards).length >= expected && !refreshState.running) break;
     await page.waitForTimeout(500);
   }
@@ -288,10 +295,10 @@ try {
       // Close any compose tab the click may have opened.
       for (const p of ctx.pages()) if (p !== page && /messages\/new/.test(p.url())) await p.close();
 
-      // Turned-in mark: tick one Missing item, then show Waiting on teacher.
+      // Turned-in mark: tick one Missing item, then show Submitted, not graded yet.
       await sheet.getByRole('button', { name: 'Mark Field Notes as turned in' }).click();
-      await sheet.getByText(/Waiting on teacher/).first().waitFor();
-      await scrollTo(sheet.locator('h2', { hasText: 'Waiting on teacher' }));
+      await sheet.getByText(/Submitted, not graded yet/).first().waitFor();
+      await scrollTo(sheet.locator('h2', { hasText: 'Submitted, not graded yet' }));
       await page.waitForTimeout(300);
       await save(page, 'waiting-on-teacher');
       await sheet.getByRole('button', { name: 'Undo: Field Notes' }).click();

@@ -27,6 +27,10 @@ import {
   setMarkedDone,
   storageGet,
   storageSet,
+  getSite,
+  setSite,
+  siteKey,
+  getSites,
 } from './storage.js';
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
@@ -642,7 +646,9 @@ export async function loadDemo(browser) {
 async function loadState() {
   const dashboards = (await getDashboards()) || {};
   const account = await storageGet('account', null);
+  // Links and refreshes go to the site this page shows.
   const settings = { schoologyBase: REAL_SCHOOLOGY, ...effectiveSettings(await getSettings(), { isStudent: isStudentAccount(account, dashboards) }) };
+  if (getSite()) settings.schoologyBase = getSite();
   return {
     settings,
     dashboards,
@@ -653,6 +659,26 @@ async function loadState() {
     lastChild: (await storageGet('dashboardChild', null)) || null,
     records: (await storageGet('records', null)) || {},
   };
+}
+
+// The popup's switch between Schoology sites with data: "Parent" for a
+// parent account, the student's first name for a student account (the
+// site's address as the tooltip). Empty with one site.
+async function siteSwitchHtml() {
+  const sites = (await getSites()) || [];
+  if (sites.length < 2) return '';
+  const here = getSite();
+  const buttons = [];
+  for (const site of sites) {
+    const account = await storageGet('account', null, site);
+    const dashboards = (await storageGet('dashboards', {}, site)) || {};
+    const first = Object.values(dashboards)[0];
+    const host = (() => { try { return new URL(site).host; } catch { return site; } })();
+    const label = account && account.type === 'parent' ? 'Parent' : first ? firstName(first.studentName) : host;
+    const sel = site === here;
+    buttons.push(`<button class="site${sel ? ' sel' : ''}" type="button" data-act="site" data-site="${escapeHtml(site)}" aria-pressed="${sel}" title="${escapeHtml(host)}">${escapeHtml(label)}</button>`);
+  }
+  return `<div class="sites" role="group" aria-label="Schoology account">${buttons.join('')}</div>`;
 }
 
 // Toggle one id in a { [uid]: [ids] } mark store.
@@ -677,7 +703,10 @@ async function toggleMark(get, set, uid, aid, on) {
 //                 instead of navigating the popup. In the panel, links are
 //                 ordinary same-tab links on the Schoology page.
 // Returns { render, destroy }.
-export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose, openLinksInActiveTab = false } = {}) {
+// siteSwitch (the toolbar popup): when more than one Schoology site has data
+// (a parent on app.schoology.com and a student on the school's address),
+// show a switch between them above the dashboard.
+export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose, openLinksInActiveTab = false, siteSwitch = false } = {}) {
   const root = container.ownerDocument.createElement('div');
   root.className = 'sgd';
   container.replaceChildren(root);
@@ -705,7 +734,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (!a) { setStatus('Couldn’t find that assignment. Press Refresh and try again.'); return; }
     let result;
     try {
-      result = await browser.runtime.sendMessage({ type: 'teacher-compose-url', uid, courseId });
+      result = await browser.runtime.sendMessage({ type: 'teacher-compose-url', uid, courseId, site: getSite() });
     } catch (err) {
       result = { ok: false, error: err.message || String(err) };
     }
@@ -801,7 +830,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
     const headAvatar = !isParentView && current ? avatarHtml(current) : '';
 
-    let header = `<header class="head"><div class="head-row">${headAvatar}<div class="grow">${heading}` +
+    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row">${headAvatar}<div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
@@ -860,7 +889,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     }
     const devSwitch = IS_DEV
       ? '<div class="dev-row"><span class="dev-tag">DEV</span><span class="grow">Data: ' +
-        `<b>${usingMock ? 'Mock server (localhost:8123)' : 'Real Schoology'}</b>` +
+        `<b>${usingMock ? 'Mock server (localhost:8123)' : escapeHtml((() => { try { return new URL(settings.schoologyBase).host; } catch { return 'Real Schoology'; } })())}</b>` +
         (buildStamp ? `<span class="dev-build"> · built ${escapeHtml(buildStamp)} UTC</span>` : '') + '</span>' +
         `<button class="btn btn-sm" type="button" data-act="switch-source">${usingMock ? 'Use real Schoology' : 'Use mock server'}</button></div>`
       : '';
@@ -1053,7 +1082,13 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       }
       return;
     }
-    if (act === 'pick') {
+    if (act === 'site' && btn.dataset.site) {
+      setSite(btn.dataset.site);
+      pickedUid = null;
+      const s = (await getSettings()) || {};
+      await setSettings({ ...s, schoologyBase: btn.dataset.site }).catch(() => {});
+      await render();
+    } else if (act === 'pick') {
       pickedUid = uid;
       await render();
       await storageSet('dashboardChild', uid).catch(() => {});
@@ -1069,7 +1104,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       btn.disabled = true; // the banner and progress bar take over from storage
       statusText = '';
       try {
-        const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
+        const result = await browser.runtime.sendMessage({ type: 'refresh-now', site: getSite() });
         if (result && !result.ok) setStatus(friendlyRefreshError(result.error));
       } catch (err) {
         setStatus(friendlyRefreshError(err.message || String(err)));
@@ -1086,14 +1121,16 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       if (openOptions) openOptions();
       else browser.runtime.openOptionsPage();
     } else if (act === 'switch-source' && IS_DEV) {
-      // Swap the data source, drop the other source's data, then refresh.
+      // Swap the data source and refresh. Each source keeps its own data
+      // (per site), so this view just shows the other site.
       const settings = (await getSettings()) || {};
-      const toMock = settings.schoologyBase !== MOCK_SCHOOLOGY;
-      await setSettings({ ...settings, schoologyBase: toMock ? MOCK_SCHOOLOGY : REAL_SCHOOLOGY });
-      await setDashboards({});
+      const toMock = (getSite() || settings.schoologyBase) !== MOCK_SCHOOLOGY;
+      const target = toMock ? MOCK_SCHOOLOGY : REAL_SCHOOLOGY;
+      await setSettings({ ...settings, schoologyBase: target });
+      setSite(target);
       setStatus(toMock ? 'Switched to the mock server. Refreshing…' : 'Switched to real Schoology. Refreshing…');
       try {
-        const result = await browser.runtime.sendMessage({ type: 'refresh-now' });
+        const result = await browser.runtime.sendMessage({ type: 'refresh-now', site: getSite() });
         setStatus(result && result.ok ? '' : `Refresh failed: ${(result && result.error) || 'sign in to the new source, then press Refresh'}`);
       } catch (err) {
         setStatus(`Refresh failed: ${err.message || err}`);
@@ -1133,9 +1170,10 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   });
   if (openLinksInActiveTab) root.addEventListener('auxclick', onClick); // middle-click
 
-  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild', 'records'];
+  // Only this site's data (siteKey), plus the shared settings.
+  const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild', 'records', 'sites'];
   function onStorageChanged(changes, area) {
-    if (area === 'local' && WATCHED.some((k) => k in changes)) render();
+    if (area === 'local' && WATCHED.some((k) => siteKey(k) in changes)) render();
   }
   browser.storage.onChanged.addListener(onStorageChanged);
 
