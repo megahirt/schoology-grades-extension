@@ -26,6 +26,7 @@
 <div class="layout">
   <nav class="side" aria-label="Settings sections">
     <a href="#account">Account</a>
+    <a href="#school">School address</a>
     <a href="#rules" id="rules-link" hidden>Family rules</a>
     <a href="#display">Display</a>
     <a href="#privacy">Privacy &amp; data</a>
@@ -46,6 +47,27 @@
         <button id="refresh-btn" type="button" class="btn">Refresh now</button>
       </div>
       <div id="kids" class="kids"></div>
+    </section>
+
+    <section id="school" class="card">
+      <div class="card-h">
+        <h2>School address</h2>
+        <p class="muted">Schoology Dashboard works on app.schoology.com and every address ending in .schoology.com. Some schools sign students in at their own address, such as schoology.yourschool.org. If yours does, add it here. Your browser will ask to let the extension read that one site.</p>
+      </div>
+      <form id="school-form" class="row" novalidate>
+        <div class="grow">
+          <label for="school-input" class="strong">Your school's Schoology address</label>
+          <div class="muted">Copy it from the address bar while you're signed in to Schoology.</div>
+        </div>
+        <div class="field school-field">
+          <input id="school-input" type="text" list="school-list" placeholder="schoology.yourschool.org" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url">
+          <button id="school-add" type="submit" class="btn">Add</button>
+        </div>
+      </form>
+      <datalist id="school-list"></datalist>
+      <p id="school-status" class="muted" role="status"></p>
+      <div id="school-added" class="school-added"></div>
+      <p id="school-unsupported" class="muted" hidden>This browser can't add other addresses yet. Schoology Dashboard works on addresses ending in .schoology.com and schoology.npchristian.org.</p>
     </section>
 
     <section id="rules" class="card" hidden>

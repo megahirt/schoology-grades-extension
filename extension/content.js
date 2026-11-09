@@ -11,6 +11,7 @@ import { parseGradesRoot } from './src/parser-core.js';
 import { mountPanel } from './src/panel.js';
 import { storageGet, storageSet, setSite } from './src/storage.js';
 import { readComposeHash } from './src/teacher-email.js';
+import { isSchoologySite, looksLikeSchoology } from './src/sites.js';
 
 // Same parser as the service worker (parser-core.js), run on the live DOM.
 function scrapeGrades() {
@@ -127,6 +128,16 @@ function fillComposeForm() {
   setTimeout(() => observer.disconnect(), 10000);
 }
 
-fillComposeForm();
-init();
-setupPanel().catch((e) => console.warn('Schoology Dashboard panel failed:', e));
+// On a school address the family allowed (registered by background.js), do
+// nothing unless the page really is Schoology: the browser's own site-access
+// menu can allow the extension on any site.
+function isSchoologyPage() {
+  if (window.location.protocol !== 'https:') return true; // dev mock server
+  return isSchoologySite(window.location.href) || looksLikeSchoology(document);
+}
+
+if (isSchoologyPage()) {
+  fillComposeForm();
+  init();
+  setupPanel().catch((e) => console.warn('Schoology Dashboard panel failed:', e));
+}

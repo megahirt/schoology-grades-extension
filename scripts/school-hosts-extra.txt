@@ -1,0 +1,25 @@
+# Schools' own Schoology addresses found by hand (district help pages,
+# parent guides). scripts/find-schoology-hosts.mjs checks each one in DNS
+# and adds it to extension/src/school-hosts.json if it points to Schoology.
+schoology.npchristian.org
+lms.lausd.net
+districtlms.seattleschools.org
+schoology.d49.org
+schoology.spps.org
+lms.dcsdschools.org
+elearning.d127.org
+schoology.meigslocal.org
+athena.harker.org
+learn.d64.org
+learn.lcps.org
+onespot.mcpsva.org
+polaris.jackson.sparcc.org
+schoology.d214.org
+schoology.dodea.edu
+schoology.dpsk12.org
+schoology.newton.k12.ma.us
+schoology.parkwayschools.net
+schoology.pasadenaisd.org
+schoology.rocklinusd.org
+schoology.svvsd.org
+summerschoology.lsr7.org

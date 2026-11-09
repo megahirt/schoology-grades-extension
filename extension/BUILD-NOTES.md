@@ -9,8 +9,13 @@ REST API/OAuth — auth is the user's logged-in browser session cookies.
 
 ## What was built (all under `extension/`, plus `scripts/build.mjs`)
 
-- `manifest.json` — MV3; permissions `storage, alarms, scripting, tabs`;
-  host_permissions `https://*.schoology.com/*` plus schools' own Schoology addresses (`src/sites.js`, e.g. `https://schoology.npchristian.org/*`); action popup
+- `manifest.json` — MV3; permissions `storage, alarms, scripting, tabs, activeTab`;
+  host_permissions `https://*.schoology.com/*` plus a few schools' own Schoology addresses (`src/sites.js`, e.g. `https://schoology.npchristian.org/*`);
+  optional_host_permissions `https://*/*` so a family can allow their one
+  school's own address from the popup or Settings (`src/school-access.js`;
+  not in the Safari build, WebKit bug 290508). `src/school-hosts.json`
+  (`npm run school-hosts`) lists known school addresses for suggestions
+  only, never as permissions. See docs/schoology-domains-research.md. Action popup
   `popup/popup.html`; background service worker `background.js`;
   content script `content.js` on the same sites;
   options page `options/options.html`; icons 16/48/128 (green rounded

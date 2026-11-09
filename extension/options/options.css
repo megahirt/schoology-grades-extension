@@ -79,3 +79,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 
 /* Sections and links hidden in code (Family rules for students, dev-only). */
 [hidden] { display: none !important; }
+
+/* School address */
+.school-field input#school-input { width: 260px; text-align: left; font-size: 14px; }
+.school-added { display: flex; flex-direction: column; }
+.school-added .row { padding: 10px 0; }
+.school-added .host { font-weight: 600; overflow-wrap: anywhere; }
