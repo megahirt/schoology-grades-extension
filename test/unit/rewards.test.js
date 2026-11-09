@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { quarterChange, weekProgress, weekStart, computeRecords, mergeRecords, isNewRecord, mergeAllRecords, cleanRunFromLog } from '../../extension/src/rewards.js';
+import { quarterChange, weekProgress, weekStart, computeRecords, classHighScore, mergeRecords, isNewRecord, mergeAllRecords, cleanRunFromLog } from '../../extension/src/rewards.js';
 import { setDashboards, storageGet, __clearMemoryStore } from '../../extension/src/storage.js';
 
 // Made-up data only. "Today" is Friday 2026-11-06 at noon.
@@ -73,9 +73,16 @@ describe('computeRecords', () => {
   });
   const r = computeRecords([c], NOW);
 
-  it('highest score: the earliest of the best, never future work', () => {
-    expect(r.highestScore.value).toBe(100);
-    expect(r.highestScore.info.title).toBe('Quiz 2');
+  it('highest score is per class: most points wins a tie, then the earliest; never future work or extra credit', () => {
+    expect(r.highestScore).toBeUndefined(); // shown with each class instead
+    const best = classHighScore(c, NOW);
+    expect(best.pct).toBe(100);
+    expect(best.a.title).toBe('Quiz 2');
+    // A tie goes to the assignment worth the most points.
+    const check = { id: 'x9', title: 'Check-in', status: 'graded', score: 5, maxPoints: 5, due: d(7, 30) };
+    expect(classHighScore({ assignments: [check, ...c.assignments] }, NOW).a.title).toBe('Quiz 2');
+    const bonus = { id: 'x8', title: 'Bonus', status: 'graded', score: 5, maxPoints: 0, due: d(9, 1) };
+    expect(classHighScore({ assignments: [bonus] }, NOW)).toBeNull();
   });
   it('best week: most turned in with nothing Missing', () => {
     // Week of Oct 12 has a Missing item, so it never counts.
@@ -120,9 +127,9 @@ describe('records are saved with the dashboards', () => {
   it('setDashboards updates each child; failed or partial loads keep what they had', async () => {
     const good = { courses: [course({ assignments: [{ id: 'q', title: 'Quiz', status: 'graded', score: 9, maxPoints: 10, due: d(9, 1) }] })] };
     await setDashboards({ u1: good });
-    expect((await storageGet('records')).u1.highestScore.value).toBe(90);
+    expect((await storageGet('records')).u1.classGrade.value).toBe(84.4);
     await setDashboards({ u1: { error: 'FETCH_FAILED', courses: [] } });
-    expect((await storageGet('records')).u1.highestScore.value).toBe(90);
+    expect((await storageGet('records')).u1.classGrade.value).toBe(84.4);
     const merged = mergeAllRecords({}, { u2: { ...good, parseWarnings: ['3 rows could not be read'] } });
     expect(merged.u2).toBeUndefined();
   });

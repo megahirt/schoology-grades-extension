@@ -35,7 +35,7 @@ import {
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
-import { quarterChange, weekProgress, isNewRecord } from './rewards.js';
+import { quarterChange, weekProgress, isNewRecord, classHighScore } from './rewards.js';
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
 import { captureDashboard, copyImage, shareImage, isApplePlatform } from './screenshot.js';
 import css from './dashboard.css';
@@ -273,7 +273,7 @@ function renderDue(summary, uid) {
     `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
     `<span class="chip ${cls}">${when}</span>` +
     `<button class="check-btn" type="button" data-act="done" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as done" title="Mark as done">${ICON.check}</button></div>`);
-  return section('Due soon', rows.join(''), SECTION_EMOJI.due);
+  return section(`Due soon · ${items.length}`, rows.join(''), SECTION_EMOJI.due);
 }
 
 // Classes: only real classes, i.e. ones with grade data. Sections with no
@@ -382,6 +382,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
       chart = `<div class="chart-box" data-key="${escapeHtml(key)}">` +
         (svg || '<p class="empty">No graded assignments with dates yet.</p>') +
         (svg ? `<div class="chart-legend"><span><i class="lg-dot ok"></i>${t}% or above</span><span><i class="lg-dot low"></i>below ${t}%</span><span><i class="lg-size"><i></i><i></i></i>bigger dot, more points</span><span><i class="lg-line"></i>class grade</span><span><i class="lg-pass"></i>${t}%</span></div>` : '') +
+        classBestHtml(c, settings) +
         link + '</div>';
     }
     // The whole row (name, trend line, grades and bar) opens the chart; the
@@ -395,6 +396,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
   return `<section class="sec">${head}${rows.join('')}${dates ? `<p class="legend">${escapeHtml(dates)}</p>` : ''}</section>`;
 }
 
+// A list of graded work under a heading with its count ("Not so good · 2").
 function renderGradedList(title, items, settings, showGrades, emoji) {
   if (!items.length) return '';
   const rows = items.map((a) => {
@@ -404,7 +406,19 @@ function renderGradedList(title, items, settings, showGrades, emoji) {
     return `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
       (g ? `<span class="row-grade${low ? ' low' : ''}">${escapeHtml(g)}</span>` : '') + '</div>';
   });
-  return section(title, rows.join(''), emoji);
+  return section(`${title} · ${items.length}`, rows.join(''), emoji);
+}
+
+// The class's highest score so far, under its grade chart:
+// "⭐ Highest score · Unit 1 Test · Sep 22        100%".
+function classBestHtml(course, settings) {
+  const best = classHighScore(course);
+  if (!best) return '';
+  const a = best.a;
+  const when = a.due ? shortDay(a.due) : '';
+  return `<div class="class-best"><span class="class-best-icon" aria-hidden="true">⭐</span>` +
+    `<div class="grow compact-line"><span class="class-best-label">Highest score</span> · ${titleLink(a, 'row-title')}${when ? ` <span class="compact-course">(${escapeHtml(when)})</span>` : ''}</div>` +
+    `<span class="row-grade">${escapeHtml(gradeText(a, settings))}</span></div>`;
 }
 
 // Doing well: compact one-line rows, most recent first, at most 7:
@@ -434,28 +448,43 @@ const WAITING_HOW = {
   done: 'Marked done',
 };
 
-function renderWaiting(summary, uid) {
+// Submitted, not graded yet: grouped by class (a heading with the class's
+// count), one thin row per item. Classes with nothing waiting don't show.
+// Within a class: Schoology-reported submissions first, then the family's
+// own marks, each by due date.
+function renderWaiting(summary, uid, courses = []) {
   const n = summary.waiting.length;
-  if (!n) {
-    return '';
-  }
-  // Schoology-reported submissions first, then the family's own marks.
+  if (!n) return '';
   const order = { submitted: 0, turnedIn: 1, done: 2 };
-  const items = [...summary.waiting].sort((a, b) => order[a.waitingReason] - order[b.waitingReason]);
-  const rows = items.map((a) => {
-    const how = WAITING_HOW[a.waitingReason] || '';
-    const sub = [a.courseName, dueLabel(a), ptsText(a), how].filter(Boolean).map(escapeHtml).join(' · ');
-    // Still marked Missing on Schoology (submitted or turned in, not yet graded).
-    const missingTag = a.status === 'missing' ? `<span class="missing-tag">${MISSING_IMG}Missing</span>` : '';
-    const undo = a.waitingReason === 'submitted'
-      ? ''
-      : `<button class="link-btn" type="button" data-act="undo" data-reason="${a.waitingReason}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Undo: ${escapeHtml(a.title)}">Undo</button>`;
-    return `<div class="waiting"><span class="waiting-icon">${ICON.checkSmall}</span>` +
-      `<div class="grow">${titleLink(a, 'waiting-title')}<div class="sub">${sub}</div>${missingTag}</div>${undo}</div>`;
+  const due = (a) => {
+    const t = Date.parse(a.due || '');
+    return Number.isNaN(t) ? Infinity : t;
+  };
+  const groups = new Map(); // class name -> items
+  for (const a of summary.waiting) {
+    const name = a.courseName || 'Other';
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(a);
+  }
+  // Classes in the order the Classes section lists them.
+  const rank = new Map(courses.map((c, i) => [c.name, i]));
+  const names = [...groups.keys()].sort((x, y) => (rank.has(x) ? rank.get(x) : 1e9) - (rank.has(y) ? rank.get(y) : 1e9) || x.localeCompare(y));
+  const blocks = names.map((name) => {
+    const items = groups.get(name).sort((x, y) => order[x.waitingReason] - order[y.waitingReason] || due(x) - due(y));
+    const rows = items.map((a) => {
+      const meta = [dueLabel(a), ptsText(a), WAITING_HOW[a.waitingReason] || ''].filter(Boolean).map(escapeHtml).join(' · ');
+      // Still marked Missing on Schoology (submitted or turned in, not yet graded).
+      const missingTag = a.status === 'missing' ? `<span class="missing-tag">${MISSING_IMG}Missing</span>` : '';
+      const undo = a.waitingReason === 'submitted'
+        ? ''
+        : `<button class="link-btn" type="button" data-act="undo" data-reason="${a.waitingReason}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Undo: ${escapeHtml(a.title)}">Undo</button>`;
+      return `<div class="waiting"><div class="grow compact-line">${titleLink(a, 'waiting-title')}${meta ? ` <span class="compact-course">(${meta})</span>` : ''}</div>${missingTag}${undo}</div>`;
+    });
+    return `<div class="wait-class"><h3 class="wait-h">${escapeHtml(name)} · ${items.length}</h3>${rows.join('')}</div>`;
   });
-  const manual = items.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
+  const manual = summary.waiting.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
   const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
-  return section(`Submitted, not graded yet · ${n}`, rows.join('') + disclaimer, SECTION_EMOJI.waiting);
+  return section(`Submitted, not graded yet · ${n}`, blocks.join('') + disclaimer, SECTION_EMOJI.waiting);
 }
 
 // This week's ring: graded (dark blue), then turned in and waiting for a
@@ -499,8 +528,8 @@ function renderRecords(records, showGrades, now) {
     `<div class="record"><span class="record-icon" aria-hidden="true">${icon}</span>` +
     `<div class="grow"><div class="record-title">${escapeHtml(title)}${isNewRecord(rec, now) ? '<span class="new-tag">NEW</span>' : ''}</div>` +
     `<div class="sub record-detail">${escapeHtml(detail)}</div></div><span class="record-value">${escapeHtml(value)}</span></div>`);
-  const { highestScore: hs, bestWeek: bw, cleanRun: cr, classGrade: cg } = records;
-  if (hs && showGrades) add('⭐', 'Highest score', [hs.info.title, shortDay(hs.info.date)].filter(Boolean).join(' · '), pctText(hs.value), hs);
+  // Highest score is shown per class, under each class's grade chart.
+  const { bestWeek: bw, cleanRun: cr, classGrade: cg } = records;
   if (bw) add('🗓️', 'Best week', `Everything turned in · week of ${shortDay(bw.info.start)}`, `${bw.value} of ${bw.value}`, bw);
   if (cr) {
     const weeks = Math.floor(cr.value / 7);
@@ -610,7 +639,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderDoingWell(summary.doingWell, settings, showGrades);
     html += renderRecords(records, showGrades, now);
-    html += renderWaiting(summary, uid);
+    html += renderWaiting(summary, uid, visibleCourses(courses));
   }
   return { html, summary };
 }
