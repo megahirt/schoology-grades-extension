@@ -127,6 +127,8 @@
 .sgd .gchart .gc-dot { stroke: #fff; stroke-width: 1.5; }
 .sgd .gchart .gc-dot.ok { fill: var(--go); }
 .sgd .gchart .gc-dot.low { fill: var(--nogo); }
+.sgd .gchart .gc-period { stroke: #8a94a1; stroke-width: 1; stroke-dasharray: 2 3; }
+.sgd .gchart .gc-plab { font-size: 9px; font-weight: 700; fill: var(--muted); }
 .sgd .gchart .gc-hit { fill: transparent; cursor: crosshair; }
 .sgd .gchart .gc-hline { stroke: #8a94a1; stroke-width: 1; }
 .sgd .gchart .gc-hdot { fill: var(--ink-2); stroke: #fff; stroke-width: 2; }

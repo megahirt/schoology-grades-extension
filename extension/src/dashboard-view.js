@@ -6,7 +6,7 @@
 //   → verdict card (GO/NO-GO pill when settings.showGoNoGo, reason, numbers)
 //   → Missing (grey ✓ "Mark as turned in") → Due soon (grey ✓ "Mark as done")
 //   → Classes (grade bars with the passing line) → Doing well / Not so good
-//   → Records (personal bests, rewards.js) → Waiting on teacher (with Undo)
+//   → Records (personal bests, rewards.js) → Submitted, not graded yet (with Undo)
 //   → footer. The card also carries this week's ring (parents).
 // Every verdict is recomputed locally with rules.js, so marks show at once.
 //
@@ -277,7 +277,8 @@ export function visibleCourses(courses) {
   return (courses || []).filter((c) => hasGradeData(c));
 }
 
-// Grade histories of the charts currently drawn, for hover: key -> history.
+// Grade histories of the charts currently drawn, for hover:
+// key -> { history, gradeDisplay }.
 const drawnCharts = new Map();
 const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
@@ -371,7 +372,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     let chart = '';
     if (open) {
       const svg = renderGradeChart(history, { threshold: t, name: c.name });
-      if (svg) drawnCharts.set(key, history);
+      if (svg) drawnCharts.set(key, { history, gradeDisplay: settings.gradeDisplay });
       const link = c.url ? `<a class="chart-link" href="${escapeHtml(c.url)}">Open ${escapeHtml(c.name)} in Schoology</a>` : '';
       chart = `<div class="chart-box" data-key="${escapeHtml(key)}">` +
         (svg || '<p class="empty">No graded assignments with dates yet.</p>') +
@@ -421,8 +422,9 @@ function renderDoingWell(items, settings, showGrades) {
   return section('Doing well', rows.join(''), SECTION_EMOJI.doingWell);
 }
 
+// The section title says "Submitted, not graded yet", so Schoology-reported
+// submissions need no note; the family's own marks say which they are.
 const WAITING_HOW = {
-  submitted: 'Submitted, not graded yet',
   turnedIn: 'Marked turned in',
   done: 'Marked done',
 };
@@ -436,7 +438,7 @@ function renderWaiting(summary, uid) {
   const order = { submitted: 0, turnedIn: 1, done: 2 };
   const items = [...summary.waiting].sort((a, b) => order[a.waitingReason] - order[b.waitingReason]);
   const rows = items.map((a) => {
-    const how = WAITING_HOW[a.waitingReason] || 'Waiting on teacher';
+    const how = WAITING_HOW[a.waitingReason] || '';
     const sub = [a.courseName, dueLabel(a), ptsText(a), how].filter(Boolean).map(escapeHtml).join(' · ');
     // Still marked Missing on Schoology (submitted or turned in, not yet graded).
     const missingTag = a.status === 'missing' ? `<span class="missing-tag">${MISSING_IMG}Missing</span>` : '';
@@ -448,7 +450,7 @@ function renderWaiting(summary, uid) {
   });
   const manual = items.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
   const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
-  return section(`Waiting on teacher · ${n}`, rows.join('') + disclaimer, SECTION_EMOJI.waiting);
+  return section(`Submitted, not graded yet · ${n}`, rows.join('') + disclaimer, SECTION_EMOJI.waiting);
 }
 
 // This week's ring: graded (dark blue), then turned in and waiting for a
@@ -1102,7 +1104,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     // Mark changes re-render through storage.onChanged below.
   }
   root.addEventListener('click', onClick);
-  // Desktop hover on a grade chart: the class grade at that moment.
+  // Desktop hover on a grade chart: the nearest assignment's date, title and grade.
   // Desktop hover on this week's ring: what that part of the ring is.
   root.addEventListener('pointerover', (e) => {
     const part = e.target.closest && e.target.closest('.ring-hit');
@@ -1121,8 +1123,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const svg = e.target.closest && e.target.closest('svg.gchart');
     if (!svg || e.pointerType === 'touch') return;
     const box = svg.closest('.chart-box');
-    const history = box && drawnCharts.get(box.dataset.key);
-    if (history) chartHover(svg, history, e.clientX);
+    const drawn = box && drawnCharts.get(box.dataset.key);
+    if (drawn) chartHover(svg, drawn.history, e.clientX, drawn.gradeDisplay);
   });
   root.addEventListener('pointerout', (e) => {
     const svg = e.target.closest && e.target.closest('svg.gchart');

@@ -23,7 +23,11 @@
 //
 // gradeHistory(course, { now }) ->
 //   { start, end, points: [{ t, pct, title, got, max }],
-//     segments: [{ periodId, label, line: [{ t, grade, title, missing }] }] }
+//     segments: [{ periodId, label, line: [{ t, grade, title, missing, got, max }] }],
+//     dividers: [{ t, label }] }
+// Each line point is the class grade right after that assignment; got/max
+// are the assignment's own points (max 0 for extra credit). `dividers` are
+// where each later grading period starts ("Q2"), for the chart.
 // `got`/`max` are the assignment's points (max is null for a bare percent
 // score with no points), so the chart can size each dot by what it's worth.
 // Times are epoch ms. `start` is the first day of the school year (the
@@ -38,6 +42,12 @@ function pctOf(a) {
 
 function periodName(title) {
   return String(title || '').replace(/:.*$/, '').trim() || 'Grade';
+}
+
+// "Quarter 2" -> "Q2"; anything else keeps its name.
+function shortName(label) {
+  const m = String(label).match(/^quarter\s*(\d+)$/i);
+  return m ? `Q${m[1]}` : label;
 }
 
 export function gradeHistory(course, { now = Date.now() } = {}) {
@@ -118,7 +128,7 @@ export function gradeHistory(course, { now = Date.now() } = {}) {
       } else {
         grade = max > 0 ? (got / max) * 100 : null;
       }
-      if (grade !== null) line.push({ t: it.t, grade, title: it.title, missing: Boolean(it.missing) });
+      if (grade !== null) line.push({ t: it.t, grade, title: it.title, missing: Boolean(it.missing), got: it.sc.got, max: it.sc.max });
     }
     if (!line.length) continue;
     const p = byPeriod.get(periodId);
@@ -126,7 +136,15 @@ export function gradeHistory(course, { now = Date.now() } = {}) {
   }
   segments.sort((x, y) => x.line[0].t - y.line[0].t);
 
+  // Where each later grading period starts (its start date, or its first
+  // grade when the date isn't known).
+  const dividers = segments.slice(1).map((seg) => {
+    const p = byPeriod.get(seg.periodId);
+    const t = p && p.start ? Date.parse(p.start) : NaN;
+    return { t: Number.isNaN(t) ? seg.line[0].t : t, label: shortName(seg.label) };
+  });
+
   const firstT = points.length ? points[0].t : now;
   const start = startCandidates.length ? Math.min(...startCandidates, firstT) : firstT;
-  return { start, end: now, points, segments };
+  return { start, end: now, points, segments, dividers };
 }

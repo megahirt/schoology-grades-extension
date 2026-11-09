@@ -304,11 +304,11 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(algebra.locator('svg.gchart .gc-dot')).toHaveCount(2); // the two graded Algebra 2 items
       await expect(algebra.locator('svg.gchart .gc-pass')).toHaveCount(1); // dashed passing line
       await expect(algebra.locator('a.chart-link')).toHaveAttribute('href', `${mockBase}/course/1001/student_grades`);
-      // Desktop hover shows the class grade at that moment.
+      // Desktop hover shows the nearest assignment: date, title and its grade.
       const box = await algebra.locator('svg.gchart .gc-hit').boundingBox();
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
       await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
-      await expect(algebra.locator('svg.gchart .gc-tip')).toContainText('Quarter 2');
+      await expect(algebra.locator('svg.gchart .gc-tip')).toHaveText(/^[A-Z][a-z]{2} \d{1,2} · Factoring Worksheet · 70%$/);
       await algebra.locator('.class-row .bar').click(); // anywhere on the row toggles too
       await expect(algebra.locator('svg.gchart')).toHaveCount(0);
       // Assignment titles link to Schoology.
@@ -322,20 +322,21 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(lit.locator('.bar-fill')).toHaveAttribute('style', /width:\s*82%/); // bar follows the semester grade
       // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).
       const journal = popup.locator('.waiting', { hasText: 'Poetry Journal' });
-      await expect(journal).toContainText('Submitted, not graded yet');
+      await expect(journal).toBeVisible();
+      await expect(journal.locator('.sub')).not.toContainText('Submitted'); // the section title says it
       await expect(journal.getByRole('button', { name: /Undo/ })).toHaveCount(0);
       await expect(journal.locator('.missing-tag')).toHaveCount(0); // submitted, but not marked Missing
 
-      // "Turned in" moves the Missing item to Waiting on teacher; Undo moves it back.
+      // "Turned in" moves the Missing item to Submitted, not graded yet; Undo moves it back.
       await popup.getByRole('button', { name: /as turned in$/ }).click();
       // With nothing left, the Missing section disappears entirely.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' })).toHaveCount(0);
-      await expect(popup.getByText('Waiting on teacher · 2')).toBeVisible();
+      await expect(popup.getByText('Submitted, not graded yet · 2')).toBeVisible();
       await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toContainText('Marked turned in');
       await expect(popup.getByText('Marking something done or turned in is for your own use — nobody is notified.')).toBeVisible();
       await popup.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
-      await expect(popup.getByText('Waiting on teacher · 1')).toBeVisible();
+      await expect(popup.getByText('Submitted, not graded yet · 1')).toBeVisible();
       await expect(popup.getByText(/nobody is notified/)).toHaveCount(0);
       // Each section heading carries its emoji.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('img.missing-icon')).toBeVisible(); // Schoology's icon
@@ -613,7 +614,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.chart-link'))
         .toHaveAttribute('href', /\/course\/\d+\/preview\/2000001\/parent\?url=course\/\d+\/student_grades$/);
       const samEssay = popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' });
-      await expect(samEssay).toContainText('Submitted, not graded yet');
+      await expect(samEssay).toBeVisible();
       // Still marked Missing on Schoology: Schoology's Missing icon + "Missing".
       await expect(samEssay.locator('.missing-tag')).toHaveText('Missing');
       await expect(samEssay.locator('.missing-tag img.missing-icon')).toBeVisible();
