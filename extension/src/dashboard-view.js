@@ -525,13 +525,8 @@ function renderRecords(records, showGrades, now) {
   }
   if (ec && showGrades) {
     const i = ec.info || {};
-    const detail = [
-      `${i.classes} ${i.classes === 1 ? 'class' : 'classes'}`,
-      `${i.items} ${i.items === 1 ? 'assignment' : 'assignments'}`,
-      ec.value > 0 && i.points ? `plus ${i.points} bonus ${i.points === 1 ? 'point' : 'points'}` : '',
-    ].filter(Boolean).join(' · ');
-    const value = ec.value > 0 ? `+${Math.round(ec.value)}%` : `+${i.points} ${i.points === 1 ? 'pt' : 'pts'}`;
-    add('🚀', 'Extra credit this year', detail, value, ec);
+    const detail = `${i.classes} ${i.classes === 1 ? 'class' : 'classes'} · ${i.items} ${i.items === 1 ? 'assignment' : 'assignments'}`;
+    add('🚀', 'Extra credit this year', detail, `+${ec.value} ${ec.value === 1 ? 'pt' : 'pts'}`, ec);
   }
   if (cg && showGrades) add('📈', 'Highest class grade', [cg.info.course, cg.info.period].filter(Boolean).join(' · '), pctText(cg.value), cg);
   if (!rows.length) return '';
