@@ -55,7 +55,6 @@
 .sgd .card-head { display: flex; align-items: center; gap: 12px; }
 .sgd .card-name { font-size: 15px; font-weight: 600; }
 .sgd .card-reason { font-size: 12px; color: #4b5563; margin-top: 2px; }
-.sgd .card-body { font-size: 13px; color: #4b5563; line-height: 1.45; margin-top: -6px; }
 .sgd .pill { flex: 0 0 auto; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: #fff; }
 .sgd .pill.go { background: var(--go); } .sgd .pill.nogo { background: var(--nogo); } .sgd .pill.unknown { background: var(--unknown); color: #3d2c00; }
 /* Compact one-line metrics: "2 Missing", "1 Due soon". */

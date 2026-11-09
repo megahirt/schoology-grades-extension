@@ -102,3 +102,31 @@ describe('extra credit', () => {
     expect(html).toContain('1 class · 1 assignment');
   });
 });
+
+
+describe('the student view looks like the parent view', () => {
+  const render = (isParentView) => renderStudentBody(
+    { studentName: 'Sam Rivera', courses },
+    'u1',
+    { ...DEFAULT_SETTINGS, showGoNoGo: true },
+    { turnedIn: [], done: [] },
+    { isParentView },
+  ).html;
+  it('same card: picture, name, Missing and Due soon chips, this week\'s ring', () => {
+    const student = render(false);
+    expect(student).toContain('<div class="card-name">Sam Rivera</div>');
+    expect(student).toMatch(/class="avatar"/);
+    expect(student).toMatch(/<span class="stat-l">Missing<\/span>/);
+    expect(student).toMatch(/<span class="stat-l">Due soon<\/span>/);
+    expect(student).toContain('class="week"');
+  });
+  it('without the parent-only parts: no GO/NO-GO and no message-the-teacher button', () => {
+    const student = render(false);
+    const parent = render(true);
+    expect(parent).toContain('aria-label="NO-GO"');
+    expect(student).not.toContain('NO-GO');
+    expect(student).toContain('card plain');
+    expect(parent).toContain('data-act="email-teacher"');
+    expect(student).not.toContain('data-act="email-teacher"');
+  });
+});

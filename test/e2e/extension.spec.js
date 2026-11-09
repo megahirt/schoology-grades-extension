@@ -281,10 +281,12 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // low grades (one Missing alone would be GO). The student's name comes
       // from the home page (data-user-name).
       await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
-      // GO/NO-GO is for parents only: a student sees what to finish first.
+      // The same card as parents get (name, Missing chip; the week's ring
+      // depends on today's date, so the unit test checks it), without the
+      // GO/NO-GO verdict, which is for parents only.
       const card = popup.locator('.card');
-      await expect(card.getByText('2 things to finish first')).toBeVisible();
-      await expect(card).toContainText('bring Algebra 2 up past 75% this quarter');
+      await expect(card.locator('.card-name')).toHaveText('Alex Student');
+      await expect(card.locator('.stat', { hasText: 'Missing' })).toHaveText(/^1\s*Missing$/);
       await expect(popup.getByText('NO-GO', { exact: true })).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.locator('.missing-card', { hasText: 'Persuasive Essay Draft' })).toBeVisible();
@@ -385,7 +387,10 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const popup = await openPopup(context, extensionId);
       await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
       await expect(popup.locator('.class', { hasText: 'Advisory 11' })).toHaveCount(0);
-      await expect(popup.locator('.card')).toContainText('bring Algebra 2 up past 75%');
+      // Passing line at the default 75%: Algebra 2 (68%) is below it,
+      // American Literature (82%) is not.
+      await expect(popup.locator('.class', { hasText: 'Algebra 2' }).locator('.bar-fill')).toHaveClass(/low/);
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.bar-fill')).not.toHaveClass(/low/);
 
       // A saved passing grade (from a parent) doesn't apply to a student: the
       // default 75% stands. A Display choice still saves automatically.
@@ -393,8 +398,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
         const { settings } = await chrome.storage.local.get('settings');
         await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 85 } });
       });
-      await expect(popup.locator('.card')).toContainText('bring Algebra 2 up past 75%');
-      await expect(popup.locator('.card')).not.toContainText('85%');
+      await popup.waitForTimeout(500);
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.bar-fill')).not.toHaveClass(/low/);
       // The slider: End jumps to the top of its range (90%).
       await opts.locator('#doing-well-percent').focus();
       await opts.keyboard.press('End');
@@ -430,7 +435,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const tab = page.locator('#sgd-panel-host button.edge-tab');
       await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
       await expect(panel.getByText('Missing · 1')).toBeVisible();
-      await expect(panel.locator('.card')).toContainText('things to finish first');
+      await expect(panel.locator('.card .card-name')).toHaveText('Alex Student');
       // The panel hides the demo button (demo data is a popup feature).
       await expect(panel.getByRole('button', { name: /demo/i })).toBeHidden();
       // The page's own grades table is untouched and still on the page.
