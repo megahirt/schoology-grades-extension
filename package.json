@@ -23,7 +23,8 @@
     "screenshots": "node test/screenshots/capture.mjs",
     "chromium": "node scripts/open-chromium.mjs",
     "build:firefox": "node scripts/build.mjs --dev --firefox",
-    "site:screenshots": "node scripts/site-screenshots.mjs"
+    "site:screenshots": "node scripts/site-screenshots.mjs",
+    "school-hosts": "node scripts/find-schoology-hosts.mjs"
   },
   "type": "module",
   "version": "0.1.0"

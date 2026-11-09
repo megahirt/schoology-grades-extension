@@ -11,8 +11,15 @@
 
 import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
-import { REAL_SCHOOLOGY, siteForPage, isSchoologySite } from './src/sites.js';
+import {
+  REAL_SCHOOLOGY,
+  siteForPage,
+  isSchoologySite,
+  addedSchoolHosts,
+  originPattern,
+} from './src/sites.js';
 import { parseGradesHtml } from './src/parser.js';
+import { syncSchoolScripts } from './src/school-access.js';
 import { summarizeStudent, DEFAULT_SETTINGS, effectiveSettings, isStudentAccount } from './src/rules.js';
 import { coursePagePath, findComposeHref, findCourseAdmins, findParentName, likelyTeacher } from './src/teacher-email.js';
 import {
@@ -202,13 +209,13 @@ function startRefresh(reason, site) {
 async function maybeAutoRefresh(pageUrl) {
   const stored = (await getSettings()) || {};
   const base = await siteOf(null);
-  const where = siteForPage(pageUrl, base);
+  const where = siteForPage(pageUrl, base, await addedHosts());
   if (where === 'ignore') return { started: false, reason: 'other site' };
   const site = new URL(pageUrl).origin;
   if (running.has(site)) return { started: false, reason: 'already running' };
   // The last-used site follows real Schoology pages (a dev build pointed at
   // the mock server stays there).
-  if (where === 'other' && isSchoologySite(base)) await setSettings({ ...stored, schoologyBase: site });
+  if (where === 'other' && isSchoologySite(base, await addedHosts())) await setSettings({ ...stored, schoologyBase: site });
   const dashboards = (await getDashboards(site)) || {};
   let newest = 0;
   for (const d of Object.values(dashboards)) {
@@ -303,10 +310,58 @@ async function handleGradesScraped(message, sender) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// SCHOOLS' OWN ADDRESSES (see src/sites.js). The manifest covers
+// *.schoology.com and SCHOOL_HOSTS. For any other school, the family allows
+// that one address (popup or Settings: permissions.request, an optional host
+// permission). The granted permissions are the record: this keeps a content
+// script registered for exactly those addresses, however access was given or
+// taken away (our UI, or the browser's own site-access settings).
+// ---------------------------------------------------------------------------
+
+// The school addresses the family allowed (host names).
+async function addedHosts() {
+  try {
+    return addedSchoolHosts(((await browser.permissions.getAll()) || {}).origins || []);
+  } catch {
+    return [];
+  }
+}
+
+// Whether the extension may read a site now (the family can remove a school
+// address, or, on Chrome, limit any site to "on click").
+async function hasSiteAccess(site) {
+  try {
+    return await browser.permissions.contains({ origins: [originPattern(new URL(site).origin)] });
+  } catch {
+    return true; // no permissions API to ask: let the fetch decide
+  }
+}
+
+// A school address was just allowed: register the content script, then
+// reload its open tabs so the dashboard appears there right away.
+browser.permissions.onAdded.addListener(async () => {
+  try {
+    const added = await syncSchoolScripts(browser);
+    for (const host of added) {
+      for (const tab of await browser.tabs.query({ url: originPattern(`https://${host}`) })) {
+        browser.tabs.reload(tab.id).catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.warn('Schoology Dashboard: could not set up the school address:', e);
+  }
+});
+
+browser.permissions.onRemoved.addListener(() => {
+  syncSchoolScripts(browser).catch((e) => console.warn('Schoology Dashboard: could not remove the school address:', e));
+});
+
 // --- Top-level listeners only ------------------------------------------------
 
 browser.runtime.onInstalled.addListener(async () => {
   await browser.alarms.create(ALARM_NAME, { periodInMinutes: REFRESH_PERIOD_MINUTES });
+  await syncSchoolScripts(browser).catch(() => {});
   // Save the stored settings with any new defaults filled in (never the
   // effective, per-account values: those are worked out on each read).
   await setSettings({ ...DEFAULT_SETTINGS, schoologyBase: REAL_SCHOOLOGY, ...((await getSettings()) || {}) });
@@ -314,6 +369,7 @@ browser.runtime.onInstalled.addListener(async () => {
 
 browser.runtime.onStartup.addListener(async () => {
   await browser.alarms.create(ALARM_NAME, { periodInMinutes: REFRESH_PERIOD_MINUTES });
+  await syncSchoolScripts(browser).catch(() => {});
 });
 
 browser.alarms.onAlarm.addListener(async (alarm) => {
@@ -324,6 +380,8 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
     // someone using that site right now; the next alarm catches up.
     const sites = (await getSites()) || [];
     for (const site of sites.length ? sites : [await siteOf(null)]) {
+      // A school address the family has since removed: leave it alone.
+      if (!(await hasSiteAccess(site))) continue;
       const account = await getAccount(site);
       if (account && account.type === 'parent') {
         const active = await browser.tabs.query({ active: true, url: `${site}/*` });

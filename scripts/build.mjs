@@ -9,6 +9,11 @@
 //           with --dev for the e2e tests). Firefox runs MV3 backgrounds as
 //           event pages (background.scripts, not a service worker) and needs
 //           an add-on id.
+//   --safari : writes the Safari input to dist-safari/ (scripts/build-safari.mjs
+//           runs this). Safari gets no optional "https://*/*" host
+//           permission: with it, Safari badges and prompts on every site
+//           (WebKit bug 290508), so Safari covers only the manifest's
+//           sites until that is fixed (docs/schoology-domains-research.md).
 import { build } from 'esbuild';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -19,7 +24,8 @@ const root = path.resolve(__dirname, '..');
 const extDir = path.join(root, 'extension');
 const isDev = process.argv.includes('--dev');
 const isFirefox = process.argv.includes('--firefox');
-const distDir = path.join(root, isFirefox ? 'dist-firefox' : 'dist');
+const isSafari = process.argv.includes('--safari');
+const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : 'dist');
 const FIREFOX_ID = 'schoology-dashboard@schoologydashboard';
 
 async function main() {
@@ -72,6 +78,7 @@ async function main() {
     manifest.host_permissions = noPort(manifest.host_permissions);
     for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);
   }
+  if (isSafari) delete manifest.optional_host_permissions;
   await writeFile(path.join(distDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
   // Static assets.
@@ -81,7 +88,7 @@ async function main() {
   await cp(path.join(extDir, 'options', 'options.css'), path.join(distDir, 'options', 'options.css'));
   await cp(path.join(extDir, 'icons'), path.join(distDir, 'icons'), { recursive: true });
 
-  console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''} extension -> ${distDir}`);
+  console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''}${isSafari ? ' Safari' : ''} extension -> ${distDir}`);
   if (isDev) console.log('Dev build includes http://localhost:*/* host permission.');
 }
 

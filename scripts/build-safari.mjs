@@ -11,9 +11,10 @@
  * no sidePanel / offscreen / declarativeNetRequest in the critical path).
  *
  * What this script does:
- *   1. Makes sure the shared extension is built (runs scripts/build.mjs
- *      if dist/ is missing and that script exists; otherwise falls back
- *      to the extension/ source folder and says so).
+ *   1. Builds the shared extension for Safari into dist-safari/
+ *      (scripts/build.mjs --safari: no optional all-sites permission, see
+ *      WebKit bug 290508 in docs/schoology-domains-research.md); falls back
+ *      to the extension/ source folder if that script is missing.
  *   2. Converts it to an Xcode project with Apple's packager:
  *        xcrun safari-web-extension-packager   (new name, WWDC26 — try first)
  *        xcrun safari-web-extension-converter  (older Xcode name — fallback)
@@ -147,28 +148,26 @@ function ensureSafariReadme() {
 }
 
 // --- 1. Make sure the shared extension is built ---------------------------
-const distDir = path.join(repoRoot, 'dist');
+const distDir = path.join(repoRoot, 'dist-safari');
 const buildScript = path.join(repoRoot, 'scripts', 'build.mjs');
 let inputDir = distDir;
 
-if (!existsSync(distDir)) {
+{
   if (existsSync(buildScript)) {
-    console.log('dist/ missing — running the main build first…');
-    const result = run('node', [buildScript, ...(dev ? ['--dev'] : [])]);
+    console.log('Building the extension for Safari (dist-safari/)…');
+    const result = run('node', [buildScript, '--safari', ...(dev ? ['--dev'] : [])]);
     if (result.status !== 0) {
       console.error('ERROR: the main build (scripts/build.mjs) failed.');
       process.exit(result.status ?? 1);
     }
   } else {
     console.log(
-      'WARNING: dist/ is missing and scripts/build.mjs is not present yet ' +
+      'WARNING: scripts/build.mjs is not present yet ' +
         '(it is built by another workstream). Using extension/ source as the ' +
         'converter input instead — re-run this script once the main build lands.'
     );
     inputDir = path.join(repoRoot, 'extension');
   }
-} else {
-  console.log(`Using built extension from ${distDir}`);
 }
 
 // --- 2. Convert (or generate the converter script) ------------------------

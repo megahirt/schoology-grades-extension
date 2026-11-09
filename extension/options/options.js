@@ -8,6 +8,8 @@ import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
 import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, setSite, siteKey } from '../src/storage.js';
 import { loadDemo, initials, feedbackHref, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
 import npcLogo from '../icons/npc_icon_tiny.png';
+import { KNOWN_SCHOOL_HOSTS, isKnownSchoolHost, isSchoologySite, schoolOrigin } from '../src/sites.js';
+import { addedSchools, canAddSchools, removeSchool, requestSchool } from '../src/school-access.js';
 
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
 const $ = (id) => document.getElementById(id);
@@ -185,6 +187,88 @@ function setupDev() {
   });
 }
 
+// --- School address -------------------------------------------------------------
+// A school's own Schoology address (src/school-access.js): the browser asks
+// the family for that one site; background.js sets it up.
+
+async function renderSchools() {
+  const hosts = await addedSchools(browser);
+  const list = $('school-added');
+  list.textContent = '';
+  for (const host of hosts) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const name = document.createElement('div');
+    name.className = 'grow host';
+    name.textContent = host;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn';
+    remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', `Remove ${host}`);
+    remove.addEventListener('click', async () => {
+      try {
+        await removeSchool(browser, host);
+        $('school-status').textContent = `Removed ${host}.`;
+      } catch (e) {
+        $('school-status').textContent = `Couldn't remove ${host}: ${e && e.message ? e.message : e}`;
+      }
+      renderSchools();
+    });
+    row.append(name, remove);
+    list.append(row);
+  }
+}
+
+function setupSchools() {
+  if (!canAddSchools(browser)) {
+    $('school-form').hidden = true;
+    $('school-unsupported').hidden = false;
+    return;
+  }
+  const options = document.createDocumentFragment();
+  for (const host of KNOWN_SCHOOL_HOSTS) {
+    const o = document.createElement('option');
+    o.value = host;
+    options.append(o);
+  }
+  $('school-list').append(options);
+  $('school-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const status = $('school-status');
+    const origin = schoolOrigin($('school-input').value);
+    if (!origin) {
+      status.textContent = 'That doesn\'t look like a web address. Try something like schoology.yourschool.org.';
+      return;
+    }
+    const host = new URL(origin).hostname;
+    if (isSchoologySite(origin)) {
+      status.textContent = `Schoology Dashboard already works on ${host}.`;
+      return;
+    }
+    // Ask first, inside the submit: the prompt needs the user's gesture.
+    const asking = requestSchool(browser, origin);
+    status.textContent = `Asking your browser for ${host}…`;
+    asking.then(async (ok) => {
+      if (!ok) {
+        status.textContent = `Not added: ${host} wasn't allowed.`;
+        return;
+      }
+      $('school-input').value = '';
+      status.textContent = isKnownSchoolHost(host)
+        ? `Added ${host}. Open it and sign in to see your dashboard there.`
+        : `Added ${host}. It isn't on our list of schools' Schoology addresses, so the dashboard only appears if it really is Schoology.`;
+      renderSchools();
+    }, (err) => {
+      status.textContent = `Couldn't ask for ${host}: ${err && err.message ? err.message : err}`;
+    });
+  });
+  renderSchools();
+  // Access can also change in the browser's own site settings.
+  if (browser.permissions.onAdded) browser.permissions.onAdded.addListener(() => renderSchools());
+  if (browser.permissions.onRemoved) browser.permissions.onRemoved.addListener(() => renderSchools());
+}
+
 // --- Menu highlight ---------------------------------------------------------------
 
 function setupMenu() {
@@ -213,6 +297,7 @@ async function init() {
   $('feedback-link').href = feedbackHref(browser);
   $('version').textContent = `Homework Dashboard ${browser.runtime.getManifest().version}`;
   setupDev();
+  setupSchools();
   setupMenu();
   await renderAccount();
   requestAnimationFrame(() => document.body.classList.add('ready'));
