@@ -163,9 +163,6 @@ function byPointsDesc(list, get = (x) => x) {
   return list.map((x, i) => ({ x, i })).sort((p, q) => val(q.x) - val(p.x) || p.i - q.i).map(({ x }) => x);
 }
 
-function plural(n, one, many) {
-  return `${n} ${n === 1 ? one : many}`;
-}
 
 function mostCommon(values) {
   const counts = new Map();
@@ -205,18 +202,6 @@ export function quarterDatesLine(courses) {
 
 function pctText(n) {
   return typeof n === 'number' ? `${Math.round(n * 10) / 10}%` : '—';
-}
-
-// The student view's "what to do first" line.
-function studentNote(summary, settings, period = null) {
-  const todo = [];
-  if (summary.missingCount === 1) todo.push(`turn in ${summary.missingItems[0].title}`);
-  else if (summary.missingCount > 1) todo.push(`turn in ${summary.missingCount} missing assignments`);
-  for (const c of summary.lowClasses.slice(0, 2)) todo.push(`bring ${c.name} up past ${settings.gradeThreshold}%${period && /^quarter/i.test(period) ? ' this quarter' : ''}`);
-  if (!todo.length) return null;
-  const n = summary.missingCount + summary.lowClasses.length;
-  const text = todo.join(' and ');
-  return { title: `${plural(n, 'thing', 'things')} to finish first`, body: text.charAt(0).toUpperCase() + text.slice(1) + '.' };
 }
 
 // Section headings carry an emoji; sections with no items are left out.
@@ -591,16 +576,19 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
   if (failed) {
     html += `<div class="card unknown"><div class="card-head">${avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${isParentView ? verdictPill('UNKNOWN') : ''}</div></div>`;
-  } else if (isParentView) {
-    // GO/NO-GO is for parents only; students get the "finish first" note.
+  } else {
+    // The same card for parents and students: picture, name, the Missing and
+    // Due soon chips and this week's ring. Only the GO/NO-GO verdict is for
+    // parents (when the badge is on).
+    const verdictsOn = isParentView && settings.showGoNoGo;
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
     const good = verdict === 'GO';
     // Only a NO-GO earns a badge (GO is the quiet default). UNKNOWN keeps its
     // badge too, since its line underneath explains why there's no verdict.
     // NO-GO replaces the child's picture with the NO-GO circle (no separate
     // badge). UNKNOWN keeps a badge, explained by the line under the name.
-    const showNoGo = settings.showGoNoGo && verdict === 'NO-GO';
-    const pill = settings.showGoNoGo && verdict === 'UNKNOWN' ? verdictPill(verdict) : '';
+    const showNoGo = verdictsOn && verdict === 'NO-GO';
+    const pill = verdictsOn && verdict === 'UNKNOWN' ? verdictPill(verdict) : '';
     // Compact metrics, only when non-zero: Missing and Due soon. (Classes
     // below the passing grade show in the Classes section, in red.)
     const stats = [];
@@ -609,10 +597,10 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     }
     const dueCount = summary.dueToday.length + summary.dueTomorrow.length;
     if (dueCount > 0) stats.push({ value: String(dueCount), icon: '<span class="stat-hg">⌛</span>', label: 'Due soon', bad: false });
-    const cardTone = !settings.showGoNoGo ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
+    const cardTone = !verdictsOn ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
-    const reason = partial ? '<div class="card-reason">Only part of the grades loaded, so no verdict yet. Press Refresh.</div>' : '';
+    const reason = partial ? `<div class="card-reason">Only part of the grades loaded${verdictsOn ? ', so no verdict yet' : ''}. Press Refresh.</div>` : '';
     const ring = partial ? '' : weekRing(weekProgress(courses, marks, now));
     html += `<div class="card ${cardTone}${ring ? ' with-ring' : ''}"><div class="card-main">` +
       `<div class="card-head">${showNoGo ? noGoCircle() : avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
@@ -622,11 +610,6 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
           (st.icon ? `<span class="stat-icon" aria-hidden="true">${st.icon}</span>` : '') +
           `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
         : '') + `</div>${ring}</div>`;
-  } else {
-    const note = studentNote(summary, settings, gradeColumns(visibleCourses(courses)).quarter);
-    html += note
-      ? `<div class="card nogo"><div class="card-name">${escapeHtml(note.title)}</div><div class="card-body">${escapeHtml(note.body)}</div></div>`
-      : '<div class="card go"><div class="card-name">All caught up</div><div class="card-body">Nothing missing and every class is passing.</div></div>';
   }
 
   if (Array.isArray(d.parseWarnings) && d.parseWarnings.length) {
@@ -857,9 +840,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const heading = isParentView || !current
       ? '<h1 class="title">Homework Dashboard</h1>'
       : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
-    const headAvatar = !isParentView && current ? avatarHtml(current) : '';
 
-    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row">${headAvatar}<div class="grow">${heading}` +
+    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row"><div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
