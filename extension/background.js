@@ -3,10 +3,15 @@
 // browser.storage.local is the source of truth (the worker terminates
 // after ~30s idle). Delegates fetching to schoology.js and parsing to
 // parser.js. Uses browser.* (webextension-polyfill) Promise APIs everywhere.
+//
+// PER SITE (see storage.js): every account's data is stored per Schoology
+// site, and every function here that reads or writes it takes the site
+// (an origin such as "https://app.schoology.com") explicitly. A request
+// that names no site is about the last one used (settings.schoologyBase).
 
 import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
-import { REAL_SCHOOLOGY, SCHOOLOGY_MATCHES, siteForPage } from './src/sites.js';
+import { REAL_SCHOOLOGY, siteForPage, isSchoologySite } from './src/sites.js';
 import { parseGradesHtml } from './src/parser.js';
 import { summarizeStudent, DEFAULT_SETTINGS, effectiveSettings, isStudentAccount } from './src/rules.js';
 import { coursePagePath, findComposeHref, findCourseAdmins, findParentName, likelyTeacher } from './src/teacher-email.js';
@@ -22,34 +27,53 @@ import {
   getMarkedDone,
   storageGet,
   storageSet,
+  getSites,
 } from './src/storage.js';
 
 const ALARM_NAME = 'refresh-grades';
 const REFRESH_PERIOD_MINUTES = 60;
 
-async function loadSettings() {
+// The site a request is about: the one named, or the last one used.
+async function siteOf(site) {
+  try {
+    if (site) return new URL(site).origin;
+  } catch {
+    // fall through to the last one used
+  }
   const stored = (await getSettings()) || {};
-  const settings = effectiveSettings(stored, { isStudent: isStudentAccount(await getAccount(), await getDashboards()) });
-  return { schoologyBase: REAL_SCHOOLOGY, ...settings };
+  try {
+    return new URL(stored.schoologyBase || REAL_SCHOOLOGY).origin;
+  } catch {
+    return REAL_SCHOOLOGY;
+  }
 }
 
-async function writeDashboard(uid, dashboard) {
-  const dashboards = (await getDashboards()) || {};
+// The family's settings as they apply to that site's account, with
+// schoologyBase set to the site.
+async function loadSettings(site) {
+  const stored = (await getSettings()) || {};
+  const settings = effectiveSettings(stored, { isStudent: isStudentAccount(await getAccount(site), await getDashboards(site)) });
+  return { ...settings, schoologyBase: site };
+}
+
+async function writeDashboard(uid, dashboard, site) {
+  const dashboards = (await getDashboards(site)) || {};
   dashboards[uid] = { ...dashboard, updatedAt: new Date().toISOString() };
-  await setDashboards(dashboards);
+  await setDashboards(dashboards, site);
   return dashboards;
 }
 
-// Full refresh: detect account, fetch dashboards, parse, summarize, store.
-// progress({ done, total, label }) reports steps for the UI (see startRefresh).
-async function refreshGrades(progress = () => {}) {
-  const settings = await loadSettings();
+// Full refresh of one site: detect account, fetch dashboards, parse,
+// summarize, store. progress({ done, total, label }) reports steps for the
+// UI (see startRefresh).
+async function refreshGrades(site, progress = () => {}) {
+  const settings = await loadSettings(site);
   progress({ done: 0, total: 1, label: 'Checking your Schoology account' });
-  const turnedIn = (await getTurnedIn()) || {};
-  const markedDone = (await getMarkedDone()) || {};
-  const client = createClient({ baseUrl: settings.schoologyBase });
+  const turnedIn = (await getTurnedIn(site)) || {};
+  const markedDone = (await getMarkedDone(site)) || {};
+  const client = createClient({ baseUrl: site });
   const account = await client.detectAccount();
-  await setAccount({ ...account, detectedAt: new Date().toISOString() });
+  await setAccount({ ...account, detectedAt: new Date().toISOString() }, site);
 
   if (account.type === 'parent') {
     const dashboards = await client.fetchParentDashboards({
@@ -67,7 +91,7 @@ async function refreshGrades(progress = () => {}) {
       }
       byUid[d.studentUid] = { ...d, summary, updatedAt: new Date().toISOString() };
     }
-    if (Object.keys(byUid).length > 0) await setDashboards(byUid);
+    if (Object.keys(byUid).length > 0) await setDashboards(byUid, site);
     return { ok: true, accountType: 'parent', students: Object.keys(byUid) };
   }
 
@@ -84,7 +108,7 @@ async function refreshGrades(progress = () => {}) {
     const uid = account.children?.[0]?.uid || 'self';
     const name = result.studentName || account.studentName || 'Student';
     // A student account has one dashboard: replace what's stored, so a
-    // parent's children from an earlier sign-in don't linger next to it.
+    // parent's children from an earlier sign-in on this site don't linger.
     await setDashboards({ [uid]: {
       updatedAt: new Date().toISOString(),
       studentUid: uid,
@@ -95,7 +119,7 @@ async function refreshGrades(progress = () => {}) {
       source: result.source,
       parseWarnings: result.parseWarnings || [],
       error: result.error || null,
-    } });
+    } }, site);
     return { ok: true, accountType: 'student', students: [uid] };
   }
 
@@ -104,41 +128,42 @@ async function refreshGrades(progress = () => {}) {
 }
 
 // ---------------------------------------------------------------------------
-// ONE REFRESH AT A TIME, WITH PROGRESS
+// ONE REFRESH AT A TIME PER SITE, WITH PROGRESS
 // Every refresh (Refresh button, Schoology page load, alarm) goes through
-// startRefresh. A second request while one is running joins it instead of
-// starting another. Progress lives in storage under `refreshState`
+// startRefresh. A second request for the same site while one is running
+// joins it instead of starting another. Progress lives in that site's
+// `refreshState`
 //   { running, startedAt, done, total, label, finishedAt?, ok?, error? }
 // so every open popup and panel shows the same banner and progress bar.
 // ---------------------------------------------------------------------------
-let currentRefresh = null;
+const running = new Map(); // site -> refresh promise
 const REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 // Auto-refresh on a Schoology page load only when the data is older than this.
 // Each click in Schoology loads a new page, and a parent refresh briefly
 // switches Schoology's "viewing as" child, so it must not run on every click.
 const AUTO_REFRESH_MIN_AGE_MS = 5 * 60 * 1000;
 
-async function setRefreshState(state) {
-  await browser.storage.local.set({ refreshState: state });
+async function setRefreshState(state, site) {
+  await storageSet('refreshState', state, site);
 }
 
-function startRefresh(reason = 'manual') {
-  if (currentRefresh) return currentRefresh;
+function startRefresh(reason, site) {
+  if (running.has(site)) return running.get(site);
   const startedAt = new Date().toISOString();
   let last = { done: 0, total: 1, label: 'Starting' };
   const progress = (p) => {
     last = { done: Math.min(p.done, p.total), total: Math.max(1, p.total), label: p.label || last.label };
-    setRefreshState({ running: true, reason, startedAt, ...last }).catch(() => {});
+    setRefreshState({ running: true, reason, startedAt, ...last }, site).catch(() => {});
   };
-  currentRefresh = (async () => {
-    await setRefreshState({ running: true, reason, startedAt, ...last });
+  const refresh = (async () => {
+    await setRefreshState({ running: true, reason, startedAt, ...last }, site);
     let result;
     let timer;
     try {
       // A refresh that never settles (a Schoology request that hangs) must not
       // block every later refresh: give up after REFRESH_TIMEOUT_MS.
       result = await Promise.race([
-        refreshGrades(progress),
+        refreshGrades(site, progress),
         new Promise((resolve) => {
           timer = setTimeout(() => resolve({ ok: false, error: 'Schoology took too long to answer' }), REFRESH_TIMEOUT_MS);
         }),
@@ -158,52 +183,40 @@ function startRefresh(reason = 'manual') {
       label: result && result.ok ? 'Done' : 'Failed',
       ok: Boolean(result && result.ok),
       error: result && !result.ok ? result.error || 'unknown error' : null,
-    });
+    }, site);
     return result;
   })().finally(() => {
-    currentRefresh = null;
+    running.delete(site);
   });
-  return currentRefresh;
+  running.set(site, refresh);
+  return refresh;
 }
 
-// A Schoology page finished loading in a tab (content script). Refresh when
-// the stored data is missing or older than AUTO_REFRESH_MIN_AGE_MS, and only
-// for the Schoology site the extension is pointed at (real vs mock).
+// A Schoology page finished loading in a tab (content script). Refresh that
+// page's site when its data is missing or older than AUTO_REFRESH_MIN_AGE_MS.
+// Each site keeps its own account and data, so a parent on
+// app.schoology.com and a student on the school's own address can use the
+// same browser. Pages on another listed Schoology site also become the
+// "last used" site (what the popup shows on a non-Schoology tab), unless a
+// dev build is pointed at the mock server.
 async function maybeAutoRefresh(pageUrl) {
-  if (currentRefresh) return { started: false, reason: 'already running' };
-  const settings = await loadSettings();
-  const where = siteForPage(pageUrl, settings.schoologyBase);
+  const stored = (await getSettings()) || {};
+  const base = await siteOf(null);
+  const where = siteForPage(pageUrl, base);
   if (where === 'ignore') return { started: false, reason: 'other site' };
-  // Signed in on another Schoology site (e.g. the school's own address
-  // instead of app.schoology.com): follow it and refresh from there now.
-  // A parent account stays put unless that site is a parent account too: a
-  // child signed in on the school's address in the same browser shouldn't
-  // turn the parent's dashboard into the child's.
-  let moved = false;
-  if (where === 'other') {
-    const origin = new URL(pageUrl).origin;
-    const current = await getAccount();
-    if (current && current.type === 'parent') {
-      let there = null;
-      try {
-        there = await createClient({ baseUrl: origin }).detectAccount();
-      } catch {
-        there = null;
-      }
-      if (!there || there.type !== 'parent') return { started: false, reason: 'parent account stays' };
-    }
-    const stored = (await getSettings()) || {};
-    await setSettings({ ...stored, schoologyBase: origin });
-    moved = true;
-  }
-  const dashboards = (await getDashboards()) || {};
+  const site = new URL(pageUrl).origin;
+  if (running.has(site)) return { started: false, reason: 'already running' };
+  // The last-used site follows real Schoology pages (a dev build pointed at
+  // the mock server stays there).
+  if (where === 'other' && isSchoologySite(base)) await setSettings({ ...stored, schoologyBase: site });
+  const dashboards = (await getDashboards(site)) || {};
   let newest = 0;
   for (const d of Object.values(dashboards)) {
     const t = Date.parse(d.updatedAt || '');
     if (t > newest) newest = t;
   }
-  if (!moved && newest && Date.now() - newest < AUTO_REFRESH_MIN_AGE_MS) return { started: false, reason: 'fresh' };
-  startRefresh('page-load');
+  if (newest && Date.now() - newest < AUTO_REFRESH_MIN_AGE_MS) return { started: false, reason: 'fresh' };
+  startRefresh('page-load', site);
   return { started: true };
 }
 
@@ -256,20 +269,21 @@ function refreshViaHiddenTab(url, timeoutMs = 30000) {
 async function handleGradesScraped(message, sender) {
   const tabId = sender && sender.tab ? sender.tab.id : null;
   const courses = Array.isArray(message.courses) ? message.courses : [];
+  const site = await siteOf(message.url || (sender && sender.tab && sender.tab.url));
   // A parent browsing a child's Grades page must not create a bogus
   // "Student" dashboard: only store page scrapes for student accounts or
   // for a hidden-tab fallback scrape this worker asked for.
-  const account = await getAccount();
+  const account = await getAccount(site);
   const expected = pendingScrape && (tabId === null || pendingScrape.tabId === tabId);
   if (!expected && account && account.type === 'parent') return { ok: true, ignored: 'parent-account' };
-  const settings = await loadSettings();
-  const turnedIn = (await getTurnedIn()) || {};
-  const markedDone = (await getMarkedDone()) || {};
+  const settings = await loadSettings(site);
+  const turnedIn = (await getTurnedIn(site)) || {};
+  const markedDone = (await getMarkedDone(site)) || {};
   const uid = 'self';
   // A page scrape may cover only ONE course (a course Grades page). Merge it
   // into the stored dashboard by course id instead of replacing it, so the
   // verdict is never computed from a partial course list.
-  const existing = ((await getDashboards()) || {})[uid];
+  const existing = ((await getDashboards(site)) || {})[uid];
   const byId = new Map((existing && Array.isArray(existing.courses) ? existing.courses : []).map((c) => [String(c.id), c]));
   for (const c of courses) byId.set(String(c.id), c);
   const merged = [...byId.values()];
@@ -282,7 +296,7 @@ async function handleGradesScraped(message, sender) {
     courses: merged,
     summary,
     source: existing ? existing.source : 'page-scrape',
-  });
+  }, site);
   if (pendingScrape && (tabId === null || pendingScrape.tabId === tabId)) {
     pendingScrape.finish({ ok: true, via: 'hidden-tab', courses: courses.length });
   }
@@ -305,15 +319,18 @@ browser.runtime.onStartup.addListener(async () => {
 browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== ALARM_NAME) return;
   try {
-    // A parent refresh switches Schoology's "viewing as" child. Don't do
-    // that underneath someone who is using Schoology right now; the next
-    // alarm (or the popup's Refresh button) catches up.
-    const account = await getAccount();
-    if (account && account.type === 'parent') {
-      const active = await browser.tabs.query({ active: true, url: SCHOOLOGY_MATCHES });
-      if (active.length > 0) return;
+    // Every site that has data, one after another. A parent refresh
+    // switches Schoology's "viewing as" child: don't do that underneath
+    // someone using that site right now; the next alarm catches up.
+    const sites = (await getSites()) || [];
+    for (const site of sites.length ? sites : [await siteOf(null)]) {
+      const account = await getAccount(site);
+      if (account && account.type === 'parent') {
+        const active = await browser.tabs.query({ active: true, url: `${site}/*` });
+        if (active.length > 0) continue;
+      }
+      await startRefresh('alarm', site);
     }
-    await startRefresh('alarm');
   } catch (e) {
     // Alarm refresh is best-effort; the popup shows the stale warning.
     console.warn('Schoology Dashboard refresh failed:', e);
@@ -337,8 +354,8 @@ async function fetchCoursePage(base, isParent, uid, courseId) {
 // Reads course pages not seen in the past month (a few at a time).
 async function adminClassCounts(base, isParent, known) {
   const now = Date.now();
-  const cache = { ...((await storageGet('classAdmins', {})) || {}), ...known };
-  const dashboards = (await getDashboards()) || {};
+  const cache = { ...((await storageGet('classAdmins', {}, base)) || {}), ...known };
+  const dashboards = (await getDashboards(base)) || {};
   const todo = [];
   const current = new Set();
   for (const [uid, d] of Object.entries(dashboards)) {
@@ -362,7 +379,7 @@ async function adminClassCounts(base, isParent, known) {
     }
   }));
   for (const id of Object.keys(cache)) if (!current.has(id)) delete cache[id];
-  await storageSet('classAdmins', cache);
+  await storageSet('classAdmins', cache, base);
   const counts = {};
   for (const id of current) for (const a of (cache[id] && cache[id].uids) || []) counts[a] = (counts[a] || 0) + 1;
   return counts;
@@ -370,13 +387,12 @@ async function adminClassCounts(base, isParent, known) {
 
 // The compose link for a class plus its admins, for the parent's "Email
 // the teacher": { ok, url, admins: [{ uid, name }], likely, parentName }.
-async function teacherComposeUrl({ uid, courseId }) {
+async function teacherComposeUrl({ uid, courseId, site }) {
   if (!courseId) return { ok: false, error: 'No class' };
   try {
-    const settings = await loadSettings();
-    const account = (await getAccount()) || {};
+    const base = await siteOf(site);
+    const account = (await getAccount(base)) || {};
     const isParent = account.type === 'parent';
-    const base = settings.schoologyBase.replace(/\/$/, '');
     const html = await fetchCoursePage(base, isParent, uid, courseId);
     const href = findComposeHref(html);
     if (!href) return { ok: false, error: 'No teacher to message for this class' };
@@ -398,14 +414,13 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
   if (!message || typeof message.type !== 'string') return undefined;
   switch (message.type) {
     case 'refresh-now': {
-      return startRefresh('manual');
+      return startRefresh('manual', await siteOf(message.site));
     }
     case 'schoology-page-loaded': {
       return maybeAutoRefresh(message.url || (sender && sender.tab && sender.tab.url) || '');
     }
     case 'run-live-probe': {
-      const settings = await loadSettings();
-      const client = createClient({ baseUrl: settings.schoologyBase });
+      const client = createClient({ baseUrl: await siteOf(message.url || message.site) });
       const evidence = await client.runLiveProbe(message.url, {
         assignmentTitle: message.assignmentTitle || null,
       });
@@ -418,7 +433,8 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       return { ok: true };
     }
     case 'get-dashboards': {
-      return { dashboards: (await getDashboards()) || {}, settings: await loadSettings() };
+      const site = await siteOf(message.site);
+      return { dashboards: (await getDashboards(site)) || {}, settings: await loadSettings(site) };
     }
     case 'grades-scraped': {
       return handleGradesScraped(message, sender);
