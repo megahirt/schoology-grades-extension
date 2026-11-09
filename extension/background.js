@@ -113,7 +113,7 @@ async function refreshGrades(site, progress = () => {}) {
       updatedAt: new Date().toISOString(),
       studentUid: uid,
       studentName: name,
-      pictureUrl: account.children?.[0]?.pictureUrl || null,
+      pictureUrl: account.children?.[0]?.pictureUrl || account.pictureUrl || null,
       courses: result.courses,
       summary,
       source: result.source,

@@ -116,6 +116,20 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
     return null;
   }
 
+  // The signed-in user's picture, from the same page settings as the name:
+  // …"uid":123,"name":"Sam Rivera","profilePictureUrl":"https:\/\/…",…
+  function extractPictureUrl(html) {
+    if (!html) return null;
+    const m = html.match(/"uid":\d+,"name":"(?:[^"\\]|\\.)+","profilePictureUrl":"((?:[^"\\]|\\.)+)"/);
+    if (!m) return null;
+    try {
+      const url = JSON.parse(`"${m[1]}"`);
+      return /^https:\/\//i.test(url) ? url : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function fetchPage(url) {
     const res = await doFetch(url, { headers: { Accept: 'text/html' } });
     const html = await readText(res);
@@ -154,7 +168,7 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
       evidence.homeStatus = home.status;
       evidence.homeFinalUrl = home.finalUrl;
       if (!home.loggedIn) return { type: 'loggedOut', children: [], studentName: null, evidence };
-      return { type: 'student', children: [], studentName: extractDisplayName(home.html) || 'Student', evidence };
+      return { type: 'student', children: [], studentName: extractDisplayName(home.html) || 'Student', pictureUrl: extractPictureUrl(home.html), evidence };
     } catch (e) {
       evidence.homeError = errMsg(e);
       return { type: 'unknown', children: [], studentName: null, evidence };
