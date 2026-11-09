@@ -106,7 +106,7 @@ try {
 
   await sheet.getByRole('button', { name: /as turned in$/ }).first().click();
   await sheet.getByRole('button', { name: /as done$/ }).first().click();
-  await sheet.getByText('Waiting on teacher · 2').waitFor();
+  await sheet.getByText('Submitted, not graded yet · 2').waitFor();
   await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
   await shot(page, '04-waiting-on-teacher');
 

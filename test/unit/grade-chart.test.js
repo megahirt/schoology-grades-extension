@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { smoothPath, linePoints, renderGradeChart, dotRadius, DOT_R } from '../../extension/src/grade-chart.js';
+import { smoothPath, linePoints, renderGradeChart, dotRadius, DOT_R, hoverText } from '../../extension/src/grade-chart.js';
 
 // Sample a cubic Bézier path "M…C…C…" at many t values.
 function samples(d) {
@@ -72,5 +72,29 @@ describe('assignment dots sized by points', () => {
     expect(svg.indexOf('Unit Test')).toBeLessThan(svg.indexOf('Check-in'));
     expect(svg).toContain('Unit Test · Oct 5 · 80/100 pts · 80%');
     expect(svg).toContain('Bare · Oct 9 · 90%');
+  });
+});
+
+describe('hover text and quarter lines', () => {
+  const t = new Date(2026, 9, 22).getTime();
+  it('date, shortened title and the assignment grade (percent or points)', () => {
+    const p = { t, title: '3.5 Lesson Check on Balancing Equations', got: 2.5, max: 3, grade: 91 };
+    expect(hoverText(p)).toBe('Oct 22 · 3.5 Lesson Check on Bal… · 83%');
+    expect(hoverText(p, 'points')).toBe('Oct 22 · 3.5 Lesson Check on Bal… · 2.5/3 pts');
+    expect(hoverText({ t, title: 'Binder Check', missing: true, got: 0, max: 4 })).toBe('Oct 22 · Binder Check · Missing');
+    expect(hoverText({ t, title: 'Test Review', got: 2, max: 0 })).toBe('Oct 22 · Test Review · +2 pts');
+  });
+  it('draws a dotted, labelled line where each later quarter starts', () => {
+    const START = new Date(2026, 7, 24).getTime();
+    const NOW = new Date(2026, 10, 7).getTime();
+    const q2 = new Date(2026, 9, 19).getTime();
+    const svg = renderGradeChart({
+      start: START,
+      end: NOW,
+      points: [{ t: q2 + 86400000, pct: 90, title: 'Quiz', got: 9, max: 10 }],
+      segments: [{ periodId: 'Q2', label: 'Quarter 2', line: [{ t: q2 + 86400000, grade: 90 }] }],
+      dividers: [{ t: q2, label: 'Q2' }],
+    });
+    expect(svg).toMatch(/<line [^>]*class="gc-period"\/><text [^>]*class="gc-plab">Q2<\/text>/);
   });
 });

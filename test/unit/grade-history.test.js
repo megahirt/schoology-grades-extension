@@ -100,3 +100,15 @@ describe('extra credit (a score out of 0 points)', () => {
     expect(h.segments[0].line.map((p) => p.grade)).toEqual([100]);
   });
 });
+
+describe('quarter dividers', () => {
+  it('mark where each later grading period starts', () => {
+    const h = gradeHistory({
+      periods: periods(),
+      categories: [{ id: 'Q1-1', parentId: 'Q1', weight: null }, { id: 'Q2-1', parentId: 'Q2', weight: null }],
+      assignments: [item('a', 'Q1-1', day(9, 1), 8, 10), item('c', 'Q2-1', day(10, 25), 6, 10)],
+    }, { now: NOW });
+    expect(h.dividers).toEqual([{ t: Date.parse(day(10, 19)), label: 'Q2' }]);
+    expect(h.segments[1].line[0]).toMatchObject({ got: 6, max: 10 });
+  });
+});

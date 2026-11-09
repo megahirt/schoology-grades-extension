@@ -114,6 +114,13 @@ export function renderGradeChart(history, { threshold = 75, name = 'Class' } = {
     parts.push(`<line x1="${xx}" x2="${xx}" y1="${B}" y2="${B + 3}" class="gc-tick"/>`);
     parts.push(`<text x="${xx}" y="${B + 14}" class="gc-xlab">${d.toLocaleDateString(undefined, { month: 'short' })}</text>`);
   }
+  // A dotted line where each later grading period starts, labelled "Q2".
+  for (const dv of history.dividers || []) {
+    if (dv.t <= history.start || dv.t > history.end) continue;
+    const xx = s.x(dv.t).toFixed(1);
+    parts.push(`<line x1="${xx}" x2="${xx}" y1="${T}" y2="${B}" class="gc-period"/>`);
+    parts.push(`<text x="${(Number(xx) + 3).toFixed(1)}" y="${T + 8}" class="gc-plab">${esc(dv.label)}</text>`);
+  }
   // Class grade line: one smooth, connected stroke through every point.
   const all = linePoints(history);
   if (all.length > 1) parts.push(`<path d="${smoothPath(all.map((p) => [s.x(p.t), s.y(p.grade)]))}" class="gc-line"/>`);
@@ -135,10 +142,26 @@ export function renderGradeChart(history, { threshold = 75, name = 'Class' } = {
   return `<svg class="gchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${parts.join('')}</svg>`;
 }
 
-// chartHover(svg, history, clientX): show the class grade at the point on
-// the line nearest the pointer (desktop hover). Returns false when nothing
-// is near.
-export function chartHover(svg, history, clientX) {
+// hoverText(p, gradeDisplay) -> "Oct 22 · 3.5 Lesson Check · 83%" for one
+// point on the line: the date, the assignment (long titles shortened) and
+// its own grade, as a percent or as points (Settings → grade display).
+const TIP_TITLE_MAX = 24;
+export function hoverText(p, gradeDisplay = 'percent') {
+  const title = String(p.title || '').trim();
+  const short = title.length > TIP_TITLE_MAX ? `${title.slice(0, TIP_TITLE_MAX - 1).trimEnd()}…` : title;
+  let grade;
+  if (p.missing) grade = 'Missing';
+  else if (p.max === 0) grade = `+${ptsText(p.got)} pts`;
+  else if (gradeDisplay === 'points' && p.max > 0) grade = `${ptsText(p.got)}/${ptsText(p.max)} pts`;
+  else grade = p.max > 0 ? `${Math.round((p.got / p.max) * 100)}%` : '';
+  return [fmtDay(p.t), short, grade].filter(Boolean).join(' · ');
+}
+
+// chartHover(svg, history, clientX, gradeDisplay): for the assignment
+// nearest the pointer (desktop hover), mark its date and its dot (or the
+// class-grade line, for work with no dot) and show hoverText. Returns
+// false when nothing is near.
+export function chartHover(svg, history, clientX, gradeDisplay = 'percent') {
   const g = svg.querySelector('.gc-hover');
   if (!g) return false;
   const all = history.segments.flatMap((seg) => seg.line.map((p) => ({ ...p, label: seg.label })));
@@ -149,13 +172,14 @@ export function chartHover(svg, history, clientX) {
   let best = all[0];
   for (const p of all) if (Math.abs(s.x(p.t) - vx) < Math.abs(s.x(best.t) - vx)) best = p;
   const bx = s.x(best.t);
-  const by = s.y(best.grade);
+  const own = best.max > 0 && !best.missing ? (best.got / best.max) * 100 : null;
+  const by = s.y(own !== null ? own : best.grade);
   g.querySelector('.gc-hline').setAttribute('x1', bx);
   g.querySelector('.gc-hline').setAttribute('x2', bx);
   g.querySelector('.gc-hdot').setAttribute('cx', bx);
   g.querySelector('.gc-hdot').setAttribute('cy', by);
   const text = g.querySelector('.gc-tip');
-  text.textContent = `${fmtDay(best.t)} · ${best.label} ${best.grade.toFixed(1)}%`;
+  text.textContent = hoverText(best, gradeDisplay);
   const width = Math.min(CHART.W - 8, text.textContent.length * 5.6 + 12);
   const left = bx + width + 8 > CHART.W ? bx - width - 6 : bx + 6;
   const bg = g.querySelector('.gc-tipbg');
