@@ -1,0 +1,44 @@
+# Pages — publishes the promo site (site/) to GitHub Pages.
+#
+# Plain static files, no build step. Runs when site/ changes on main, or by
+# hand. One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# The site is then at https://megahirt.github.io/schoology-grades-extension/
+#
+# Screenshots in site/img/ are made on a Mac with `npm run site:screenshots`
+# and committed; this workflow does not regenerate them.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload site/
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

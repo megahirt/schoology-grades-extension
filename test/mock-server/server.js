@@ -22,6 +22,9 @@
 //   GET  /parent/home?child_uid=<uid>        parent: switch the viewed child (cookie mock-view-child)
 //   GET  /parent/grades_attendance/grades    parent: every course of the viewed child
 //
+// MOCK_DATA=showcase (or createServer({ dataset: 'showcase' })) swaps the
+// personas below for the richer showcase data in ./showcase.js.
+//
 // Personas:
 //   student — "Alex Student": Algebra 2 (Quarter 2 68%, below 75; Semester
 //             1 74%, with real nested quarters), American
@@ -34,6 +37,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderCourse, renderPage } from './markup.js';
+import { buildShowcase, SHOWCASE_ADMINS } from './showcase.js';
 
 export const DEFAULT_PORT = 8123;
 
@@ -167,8 +171,8 @@ function loginPage(as) {
 </body></html>`;
 }
 
-function viewChild(cookies) {
-  return PARENT.children.find((c) => c.uid === cookies['mock-view-child']) || PARENT.children[0];
+function viewChild(cookies, parent = PARENT) {
+  return parent.children.find((c) => c.uid === cookies['mock-view-child']) || parent.children[0];
 }
 
 const parentHref = (child, c) => (item) => `/course/${c.id}/preview/${child.uid}/parent?url=assignment/${item.id}`;
@@ -176,7 +180,15 @@ const parentHref = (child, c) => (item) => `/course/${c.id}/preview/${child.uid}
 // delayMs: wait this long before answering the grade pages and child
 // switches, like real Schoology, so the refresh banner and progress bar can be
 // seen (MOCK_DELAY_MS env when run directly; 0 in tests).
-export function createServer({ delayMs = 0 } = {}) {
+// dataset: 'test' (the personas above, used by the tests) or 'showcase'
+// (./showcase.js: richer data with dates relative to today, for the promo
+// site screenshots; MOCK_DATA env when run directly).
+export function createServer({ delayMs = 0, dataset = 'test' } = {}) {
+  const showcase = dataset === 'showcase' ? buildShowcase() : null;
+  const STUDENT_DATA = showcase ? showcase.student : STUDENT;
+  const PARENT_DATA = showcase ? showcase.parent : PARENT;
+  const adminsOf = showcase ? showcase.admins : courseAdmins;
+  const adminNames = showcase ? SHOWCASE_ADMINS : ADMIN_NAMES;
   return http.createServer(async (req, res) => {
     if (delayMs > 0 && /\/(grades|parent\/home|course\/)/.test(req.url || '')) {
       await new Promise((r) => setTimeout(r, delayMs));
@@ -209,14 +221,14 @@ export function createServer({ delayMs = 0 } = {}) {
         if (persona === 'parent') {
           sendHtml(res, 200, renderPage('Home', '<p>Parent home</p>'));
         } else {
-          const links = STUDENT.courses.map((c) => `<li><a href="/course/${c.id}/materials">${c.title}</a></li>`).join('');
-          sendHtml(res, 200, renderPage('Home', `<div data-user-name="${STUDENT.name}"><ul>${links}</ul></div>`));
+          const links = STUDENT_DATA.courses.map((c) => `<li><a href="/course/${c.id}/materials">${c.title}</a></li>`).join('');
+          sendHtml(res, 200, renderPage('Home', `<div data-user-name="${STUDENT_DATA.name}"><ul>${links}</ul></div>`));
         }
         return;
       }
 
       if (pathname === '/grades/grades' && persona === 'student') {
-        sendHtml(res, 200, renderPage('Grades', STUDENT.courses.map((c) => renderCourse(c)).join('')));
+        sendHtml(res, 200, renderPage('Grades', STUDENT_DATA.courses.map((c) => renderCourse(c)).join('')));
         return;
       }
 
@@ -224,10 +236,10 @@ export function createServer({ delayMs = 0 } = {}) {
       if (courseMatch) {
         const id = courseMatch[1];
         if (persona === 'student') {
-          const c = STUDENT.courses.find((x) => x.id === id);
+          const c = STUDENT_DATA.courses.find((x) => x.id === id);
           if (c) return sendHtml(res, 200, renderPage(c.title, renderCourse(c)));
         } else {
-          const child = viewChild(cookies);
+          const child = viewChild(cookies, PARENT_DATA);
           const c = child.courses.find((x) => x.id === id);
           if (c) return sendHtml(res, 200, renderPage(c.title, renderCourse(c, { href: parentHref(child, c) })));
         }
@@ -242,14 +254,14 @@ export function createServer({ delayMs = 0 } = {}) {
       // them, as live Schoology does.
       const coursePage = pathname.match(/^\/course\/(\d+)\/(materials|preview\/\d+\/parent)$/);
       if (coursePage) {
-        const admins = courseAdmins(coursePage[1]);
+        const admins = adminsOf(coursePage[1]);
         const compose = `${persona === 'parent' ? '/parent' : ''}/messages/new/course/${coursePage[1]}?recipient_uids=${admins.map((a) => a.uid).join('%2C')}`;
         const pictures = admins.map((a) => `<div class="picture"><a href="/user/${a.uid}" title="${a.name}"><img alt="${a.name}"></a></div>`).join('');
         sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">${admins.length} Admin${admins.length > 1 ? 's' : ''}</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3><div class='picture_block clearfix'>${pictures}</div>`));
         return;
       }
       if (/^\/(parent\/)?messages\/new\/course\/\d+$/.test(pathname)) {
-        const to = String(reqUrl.searchParams.get('recipient_uids') || '').split(',').map((uid) => ADMIN_NAMES[uid] || uid);
+        const to = String(reqUrl.searchParams.get('recipient_uids') || '').split(',').map((uid) => adminNames[uid] || uid);
         sendHtml(res, 200, renderPage('Compose Message', `<form id="s-messaging-compose-enrollment-form" method="post"><div class="to">To: ${to.join(', ')}</div>` +
           '<input type="text" name="subject" value=""><textarea name="body"></textarea><input type="submit" name="op" value="Send"></form>'));
         return;
@@ -261,7 +273,7 @@ export function createServer({ delayMs = 0 } = {}) {
           return;
         }
         const children = {};
-        for (const c of PARENT.children) {
+        for (const c of PARENT_DATA.children) {
           children[c.uid] = {
             uid: Number(c.uid),
             username: c.name,
@@ -269,20 +281,20 @@ export function createServer({ delayMs = 0 } = {}) {
             profile_tiny: `<div class=" profile-picture-wrapper"><div class="profile-picture"><img src="https://mock.schoology.test/pictures/${c.uid}.png" alt=""></div></div>`,
           };
         }
-        sendJson(res, 200, { response_code: 200, body: { session: { view_mode: 1, view_child: viewChild(cookies).uid }, children } });
+        sendJson(res, 200, { response_code: 200, body: { session: { view_mode: 1, view_child: viewChild(cookies, PARENT_DATA).uid }, children } });
         return;
       }
 
       if (persona === 'parent' && pathname === '/parent/home') {
         const uid = reqUrl.searchParams.get('child_uid');
-        const child = PARENT.children.find((c) => c.uid === uid);
+        const child = PARENT_DATA.children.find((c) => c.uid === uid);
         const headers = child ? { 'set-cookie': `mock-view-child=${child.uid}; Path=/` } : {};
         sendHtml(res, 200, renderPage('Home', '<p>Parent home</p>'), headers);
         return;
       }
 
       if (persona === 'parent' && pathname === '/parent/grades_attendance/grades') {
-        const child = viewChild(cookies);
+        const child = viewChild(cookies, PARENT_DATA);
         sendHtml(res, 200, renderPage('Grades', child.courses.map((c) => renderCourse(c, { href: parentHref(child, c) })).join('')));
         return;
       }
@@ -294,8 +306,8 @@ export function createServer({ delayMs = 0 } = {}) {
   });
 }
 
-export function startServer(port = DEFAULT_PORT, { delayMs = 0 } = {}) {
-  const server = createServer({ delayMs });
+export function startServer(port = DEFAULT_PORT, { delayMs = 0, dataset = 'test' } = {}) {
+  const server = createServer({ delayMs, dataset });
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => {
       const address = server.address();
@@ -314,6 +326,7 @@ export function startServer(port = DEFAULT_PORT, { delayMs = 0 } = {}) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || DEFAULT_PORT);
   const delayMs = Number(process.env.MOCK_DELAY_MS || 0);
-  const { url } = await startServer(port, { delayMs });
-  console.log(`Mock Schoology server listening on ${url}${delayMs ? ` (answers delayed ${delayMs} ms)` : ''}`);
+  const dataset = process.env.MOCK_DATA === 'showcase' ? 'showcase' : 'test';
+  const { url } = await startServer(port, { delayMs, dataset });
+  console.log(`Mock Schoology server listening on ${url}${delayMs ? ` (answers delayed ${delayMs} ms)` : ''}${dataset === 'showcase' ? ' (showcase data)' : ''}`);
 }

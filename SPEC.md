@@ -1,6 +1,6 @@
 # Schoology Dashboard Extension — build contract (SPEC)
 
-Repo: `schoology-grades-extension` (public, @sabaisnoopy).
+Repo: `schoology-grades-extension` (public, @megahirt).
 This file is the interface contract
 between the three build workstreams. Do not change an exported function name or a
 storage key without updating this file and every caller.

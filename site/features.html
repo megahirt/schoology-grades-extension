@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features & research · Homework Dashboard</title>
+<meta name="description" content="Each feature of the Homework Dashboard for Schoology, the research behind it, and what it deliberately avoids.">
+<meta property="og:title" content="Features & research · Homework Dashboard">
+<meta property="og:description" content="Each feature of the Homework Dashboard for Schoology, the research behind it, and what it deliberately avoids.">
+<meta property="og:image" content="img/phone-parent-sam.png">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script src="links.js" defer></script>
+</head>
+<body>
+<header class="site-head"><div class="wrap">
+<a class="logo" href="index.html"><span class="mark" aria-hidden="true">✓</span>Homework Dashboard</a>
+<nav class="nav" aria-label="Site"><a href="index.html">Home</a><a href="features.html" aria-current="page">Features & research</a><a href="install.html">Install</a><a href="npc.html">NPC families</a><a href="schools.html">For schools</a><a href="teachers.html">For teachers</a></nav>
+</div></header>
+<main>
+
+<section class="block"><div class="wrap">
+<div class="section-intro"><div class="eyebrow">Features &amp; research</div><h1>Every feature, and why it's built that way</h1>
+<p class="lede muted">Each section shows a feature, what the research says, and the mistakes it's designed to avoid: surveillance, controlling homework help, rewards that crowd out motivation, streaks that reset to zero, and rankings. Numbers in brackets link to the <a href="research.html">full source list</a>.</p>
+<p class="small muted">The extension itself hasn't been studied. It's built on research about what helps, and what to avoid.</p></div>
+<article class="feature" id="go-no-go">
+<div><h2>GO / NO-GO for parents</h2><p>Each child gets one simple verdict from rules the family sets: GO, or NO-GO with the reason (“Missing work”, “Low grades”). It's for parents only, and it can be turned off.</p>
+<div class="research"><strong>What the research says</strong><p>In a study of 22 middle and high schools, weekly automated alerts to parents about missed assignments, grades and absences cut course failures by 27% and raised class attendance by 12%. The effect was largest for high schoolers and students with lower grades. Parents in the study tended to underestimate how much work was missing.<sup class="cite"><a href="research.html#r1">[1]</a></sup></p><p>Clear rules about homework are the kind of parent involvement most linked to better results.<sup class="cite"><a href="research.html#r3">[3]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>Watching more closely isn't the same as knowing more. Most of what parents know about their teens comes from what the teens choose to tell them, not from tracking.<sup class="cite"><a href="research.html#r6">[6]</a></sup> Controlling, intrusive involvement in homework is linked to <em>worse</em> outcomes.<sup class="cite"><a href="research.html#r4">[4]</a>,<a href="research.html#r5">[5]</a></sup></p><p>So students never see a verdict about themselves. There are no pings or alerts. The verdict is a quiet signal to start a conversation, and the student can see the same information the parent sees.</p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/parent-jamie.png" alt="Jamie Rivera marked NO-GO, with 3 missing assignments and this week's ring." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature flip" id="missing">
+<div><h2>Missing work first, with turned-in and done marks</h2><p>Teacher-marked Missing work is always at the top, with the class and due date. If work was handed in on paper, the family can tick it as turned in, and it moves to “Waiting on teacher” until it's graded.</p>
+<div class="research"><strong>What the research says</strong><p>Specific information about missing assignments is what made the parent alerts work.<sup class="cite"><a href="research.html#r1">[1]</a></sup> Feedback helps most when it's about the task and what to do next.<sup class="cite"><a href="research.html#r9">[9]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>A plain zero is never called Missing, because only the teacher's Missing mark counts. Marks never notify anyone. Feedback that turns attention to the person (“you're behind”) instead of the task often makes things worse.<sup class="cite"><a href="research.html#r10">[10]</a></sup></p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/waiting-on-teacher.png" alt="Waiting on teacher: work the family marked as turned in, still waiting for a grade." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature" id="due">
+<div><h2>Due today and tomorrow</h2><p>A short list of what's due in the next two days, so tonight's plan is obvious.</p>
+<div class="research"><strong>What the research says</strong><p>Children given near, concrete goals made faster progress and built more confidence and interest than children given one distant goal.<sup class="cite"><a href="research.html#r12">[12]</a></sup> Deciding when and where to do something makes people much more likely to follow through.<sup class="cite"><a href="research.html#r13">[13]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>There are no countdown timers, red alarms or reminders every hour, just the list.</p></div></div>
+<div class="feature-media"><img class="framed" src="img/phone-student-sam.png" alt="Sam's view on a phone: 1 thing to finish first, then 2 items due today and 2 tomorrow." loading="lazy"></div>
+</article><article class="feature flip" id="ring">
+<div><h2>This week's ring</h2><p>A ring fills as this week's assignments are graded (dark blue) or turned in and waiting for a grade (light blue). It starts fresh every Monday.</p>
+<div class="research"><strong>What the research says</strong><p>Watching progress toward a goal helps people reach it, more so when the progress is recorded where they can see it.<sup class="cite"><a href="research.html#r11">[11]</a></sup> A week is a near goal that's always within reach.<sup class="cite"><a href="research.html#r12">[12]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>Streaks that reset to zero backfire. When a streak breaks, people often give up instead of starting again, especially when they blame themselves.<sup class="cite"><a href="research.html#r15">[15]</a></sup> The ring is a fresh goal each week, so there's nothing to lose.</p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/parent-sam.png" alt="Sam Rivera: GO, 1 missing, 4 due soon, and 13 of 16 assignments done this week." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature" id="up">
+<div><h2>Up since last quarter</h2><p>When a class grade is higher than last quarter, a small “▲ 7% vs Q1” appears beside it. When it's lower, nothing appears.</p>
+<div class="research"><strong>What the research says</strong><p>Comparing yourself with your own past (personal bests) goes with more engagement and effort.<sup class="cite"><a href="research.html#r16">[16]</a></sup> Feedback about progress on the task works best.<sup class="cite"><a href="research.html#r9">[9]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>Drops don't get a red arrow. Feedback that pulls attention to the self (“your grade dropped”) lowered performance in over a third of the studies in a large review.<sup class="cite"><a href="research.html#r10">[10]</a></sup> The passing line and the class bar still show where things stand.</p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/grade-chart.png" alt="Biology up 7% since Quarter 1, with the class grade drawn over time against the 75% line." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature flip" id="records">
+<div><h2>Records: personal bests that only go up</h2><p>Highest score, best week, longest run with nothing missing, and highest class grade this school year. Records are saved, so a rough week never takes one away.</p>
+<div class="research"><strong>What the research says</strong><p>Personal-best goals, measured against your own past rather than other people, predict more engagement over time.<sup class="cite"><a href="research.html#r16">[16]</a></sup> Praise works when it's about effort and specific work, not about being smart.<sup class="cite"><a href="research.html#r17">[17]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>There are no points, coins, levels or leaderboards. Rewards tied to finishing tasks can crowd out students' own motivation, more so for children.<sup class="cite"><a href="research.html#r8">[8]</a>,<a href="research.html#r14">[14]</a></sup> In one semester-long study, a course with badges, a leaderboard and coins ended with <em>lower</em> motivation and exam scores.<sup class="cite"><a href="research.html#r18">[18]</a></sup> Dashboards that compare students with each other push competition over learning,<sup class="cite"><a href="research.html#r20">[20]</a></sup> so there's never a ranking, and never a side-by-side of siblings.</p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/records.png" alt="Records: highest score 100%, best week 16 of 16, 7 weeks with nothing missing, highest class grade 98%." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature" id="doing-well">
+<div><h2>Doing well</h2><p>Recent graded work above the family's “doing well” level, so there's always something specific to notice and praise.</p>
+<div class="research"><strong>What the research says</strong><p>Praising effort and specific work builds motivation; praising intelligence undermines it.<sup class="cite"><a href="research.html#r17">[17]</a></sup> Positive, informative feedback raised children's own interest in a task.<sup class="cite"><a href="research.html#r8">[8]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>It never shows generic cheerleading. It names the actual work (“Pixel Art Program, 100%”), which gives a parent something real to say.</p></div></div>
+<div class="feature-media"><img src="img/popup.png" alt="The whole dashboard for Sam, from missing work through Doing well, Records and Waiting on teacher." loading="lazy" style="max-width:340px;margin:0 auto;border-radius:12px;border:1px solid var(--line)"></div>
+</article><article class="feature flip" id="email">
+<div><h2>Message the teacher (parents only)</h2><p>Next to each missing item, a parent can message the teacher. It opens Schoology's own message form, filled in with the assignment. If Schoology lists more than one person for the class, the parent picks the teacher. The parent reads it, edits it and presses Send.</p>
+<div class="research"><strong>What the research says</strong><p>Regular, specific communication between teachers and parents helped students finish courses. In one experiment, weekly one-sentence messages cut the share of students who failed to earn credit from 15.8% to 9.3%.<sup class="cite"><a href="research.html#r19">[19]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>Nothing is ever sent automatically. Students don't get the button. It uses Schoology's own messaging, so no email addresses are collected.</p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/teacher-chooser.png" alt="Email which teacher? Schoology lists 2 people for Math; Mr. Young is marked as the likely teacher." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature" id="share">
+<div><h2>Share a picture</h2><p>The share button copies a picture of the dashboard, or opens your device's share menu, to send to a co-parent, a grandparent or the student.</p>
+<div class="research"><strong>What the research says</strong><p>Of all the ways parents get involved, talking with teens about school, goals and plans is the most strongly linked to achievement. Direct homework help is not.<sup class="cite"><a href="research.html#r2">[2]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>The family decides who sees it. There's no social feed, no public profile and no score to post.</p></div></div>
+<div class="feature-media"><div class="panel-crop"><img src="img/closed-tab.png" alt="When closed, the dashboard is a small tab at the page edge showing each child's missing and due-soon counts." loading="lazy" style="width:293%;max-width:none;margin-left:-193%"></div></div>
+</article><article class="feature flip" id="log">
+<div><h2>Daily log and grade trends</h2><p>Once a day the dashboard saves a small summary in the browser, so it can draw each class's grade over time and keep records honest.</p>
+<div class="research"><strong>What the research says</strong><p>Recording progress where you can see it makes progress monitoring work better.<sup class="cite"><a href="research.html#r11">[11]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>The log never leaves the browser. There are no class averages or peer data, so there's nothing to compare against.</p></div></div>
+<div class="feature-media"><img class="framed" src="img/phone-parent-jamie.png" alt="Jamie's dashboard on a phone." loading="lazy"></div>
+</article><article class="feature" id="settings">
+<div><h2>Family rules you set together</h2><p>Three sliders: the passing grade (60–80%), the missing-work limit (1–6) and the “doing well” level (75–90%). GO/NO-GO can be switched off.</p>
+<div class="research"><strong>What the research says</strong><p>Clear structure from parents, together with support for the student's independence, goes with better self-regulation and school results.<sup class="cite"><a href="research.html#r7">[7]</a>,<a href="research.html#r14">[14]</a></sup> Setting rules is the kind of homework involvement most linked to achievement.<sup class="cite"><a href="research.html#r3">[3]</a></sup></p></div>
+<div class="avoid"><strong>What we avoid, and why</strong><p>Rules are meant to be agreed on, not imposed. Students see the same information, and there are no hidden thresholds.</p></div></div>
+<div class="feature-media"><img src="img/settings.png" alt="The settings page: passing grade 75%, missing work limit 2 items, doing well 80%." loading="lazy" style="border-radius:12px;border:1px solid var(--line)"></div>
+</article>
+</div></section>
+
+</main>
+<footer class="site-foot"><div class="wrap">
+<div class="cols">
+<div><strong>Homework Dashboard for Schoology</strong><br>A free, open-source browser extension.</div>
+<div><a href="research.html">Research &amp; sources</a> · <a href="privacy.html">Privacy</a> · <a href="schools.html">For schools</a> · <a data-link="source" href="https://github.com/megahirt/schoology-grades-extension">Source code</a></div>
+</div>
+<p class="disclaim">Made by an NPC dad. Not affiliated with NPC or Schoology. Schoology is a trademark of its owner. Every name and grade in these pictures is made up.</p>
+</div></footer>
+</body>
+</html>

@@ -22,7 +22,8 @@
     "test:watch": "vitest",
     "screenshots": "node test/screenshots/capture.mjs",
     "chromium": "node scripts/open-chromium.mjs",
-    "build:firefox": "node scripts/build.mjs --dev --firefox"
+    "build:firefox": "node scripts/build.mjs --dev --firefox",
+    "site:screenshots": "node scripts/site-screenshots.mjs"
   },
   "type": "module",
   "version": "0.1.0"
