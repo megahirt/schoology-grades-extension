@@ -151,3 +151,5 @@ ol.refs .why { display: block; color: var(--muted); font-size: 15px; margin-top:
 .gallery figure { margin: 0; }
 .gallery figcaption { text-align: center; font-size: 14px; color: var(--muted); margin-top: 8px; }
 @media (max-width: 760px) { .gallery { grid-template-columns: 1fr 1fr; } .gallery figure:last-child { display: none; } }
+/* Small icons inline with heading text, like the dashboard's Missing hexagon. */
+.inline-icon { display: inline-block; height: .8em; width: auto; vertical-align: -0.05em; margin-right: .15em; }
