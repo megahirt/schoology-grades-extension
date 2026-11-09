@@ -363,6 +363,18 @@
               "title": "Chapter 5 Notes",
               "periodId": "q14004",
               "categoryId": "q14004-1"
+            },
+            {
+              "due": "2026-11-05T23:59:00",
+              "dueText": "Nov 5",
+              "id": "9601",
+              "maxPoints": 0,
+              "score": 3,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Primary Source Bonus",
+              "periodId": "q24004",
+              "categoryId": "q24004-1"
             }
           ],
           "grade": 94,
@@ -428,6 +440,18 @@
               "title": "Constitution Worksheet",
               "periodId": "q14005",
               "categoryId": "q14005-1"
+            },
+            {
+              "due": "2026-11-05T23:59:00",
+              "dueText": "Nov 5",
+              "id": "9602",
+              "maxPoints": 20,
+              "score": 21,
+              "sourceUrl": null,
+              "status": "graded",
+              "title": "Branches of Government Quiz",
+              "periodId": "q24005",
+              "categoryId": "q24005-1"
             }
           ],
           "grade": 82,

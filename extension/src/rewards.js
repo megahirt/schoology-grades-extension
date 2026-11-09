@@ -6,12 +6,14 @@
 //     how much is graded and how much is turned in waiting for a grade.
 //   - classHighScore: a class's highest-scoring assignment so far (shown
 //     under that class's grade chart).
+//   - extra credit (in computeRecords): everything over 100% this school
+//     year, added up across classes (53/50 is +6%), plus bonus points out of 0.
 //   - computeRecords / mergeRecords: personal bests this school year. They
 //     are saved (storage key `records`) and only ever go up, so a rough week
 //     or a teacher changing an old grade never takes one away. The
 //     nothing-missing run comes from the daily log (daily-log.js).
 
-import { assignmentPercent } from './rules.js';
+import { assignmentPercent, isExtraCredit, extraCreditPercent } from './rules.js';
 import { cleanCourseNames } from './names.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -120,7 +122,7 @@ export function classHighScore(course, now = Date.now()) {
 }
 
 // computeRecords(courses, now) -> this school year's bests from today's data:
-// { bestWeek, classGrade }, each { value, key, info } or absent. `key` names
+// { bestWeek, classGrade, extraCredit }, each { value, key, info } or absent. `key` names
 // the event, so a record that is beaten by a different event can be marked
 // NEW. (Each class's highest score is shown with that class: classHighScore.)
 export function computeRecords(courses, now = Date.now()) {
@@ -162,6 +164,35 @@ export function computeRecords(courses, now = Date.now()) {
       if (!bestGrade || p.grade > bestGrade.grade) bestGrade = { grade: p.grade, c, p };
     }
   }
+  // Extra credit this school year: every percent over 100% added up across
+  // classes, plus bonus points given out of 0 (which have no percent). The
+  // key counts the items, so each new piece of extra credit is NEW.
+  let extraPct = 0;
+  let extraPts = 0;
+  let items = 0;
+  const classes = new Set();
+  for (const c of list) {
+    for (const a of c.assignments || []) {
+      if (a.status !== 'graded') continue;
+      const t = Date.parse(a.due || '');
+      if (!Number.isNaN(t) && t > now) continue;
+      const over = extraCreditPercent(a);
+      const pts = isExtraCredit(a) && a.score > 0 ? a.score : 0;
+      if (over === null && !pts) continue;
+      extraPct += over || 0;
+      extraPts += pts;
+      items += 1;
+      classes.add(c.id ?? c.name);
+    }
+  }
+  if (items) {
+    out.extraCredit = {
+      value: Math.round(extraPct * 10) / 10,
+      key: `ec:${items}`,
+      info: { classes: classes.size, items, points: Math.round(extraPts * 100) / 100 },
+    };
+  }
+
   if (bestGrade) {
     out.classGrade = {
       value: Math.round(bestGrade.grade * 10) / 10,
@@ -184,7 +215,9 @@ export function mergeRecords(stored, computed, now = Date.now()) {
       out[name] = { ...rec, newAt: null };
     } else if (rec.key === old.key) {
       out[name] = { ...rec, value: Math.max(rec.value, old.value), newAt: old.newAt ?? null };
-    } else if (rec.value > old.value) {
+    } else if (name === 'extraCredit' ? (rec.info?.items || 0) > (old.info?.items || 0) : rec.value > old.value) {
+      // Extra credit adds up: more items is a new best, even when they are
+      // bonus points (which don't raise the percent).
       out[name] = { ...rec, newAt: new Date(now).toISOString() };
     }
   }

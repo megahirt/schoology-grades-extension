@@ -105,6 +105,7 @@
 .sgd .feedback-link:hover { color: #1d4ed8; }
 .sgd .check-btn:hover { color: var(--go); border-color: #b9dcc5; background: var(--go-bg); }
 .sgd .row-grade { font-size: 13px; font-weight: 600; flex: 0 0 auto; }
+.sgd .bonus { font-size: 13px; flex: 0 0 auto; margin-right: 4px; }
 /* Compact one-line rows (Doing well): title (class) ... grade. */
 .sgd .row.compact { padding: 5px 0; }
 .sgd .compact-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }

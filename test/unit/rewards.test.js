@@ -92,6 +92,21 @@ describe('computeRecords', () => {
   it('has no nothing-missing run: that needs the daily log', () => {
     expect(r.cleanRun).toBeUndefined();
   });
+  it('extra credit adds up across classes: percent over 100%, plus bonus points', () => {
+    const other = course({ id: 'c2', name: 'Chemistry', assignments: [
+      { id: 'y1', title: 'Lab', status: 'graded', score: 20, maxPoints: 16, due: d(9, 5) },
+      { id: 'y2', title: 'Bonus', status: 'graded', score: 2, maxPoints: 0, due: d(8, 19) },
+      { id: 'y3', title: 'Later bonus', status: 'graded', score: 9, maxPoints: 0, due: d(10, 20) },
+    ] });
+    const algebra = course({ assignments: [
+      { id: 'z1', title: 'Test', status: 'graded', score: 53, maxPoints: 50, due: d(8, 22) },
+      { id: 'z2', title: 'Quiz', status: 'graded', score: 50, maxPoints: 50, due: d(8, 23) },
+    ] });
+    const ec = computeRecords([algebra, other], NOW).extraCredit;
+    expect(ec.value).toBe(31); // 6% + 25%; future work left out
+    expect(ec.info).toEqual({ classes: 2, items: 3, points: 2 });
+    expect(r.extraCredit).toBeUndefined(); // none earned: no record
+  });
   it('highest class grade: best quarter', () => {
     expect(r.classGrade.value).toBe(84.4);
     expect(r.classGrade.info).toEqual({ course: 'Algebra 2', period: 'Quarter 2' });
@@ -119,6 +134,18 @@ describe('mergeRecords', () => {
     const grown = mergeRecords(a, { cleanRun: rec(12, 's') }, NOW);
     expect(grown.cleanRun.value).toBe(12);
     expect(grown.cleanRun.newAt).toBeNull();
+  });
+});
+
+describe('extra credit record', () => {
+  const ec = (value, items, points = 0) => ({ extraCredit: { value, key: `ec:${items}`, info: { classes: 1, items, points } } });
+  it('more extra credit is NEW, even bonus points that add no percent', () => {
+    const stored = mergeRecords({}, ec(6, 1), NOW);
+    const more = mergeRecords(stored, ec(6, 2, 3), NOW);
+    expect(more.extraCredit.info.points).toBe(3);
+    expect(isNewRecord(more.extraCredit, NOW)).toBe(true);
+    // A regraded item never takes it away.
+    expect(mergeRecords(more, ec(4, 1), NOW).extraCredit.value).toBe(6);
   });
 });
 

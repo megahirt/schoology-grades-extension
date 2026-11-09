@@ -15,7 +15,7 @@
 // open popup and panel stays in sync. It only uses APIs that also work in
 // content scripts: browser.storage and browser.runtime.sendMessage/getURL.
 
-import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, isExtraCredit, hasGradeData, effectiveSettings, isStudentAccount } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, isExtraCredit, isBonus, hasGradeData, effectiveSettings, isStudentAccount } from './rules.js';
 import {
   getSettings,
   setSettings,
@@ -420,8 +420,9 @@ function renderDoingWell(items, settings, showGrades) {
     const g = showGrades ? gradeText(a, settings) : '';
     const meta = [a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const course = meta ? ` <span class="compact-course">(${meta})</span>` : '';
+    const rocket = isBonus(a) ? '<span class="bonus" title="Extra credit" aria-label="Extra credit">🚀</span>' : '';
     return `<div class="row compact"><div class="grow compact-line">${titleLink(a, 'row-title')}${course}</div>` +
-      (g ? `<span class="row-grade">${escapeHtml(g)}</span>` : '') + '</div>';
+      rocket + (g ? `<span class="row-grade">${escapeHtml(g)}</span>` : '') + '</div>';
   });
   return section('Doing well', rows.join(''), SECTION_EMOJI.doingWell);
 }
@@ -514,13 +515,23 @@ function renderRecords(records, showGrades, now) {
     `<div class="grow"><div class="record-title">${escapeHtml(title)}${isNewRecord(rec, now) ? '<span class="new-tag">NEW</span>' : ''}</div>` +
     `<div class="sub record-detail">${escapeHtml(detail)}</div></div><span class="record-value">${escapeHtml(value)}</span></div>`);
   // Highest score is shown per class, under each class's grade chart.
-  const { bestWeek: bw, cleanRun: cr, classGrade: cg } = records;
+  const { bestWeek: bw, cleanRun: cr, classGrade: cg, extraCredit: ec } = records;
   if (bw) add('🗓️', 'Best week', `Everything turned in · week of ${shortDay(bw.info.start)}`, `${bw.value} of ${bw.value}`, bw);
   if (cr) {
     const weeks = Math.floor(cr.value / 7);
     const value = cr.value >= 14 ? `${weeks} weeks` : `${cr.value} days`;
     const detail = cr.info.ongoing ? `Since ${shortDay(cr.info.start)} · still going` : `${shortDay(cr.info.start)} to ${shortDay(cr.info.end)}`;
     add('🔥', 'Longest run with nothing missing', detail, value, cr);
+  }
+  if (ec && showGrades) {
+    const i = ec.info || {};
+    const detail = [
+      `${i.classes} ${i.classes === 1 ? 'class' : 'classes'}`,
+      `${i.items} ${i.items === 1 ? 'assignment' : 'assignments'}`,
+      ec.value > 0 && i.points ? `plus ${i.points} bonus ${i.points === 1 ? 'point' : 'points'}` : '',
+    ].filter(Boolean).join(' · ');
+    const value = ec.value > 0 ? `+${Math.round(ec.value)}%` : `+${i.points} ${i.points === 1 ? 'pt' : 'pts'}`;
+    add('🚀', 'Extra credit this year', detail, value, ec);
   }
   if (cg && showGrades) add('📈', 'Highest class grade', [cg.info.course, cg.info.period].filter(Boolean).join(' · '), pctText(cg.value), cg);
   if (!rows.length) return '';
