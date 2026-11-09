@@ -353,6 +353,62 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('each person signed in on a site has their own data; signed out shows the old data with a banner', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    // Storage as the background sees it (both browsers; small answers only,
+    // which Firefox's add-on bridge returns reliably).
+    const site = new URL(mockBase).origin;
+    const read = (key, pick) => worker.evaluate(async ([k, p]) => {
+      const v = (await chrome.storage.local.get(k))[k];
+      return p === 'names' ? Object.values(v || {}).map((d) => d.studentName) : v ? v[p] : null;
+    }, [key, pick]);
+    const names = async (uid) => (await read(`dashboards@${site}#${uid}`, 'names')) || [];
+    // The dashboard on a mock Schoology page (the in-page panel).
+    async function panelOn(url) {
+      const page = await context.newPage();
+      await page.goto(url);
+      return { page, panel: page.locator('#sgd-panel-host aside.sheet') };
+    }
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      await triggerRefresh(context, extensionId);
+      await expect.poll(() => names('3000001'), { timeout: 30000 }).toEqual(['Alex Student']);
+
+      // Signed out: the sign-in page marks the site signed out; the last
+      // person's data stays, under a banner saying it is old.
+      const out = await panelOn(`${mockBase}/logout`);
+      await expect(out.page).toHaveURL(`${mockBase}/login`);
+      await expect.poll(() => read(`user@${site}`, 'signedOut'), { timeout: 15000 }).toBe(true);
+      await expect(out.panel.locator('.signed-out')).toContainText('You’re signed out of Schoology.', { timeout: 15000 });
+      await expect(out.panel.locator('.signed-out')).toContainText(/Sign in to see the latest\. This is old data \(from today, /);
+      await expect(out.panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
+      await expect(out.panel.getByText('Missing · 1')).toBeVisible();
+      await out.page.close();
+
+      // Someone else signs in: their own data, none of the first student's.
+      await loginAs(context, 'student2');
+      const riley = await panelOn(`${mockBase}/home`);
+      await expect.poll(() => names('3000002'), { timeout: 30000 }).toEqual(['Riley Student']);
+      await expect(riley.panel.getByRole('heading', { name: 'Hi, Riley', exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(riley.panel.locator('.signed-out')).toHaveCount(0);
+      await expect(riley.panel.getByText('American Literature')).toHaveCount(0);
+      await riley.page.close();
+      expect(await names('3000001')).toEqual(['Alex Student']);
+
+      // The first student back: their data is still there.
+      await loginAs(context, 'student');
+      const alex = await panelOn(`${mockBase}/home`);
+      await expect(alex.panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(alex.panel.getByText('Missing · 1')).toBeVisible();
+      await alex.page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('settings page: one auto-saving page; students get no Family rules', async () => {
     test.skip(isFirefox(), "Playwright's Firefox can't open moz-extension:// pages (the settings page).");
     const userDataDir = freshUserDataDir();

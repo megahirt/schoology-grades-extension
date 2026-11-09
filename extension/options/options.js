@@ -5,7 +5,7 @@
 
 import browser from 'webextension-polyfill';
 import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
-import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, setSite, siteKey } from '../src/storage.js';
+import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, setSite, changedFor } from '../src/storage.js';
 import { loadDemo, initials, feedbackHref, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
 import npcLogo from '../icons/npc_icon_tiny.png';
 import { KNOWN_SCHOOL_HOSTS, isKnownSchoolHost, isSchoologySite, schoolOrigin } from '../src/sites.js';
@@ -308,7 +308,7 @@ async function init() {
       const base = (changes.settings.newValue || {}).schoologyBase;
       if (base && base !== settings.schoologyBase) { settings = { ...settings, schoologyBase: base }; setSite(base); renderAccount(); }
     }
-    if (siteKey('dashboards') in changes || siteKey('account') in changes) renderAccount();
+    if (changedFor(changes, ['dashboards', 'account'])) renderAccount();
   });
 }
 

@@ -76,6 +76,19 @@ export function normalizeParentInfo(json) {
   return { viewChild, children };
 }
 
+// The signed-in user's own id (a parent's, not the child they are viewing),
+// from Schoology's page settings: Drupal.settings.s_common.user.uid,
+// in the page as …"user":{"uid":"123",… (VERIFIED on a parent's and a
+// student's /home), with …"userId":123,… as a fallback.
+// (The …"uid":N,"name":… settings that extractDisplayName reads are the child
+// being viewed on a parent's pages.)
+export function extractUserUid(html) {
+  if (!html) return null;
+  const m = html.match(/"user":\{"uid":"?(\d+)/) || html.match(/"userId":"?(\d+)/);
+  return m ? m[1] : null;
+}
+
+
 export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } = {}) {
   const base = stripTrailingSlash(baseUrl) || DEFAULT_BASE_URL;
   const doFetch = (url, options = {}) => fetchImpl(url, { credentials: 'include', ...options });
@@ -153,7 +166,17 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
       const info = await getParentInfo();
       evidence.parentInfoStatus = info.status;
       if (info.children.length > 0) {
-        return { type: 'parent', children: info.children, studentName: null, evidence: { ...evidence, viewChild: info.viewChild } };
+        // Whose account this is (data is kept per signed-in user): the
+        // parent's own id from /home, else one made from their children.
+        let userUid = null;
+        try {
+          const home = await fetchPage(`${base}/home`);
+          if (home.loggedIn) userUid = extractUserUid(home.html);
+        } catch (e) {
+          evidence.homeError = errMsg(e);
+        }
+        if (!userUid) userUid = `p${info.children.map((c) => c.uid).sort().join('-')}`;
+        return { type: 'parent', userUid, children: info.children, studentName: null, evidence: { ...evidence, viewChild: info.viewChild } };
       }
       // A server error says nothing about the account type: don't fall
       // through and mistake a parent for a student.
@@ -168,7 +191,9 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
       evidence.homeStatus = home.status;
       evidence.homeFinalUrl = home.finalUrl;
       if (!home.loggedIn) return { type: 'loggedOut', children: [], studentName: null, evidence };
-      return { type: 'student', children: [], studentName: extractDisplayName(home.html) || 'Student', pictureUrl: extractPictureUrl(home.html), evidence };
+      const studentName = extractDisplayName(home.html) || 'Student';
+      const userUid = extractUserUid(home.html) || `n${studentName}`;
+      return { type: 'student', userUid, children: [], studentName, pictureUrl: extractPictureUrl(home.html), evidence };
     } catch (e) {
       evidence.homeError = errMsg(e);
       return { type: 'unknown', children: [], studentName: null, evidence };

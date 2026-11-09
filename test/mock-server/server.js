@@ -13,8 +13,11 @@
 //
 // Routes:
 //   GET  /login                              login form
-//   POST /login?as=student|parent            sets mock-session + mock-persona, redirects to /home
+//   POST /login?as=student|student2|parent   sets mock-session + mock-persona, redirects to /home
+//   GET  /logout                             clears the session, redirects to /login
 //   Any other request without the mock-session cookie redirects to /login.
+//   Every signed-in page carries Schoology's page settings with the signed-in
+//   person's own id (…"user":{"uid":"<uid>"…), as real Schoology does.
 //   GET  /home                               home page (student: course links)
 //   GET  /grades/grades                      student: every course's grades
 //   GET  /course/<id>/student_grades         one course's grades (student, or the parent's viewed child)
@@ -30,6 +33,8 @@
 //             1 74%, with real nested quarters), American
 //             Literature (82%, 1 Missing), United States History (95%),
 //             Advisory 11 (no grades — classifier bait).
+//   student2 — "Riley Student", a second student signing in on the same
+//             site: only Algebra 2 and United States History.
 //   parent  — "Sam Rivera" (2 Missing + a class at 55% => NO-GO) and
 //             "Jamie Rivera" (1 Missing, all classes >= 90 => GO).
 
@@ -95,6 +100,11 @@ const STUDENT = {
   ],
 };
 
+// A second student, for signing out and in as someone else.
+const STUDENT2 = { name: 'Riley Student', courses: STUDENT.courses.filter((c) => c.id === '1001' || c.id === '1003') };
+// Each persona's own Schoology user id (made up).
+const USER_UID = { student: '3000001', student2: '3000002', parent: '1000001' };
+
 const PARENT = {
   children: [
     {
@@ -149,7 +159,10 @@ function send(res, status, type, body, headers = {}) {
   res.writeHead(status, { 'content-type': `${type}; charset=utf-8`, ...headers });
   res.end(body);
 }
-const sendHtml = (res, status, html, headers) => send(res, status, 'text/html', html, headers);
+// Signed-in pages get Schoology's page settings with the person's own id.
+const sendHtml = (res, status, html, headers) => send(res, status, 'text/html',
+  res.mockUserUid ? String(html).replace('</body>', `<script>jQuery.extend(Drupal.settings, {"s_common":{"user":{"uid":"${res.mockUserUid}","school_nid":"1"}}});</script></body>`) : html,
+  headers);
 const sendJson = (res, status, obj) => send(res, status, 'application/json', JSON.stringify(obj));
 
 function redirect(res, location, headers = {}) {
@@ -185,7 +198,7 @@ const parentHref = (child, c) => (item) => `/course/${c.id}/preview/${child.uid}
 // site screenshots; MOCK_DATA env when run directly).
 export function createServer({ delayMs = 0, dataset = 'test' } = {}) {
   const showcase = dataset === 'showcase' ? buildShowcase() : null;
-  const STUDENT_DATA = showcase ? showcase.student : STUDENT;
+  const STUDENT_DATA_ALL = showcase ? showcase.student : STUDENT;
   const PARENT_DATA = showcase ? showcase.parent : PARENT;
   const adminsOf = showcase ? showcase.admins : courseAdmins;
   const adminNames = showcase ? SHOWCASE_ADMINS : ADMIN_NAMES;
@@ -199,7 +212,8 @@ export function createServer({ delayMs = 0, dataset = 'test' } = {}) {
       const cookies = parseCookies(req);
 
       if (pathname === '/login') {
-        const as = reqUrl.searchParams.get('as') === 'parent' ? 'parent' : 'student';
+        const asParam = reqUrl.searchParams.get('as');
+        const as = asParam === 'parent' || asParam === 'student2' ? asParam : 'student';
         if (req.method === 'POST') {
           await readBody(req);
           redirect(res, '/home', {
@@ -211,11 +225,20 @@ export function createServer({ delayMs = 0, dataset = 'test' } = {}) {
         return;
       }
 
+      if (pathname === '/logout') {
+        redirect(res, '/login', { 'set-cookie': ['mock-session=; Path=/; Max-Age=0', 'mock-persona=; Path=/; Max-Age=0'] });
+        return;
+      }
+
       if (cookies['mock-session'] !== '1') {
         redirect(res, '/login');
         return;
       }
-      const persona = cookies['mock-persona'] === 'parent' ? 'parent' : 'student';
+      const who = USER_UID[cookies['mock-persona']] ? cookies['mock-persona'] : 'student';
+      const persona = who === 'parent' ? 'parent' : 'student';
+      res.mockUserUid = USER_UID[who];
+      // The second student (test data only): same routes, own name and classes.
+      const STUDENT_DATA = who === 'student2' && !showcase ? STUDENT2 : STUDENT_DATA_ALL;
 
       if (pathname === '/home') {
         if (persona === 'parent') {

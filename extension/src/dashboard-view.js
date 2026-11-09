@@ -29,8 +29,9 @@ import {
   storageSet,
   getSite,
   setSite,
-  siteKey,
+  changedFor,
   getSites,
+  getUser,
 } from './storage.js';
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
@@ -670,7 +671,21 @@ async function loadState() {
     // The child last picked in any popup or panel (storage key dashboardChild).
     lastChild: (await storageGet('dashboardChild', null)) || null,
     records: (await storageGet('records', null)) || {},
+    // Who is signed in on this site (signedOut: the data shown is old).
+    user: (await getUser()) || null,
   };
+}
+
+// Signed out of Schoology: the dashboard keeps showing the last data, under
+// a banner saying it is old and linking to Schoology's sign-in.
+export function signedOutHtml(latest, base) {
+  const when = latest ? new Date(latest) : null;
+  const from = when && !Number.isNaN(when.getTime())
+    ? ` (from ${when.toDateString() === new Date().toDateString() ? 'today' : shortDate(latest)}, ${when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })})`
+    : '';
+  return '<div class="signed-out" role="alert">' +
+    `<b>You’re signed out of Schoology.</b> <a href="${escapeHtml(`${base}/`)}">Sign in</a> to see the latest. ` +
+    `This is old data${escapeHtml(from)}.</div>`;
 }
 
 // The popup's switch between Schoology sites with data: "Parent" for a
@@ -820,7 +835,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   }
 
   async function render() {
-    const { settings, dashboards, turnedIn, done, refreshState, lastChild, records } = await loadState();
+    const { settings, dashboards, turnedIn, done, refreshState, lastChild, records, user } = await loadState();
+    const signedOut = Boolean(user && user.signedOut);
     const running = refreshRunning(refreshState);
     const uids = Object.keys(dashboards);
     const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
@@ -872,7 +888,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       drawnCharts.clear();
       body = renderStudentBody(current, pickedUid, settings, marks, { isParentView, openClass, records: records[pickedUid] }).html;
     }
-    if (stale && !running) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
+    if (signedOut && current) body = signedOutHtml(latest, settings.schoologyBase) + body;
+    else if (stale && !running) body = '<p class="stale">These grades are more than a day old. Press Refresh.</p>' + body;
     if (running) {
       const total = Math.max(1, Number(refreshState.total) || 1);
       const doneSteps = Math.min(total, Number(refreshState.done) || 0);
@@ -887,7 +904,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     // A refresh that failed recently (including an automatic one) explains why.
     const failedRecently = refreshState && !running && refreshState.ok === false
       && Date.now() - Date.parse(refreshState.finishedAt || 0) < 10 * 60 * 1000;
-    if (failedRecently && !statusText) statusText = friendlyRefreshError(refreshState.error);
+    if (failedRecently && !statusText && !(signedOut && current)) statusText = friendlyRefreshError(refreshState.error);
     if (refreshState && refreshState.ok && statusText.startsWith('Couldn’t refresh')) statusText = '';
 
     const usingMock = settings.schoologyBase === MOCK_SCHOOLOGY;
@@ -1181,10 +1198,10 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   });
   if (openLinksInActiveTab) root.addEventListener('auxclick', onClick); // middle-click
 
-  // Only this site's data (siteKey), plus the shared settings.
+  // Only this site's data (and who is signed in there), plus the shared settings.
   const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState', 'dashboardChild', 'records', 'sites'];
   function onStorageChanged(changes, area) {
-    if (area === 'local' && WATCHED.some((k) => siteKey(k) in changes)) render();
+    if (area === 'local' && changedFor(changes, WATCHED)) render();
   }
   browser.storage.onChanged.addListener(onStorageChanged);
 
