@@ -52,7 +52,8 @@ const DEMO_ANCHOR = new Date('2026-11-06T00:00:00');
 // between real Schoology (the default) and the local mock server
 // (`npm run mock-server`). Production builds never show it.
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
-export const REAL_SCHOOLOGY = 'https://app.schoology.com';
+export { REAL_SCHOOLOGY } from './sites.js';
+import { REAL_SCHOOLOGY } from './sites.js';
 export const MOCK_SCHOOLOGY = 'http://localhost:8123';
 const STALE_MS = 24 * 60 * 60 * 1000;
 // A refresh still marked running after this long is treated as dead (the
@@ -71,7 +72,7 @@ export function refreshRunning(state, now = Date.now()) {
 }
 
 function friendlyRefreshError(error) {
-  if (error === 'NOT_LOGGED_IN' || error === 'LOGGED_OUT') return 'Sign in to Schoology in this browser, then refresh.';
+  if (error === 'NOT_LOGGED_IN' || error === 'LOGGED_OUT') return 'Sign in to Schoology in this browser (your school\'s Schoology page, if it has its own address), then refresh.';
   return `Couldn’t refresh: ${error || 'unknown error'}`;
 }
 
@@ -641,7 +642,7 @@ export async function loadDemo(browser) {
 async function loadState() {
   const dashboards = (await getDashboards()) || {};
   const account = await storageGet('account', null);
-  const settings = { schoologyBase: 'https://app.schoology.com', ...effectiveSettings(await getSettings(), { isStudent: isStudentAccount(account, dashboards) }) };
+  const settings = { schoologyBase: REAL_SCHOOLOGY, ...effectiveSettings(await getSettings(), { isStudent: isStudentAccount(account, dashboards) }) };
   return {
     settings,
     dashboards,
@@ -825,7 +826,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
 
     let body;
     if (!current) {
-      body = `<p class="empty">No Schoology data yet. Sign in to Schoology in this browser and press Refresh${showDemo ? ', or load the demo data to see how the dashboard looks' : ''}.</p>`;
+      body = `<p class="empty">No Schoology data yet. Sign in to Schoology in this browser (your school\'s Schoology page, if it has its own address) and press Refresh${showDemo ? ', or load the demo data to see how the dashboard looks' : ''}.</p>`;
     } else {
       const marks = { turnedIn: turnedIn[pickedUid], done: done[pickedUid] };
       drawnCharts.clear();

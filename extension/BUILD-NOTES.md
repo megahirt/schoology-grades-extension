@@ -10,9 +10,9 @@ REST API/OAuth — auth is the user's logged-in browser session cookies.
 ## What was built (all under `extension/`, plus `scripts/build.mjs`)
 
 - `manifest.json` — MV3; permissions `storage, alarms, scripting, tabs`;
-  host_permissions `https://*.schoology.com/*`; action popup
+  host_permissions `https://*.schoology.com/*` plus schools' own Schoology addresses (`src/sites.js`, e.g. `https://schoology.npchristian.org/*`); action popup
   `popup/popup.html`; background service worker `background.js`;
-  content script `content.js` on `https://*.schoology.com/*`;
+  content script `content.js` on the same sites;
   options page `options/options.html`; icons 16/48/128 (green rounded
   square with a white "S", generated with PIL/DejaVu).
 - `src/rules.js` — `DEFAULT_SETTINGS`, `computeVerdict`, `summarizeStudent`

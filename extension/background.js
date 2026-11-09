@@ -6,6 +6,7 @@
 
 import browser from 'webextension-polyfill';
 import { createClient } from './src/schoology.js';
+import { REAL_SCHOOLOGY, SCHOOLOGY_MATCHES, siteForPage } from './src/sites.js';
 import { parseGradesHtml } from './src/parser.js';
 import { summarizeStudent, DEFAULT_SETTINGS, effectiveSettings, isStudentAccount } from './src/rules.js';
 import { coursePagePath, findComposeHref, findCourseAdmins, findParentName, likelyTeacher } from './src/teacher-email.js';
@@ -29,7 +30,7 @@ const REFRESH_PERIOD_MINUTES = 60;
 async function loadSettings() {
   const stored = (await getSettings()) || {};
   const settings = effectiveSettings(stored, { isStudent: isStudentAccount(await getAccount(), await getDashboards()) });
-  return { schoologyBase: 'https://app.schoology.com', ...settings };
+  return { schoologyBase: REAL_SCHOOLOGY, ...settings };
 }
 
 async function writeDashboard(uid, dashboard) {
@@ -82,7 +83,10 @@ async function refreshGrades(progress = () => {}) {
     const summary = summarizeStudent(result.courses, settings, turnedIn.self, markedDone.self);
     const uid = account.children?.[0]?.uid || 'self';
     const name = result.studentName || account.studentName || 'Student';
-    await writeDashboard(uid, {
+    // A student account has one dashboard: replace what's stored, so a
+    // parent's children from an earlier sign-in don't linger next to it.
+    await setDashboards({ [uid]: {
+      updatedAt: new Date().toISOString(),
       studentUid: uid,
       studentName: name,
       pictureUrl: account.children?.[0]?.pictureUrl || null,
@@ -91,7 +95,7 @@ async function refreshGrades(progress = () => {}) {
       source: result.source,
       parseWarnings: result.parseWarnings || [],
       error: result.error || null,
-    });
+    } });
     return { ok: true, accountType: 'student', students: [uid] };
   }
 
@@ -168,20 +172,37 @@ function startRefresh(reason = 'manual') {
 async function maybeAutoRefresh(pageUrl) {
   if (currentRefresh) return { started: false, reason: 'already running' };
   const settings = await loadSettings();
-  let sameSite = false;
-  try {
-    sameSite = new URL(pageUrl).origin === new URL(settings.schoologyBase).origin;
-  } catch {
-    sameSite = false;
+  const where = siteForPage(pageUrl, settings.schoologyBase);
+  if (where === 'ignore') return { started: false, reason: 'other site' };
+  // Signed in on another Schoology site (e.g. the school's own address
+  // instead of app.schoology.com): follow it and refresh from there now.
+  // A parent account stays put unless that site is a parent account too: a
+  // child signed in on the school's address in the same browser shouldn't
+  // turn the parent's dashboard into the child's.
+  let moved = false;
+  if (where === 'other') {
+    const origin = new URL(pageUrl).origin;
+    const current = await getAccount();
+    if (current && current.type === 'parent') {
+      let there = null;
+      try {
+        there = await createClient({ baseUrl: origin }).detectAccount();
+      } catch {
+        there = null;
+      }
+      if (!there || there.type !== 'parent') return { started: false, reason: 'parent account stays' };
+    }
+    const stored = (await getSettings()) || {};
+    await setSettings({ ...stored, schoologyBase: origin });
+    moved = true;
   }
-  if (!sameSite) return { started: false, reason: 'other site' };
   const dashboards = (await getDashboards()) || {};
   let newest = 0;
   for (const d of Object.values(dashboards)) {
     const t = Date.parse(d.updatedAt || '');
     if (t > newest) newest = t;
   }
-  if (newest && Date.now() - newest < AUTO_REFRESH_MIN_AGE_MS) return { started: false, reason: 'fresh' };
+  if (!moved && newest && Date.now() - newest < AUTO_REFRESH_MIN_AGE_MS) return { started: false, reason: 'fresh' };
   startRefresh('page-load');
   return { started: true };
 }
@@ -274,7 +295,7 @@ browser.runtime.onInstalled.addListener(async () => {
   await browser.alarms.create(ALARM_NAME, { periodInMinutes: REFRESH_PERIOD_MINUTES });
   // Save the stored settings with any new defaults filled in (never the
   // effective, per-account values: those are worked out on each read).
-  await setSettings({ ...DEFAULT_SETTINGS, schoologyBase: 'https://app.schoology.com', ...((await getSettings()) || {}) });
+  await setSettings({ ...DEFAULT_SETTINGS, schoologyBase: REAL_SCHOOLOGY, ...((await getSettings()) || {}) });
 });
 
 browser.runtime.onStartup.addListener(async () => {
@@ -289,7 +310,7 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
     // alarm (or the popup's Refresh button) catches up.
     const account = await getAccount();
     if (account && account.type === 'parent') {
-      const active = await browser.tabs.query({ active: true, url: 'https://*.schoology.com/*' });
+      const active = await browser.tabs.query({ active: true, url: SCHOOLOGY_MATCHES });
       if (active.length > 0) return;
     }
     await startRefresh('alarm');
