@@ -77,6 +77,20 @@ export function isExtraCredit(a) {
   return Boolean(a) && a.maxPoints === 0 && typeof a.score === 'number' && !Number.isNaN(a.score);
 }
 
+// extraCreditPercent(a): how far a score goes over 100% (53/50 -> 6), or
+// null when it doesn't. Teachers give extra credit either this way or as a
+// score out of 0 points (isExtraCredit).
+export function extraCreditPercent(a) {
+  const pct = assignmentPercent(a);
+  if (pct === null || !(typeof a.maxPoints === 'number' && a.maxPoints > 0)) return null;
+  return pct > 100 + 1e-9 ? pct - 100 : null;
+}
+
+// isBonus(a): any extra credit: points out of 0, or a score over 100%.
+export function isBonus(a) {
+  return (isExtraCredit(a) && a.score > 0) || extraCreditPercent(a) !== null;
+}
+
 // hasGradeData(course): true when the course has a course grade or at least
 // one graded assignment (a score or a letter grade). Sections like advisory
 // or house groups have none: they are not real classes, so the dashboard
@@ -232,7 +246,8 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
         } else {
           // "Doing well": B or higher (doingWellPercent; letters A/B) from
           // the past doingWellDays days, by the date shown on the row.
-          const good = pct !== null ? pct >= s.doingWellPercent : letter !== null && /^[AB]/i.test(letter);
+          // Extra credit (points out of 0) always counts as doing well.
+          const good = pct !== null ? pct >= s.doingWellPercent : (letter !== null && /^[AB]/i.test(letter)) || (extra && a.score > 0);
           if (good && dueValid && due >= doingWellCutoff && due <= now) doingWell.push(item);
         }
         continue;

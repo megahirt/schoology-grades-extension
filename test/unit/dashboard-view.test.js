@@ -72,3 +72,33 @@ describe('trend line next to each class', () => {
     expect(out).not.toContain('trend after');
   });
 });
+
+describe('extra credit', () => {
+  const list = [{ id: 'c1', name: 'Chemistry', grade: 92, assignments: [
+    { id: 'e1', title: 'Bonus Lab', status: 'graded', score: 2, maxPoints: 0, due: iso(-1) },
+    { id: 'e2', title: 'Unit Test', status: 'graded', score: 53, maxPoints: 50, due: iso(-2) },
+    { id: 'e3', title: 'Plain Quiz', status: 'graded', score: 9, maxPoints: 10, due: iso(-3) },
+  ] }];
+  const records = { extraCredit: { value: 17.4, key: 'ec:4', info: { classes: 3, items: 4, points: 2 }, newAt: null } };
+  const out = (over = {}) => renderStudentBody({ studentName: 'Sam Rivera', courses: list }, 'u1', { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, records, ...over }).html;
+
+  it('shows in Doing well with a rocket', () => {
+    const html = out();
+    const well = html.slice(html.indexOf('Doing well'));
+    expect(well).toMatch(/Bonus Lab[\s\S]*?class="bonus"[\s\S]*?\+2 pts/);
+    expect(well).toMatch(/Unit Test[\s\S]*?class="bonus"[\s\S]*?106%/);
+    expect(well).not.toMatch(/Plain Quiz[^\n]*?class="bonus"[^\n]*?90%/);
+    expect((well.match(/class="bonus"/g) || []).length).toBe(2);
+  });
+  it('adds up as one record across classes', () => {
+    const html = out();
+    expect(html).toContain('Extra credit this year');
+    expect(html).toContain('3 classes · 4 assignments · plus 2 bonus points');
+    expect(html).toContain('+17%');
+  });
+  it('bonus points only: shown as points', () => {
+    const html = out({ records: { extraCredit: { value: 0, key: 'ec:1', info: { classes: 1, items: 1, points: 2 }, newAt: null } } });
+    expect(html).toContain('+2 pts');
+    expect(html).toContain('1 class · 1 assignment');
+  });
+});
