@@ -9,6 +9,9 @@
 //   - weighted classes (a category shows "(35%)"): each category's
 //     percentage so far, combined by the weights of the categories that have
 //     grades yet.
+// Extra credit (a score out of 0 points, e.g. 2/0) adds its points to what
+// was earned and nothing to what was possible, as on Schoology; it has no
+// percent, so it gets no dot.
 // Ungraded and excused work is left out, and letter-only grades are skipped.
 // Teacher-marked Missing work counts as a zero on Schoology, but the page
 // doesn't say what it was worth. For a points-based period whose grade
@@ -28,6 +31,7 @@
 
 function pctOf(a) {
   if (typeof a.score !== 'number' || Number.isNaN(a.score)) return null;
+  if (a.maxPoints === 0) return { got: a.score, max: 0 }; // extra credit
   if (typeof a.maxPoints === 'number' && a.maxPoints > 0) return { got: a.score, max: a.maxPoints };
   return { got: a.score, max: 100 }; // a bare score is already a percent
 }
@@ -62,7 +66,7 @@ export function gradeHistory(course, { now = Date.now() } = {}) {
     }
     const sc = pctOf(a);
     if (!sc) continue;
-    points.push({ t, pct: (sc.got / sc.max) * 100, title: a.title, got: sc.got, max: a.maxPoints > 0 ? a.maxPoints : null });
+    if (sc.max > 0) points.push({ t, pct: (sc.got / sc.max) * 100, title: a.title, got: sc.got, max: a.maxPoints > 0 ? a.maxPoints : null });
     if (!groups.has(periodId)) groups.set(periodId, []);
     groups.get(periodId).push({ t, sc, cat, title: a.title });
   }
@@ -110,7 +114,7 @@ export function gradeHistory(course, { now = Date.now() } = {}) {
           w += cc.weight;
           sum += cc.weight * (cc.got / cc.max);
         }
-        grade = w > 0 ? (sum / w) * 100 : (got / max) * 100;
+        grade = w > 0 ? (sum / w) * 100 : max > 0 ? (got / max) * 100 : null;
       } else {
         grade = max > 0 ? (got / max) * 100 : null;
       }
