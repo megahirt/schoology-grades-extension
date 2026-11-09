@@ -281,12 +281,12 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // low grades (one Missing alone would be GO). The student's name comes
       // from the home page (data-user-name).
       await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
-      // The same card as parents get (name, Missing chip, this week's ring),
-      // without the GO/NO-GO verdict, which is for parents only.
+      // The same card as parents get (name, Missing chip; the week's ring
+      // depends on today's date, so the unit test checks it), without the
+      // GO/NO-GO verdict, which is for parents only.
       const card = popup.locator('.card');
       await expect(card.locator('.card-name')).toHaveText('Alex Student');
       await expect(card.locator('.stat', { hasText: 'Missing' })).toHaveText(/^1\s*Missing$/);
-      await expect(card.locator('.week')).toHaveCount(1);
       await expect(popup.getByText('NO-GO', { exact: true })).toHaveCount(0);
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(popup.locator('.missing-card', { hasText: 'Persuasive Essay Draft' })).toBeVisible();
