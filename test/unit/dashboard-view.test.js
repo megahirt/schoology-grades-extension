@@ -79,7 +79,7 @@ describe('extra credit', () => {
     { id: 'e2', title: 'Unit Test', status: 'graded', score: 53, maxPoints: 50, due: iso(-2) },
     { id: 'e3', title: 'Plain Quiz', status: 'graded', score: 9, maxPoints: 10, due: iso(-3) },
   ] }];
-  const records = { extraCredit: { value: 17.4, key: 'ec:4', info: { classes: 3, items: 4, points: 2 }, newAt: null } };
+  const records = { extraCredit: { value: 17, key: 'ec:2', info: { classes: 3, items: 2 }, newAt: null } };
   const out = (over = {}) => renderStudentBody({ studentName: 'Sam Rivera', courses: list }, 'u1', { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, records, ...over }).html;
 
   it('shows in Doing well with a rocket', () => {
@@ -93,16 +93,17 @@ describe('extra credit', () => {
   it('adds up as one record across classes', () => {
     const html = out();
     expect(html).toContain('Extra credit this year');
-    expect(html).toContain('3 classes · 4 assignments · plus 2 bonus points');
-    expect(html).toContain('+17%');
+    expect(html).toContain('3 classes · 2 assignments');
+    expect(html).toContain('+17 pts');
+    expect(html).not.toContain('bonus point');
+    expect(html).not.toContain('+17%');
   });
-  it('bonus points only: shown as points', () => {
-    const html = out({ records: { extraCredit: { value: 0, key: 'ec:1', info: { classes: 1, items: 1, points: 2 }, newAt: null } } });
-    expect(html).toContain('+2 pts');
+  it('one point, one class', () => {
+    const html = out({ records: { extraCredit: { value: 1, key: 'ec:1', info: { classes: 1, items: 1 }, newAt: null } } });
+    expect(html).toContain('+1 pt<');
     expect(html).toContain('1 class · 1 assignment');
   });
 });
-
 
 describe('the student view looks like the parent view', () => {
   const render = (isParentView) => renderStudentBody(

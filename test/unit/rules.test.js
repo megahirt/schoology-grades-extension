@@ -5,7 +5,7 @@
 // "NO-GO — Missing work + Low grades", otherwise "GO".
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData, assignmentPercent, isExtraCredit, isBonus, extraCreditPercent } from '../../extension/src/rules.js';
+import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData, assignmentPercent, isExtraCredit, isBonus, extraCreditPercent, extraCreditPoints } from '../../extension/src/rules.js';
 
 describe('DEFAULT_SETTINGS', () => {
   it('uses the shipped defaults (75 / 2)', () => {
@@ -313,6 +313,9 @@ describe('Submitted work and Doing well', () => {
     expect(extraCreditPercent({ score: 53, maxPoints: 50 })).toBeCloseTo(6);
     expect(extraCreditPercent({ score: 50, maxPoints: 50 })).toBeNull();
     expect(isBonus({ status: 'graded', score: 0, maxPoints: 0 })).toBe(false);
+    expect(extraCreditPoints({ score: 53, maxPoints: 50 })).toBe(3);
+    expect(extraCreditPoints({ score: 2, maxPoints: 0 })).toBe(2);
+    expect(extraCreditPoints({ score: 9, maxPoints: 10 })).toBe(0);
   });
 
   it('a submitted, ungraded item that is not Missing also waits (not Due soon)', () => {

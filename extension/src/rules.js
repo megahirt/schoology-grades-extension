@@ -86,6 +86,13 @@ export function extraCreditPercent(a) {
   return pct > 100 + 1e-9 ? pct - 100 : null;
 }
 
+// extraCreditPoints(a): the extra points a score earns: what's over the
+// maximum (53/50 -> 3), or all of a score out of 0 (2/0 -> 2). 0 otherwise.
+export function extraCreditPoints(a) {
+  if (isExtraCredit(a)) return Math.max(0, a.score);
+  return extraCreditPercent(a) !== null ? a.score - a.maxPoints : 0;
+}
+
 // isBonus(a): any extra credit: points out of 0, or a score over 100%.
 export function isBonus(a) {
   return (isExtraCredit(a) && a.score > 0) || extraCreditPercent(a) !== null;
