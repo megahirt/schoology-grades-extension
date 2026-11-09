@@ -75,3 +75,28 @@ describe('gradeHistory', () => {
     expect(last(h.segments[0])).toBe(90);
   });
 });
+
+describe('extra credit (a score out of 0 points)', () => {
+  it('adds its points to what was earned and nothing to what was possible, with no dot', () => {
+    const h = gradeHistory({
+      periods: periods(),
+      categories: [{ id: 'Q1-1', parentId: 'Q1', weight: null }],
+      assignments: [
+        item('quiz', 'Q1-1', day(9, 1), 29, 30),
+        item('review', 'Q1-1', day(9, 10), 2, 0), // extra credit
+        item('test', 'Q1-1', day(9, 15), 60, 60),
+      ],
+    }, { now: NOW });
+    // 29/30, then 31/30 (not a 2% score worth 100 points), then 91/90.
+    expect(h.segments[0].line.map((p) => Math.round(p.grade * 10) / 10)).toEqual([96.7, 103.3, 101.1]);
+    expect(h.points.map((p) => p.title)).toEqual(['quiz', 'test']);
+  });
+  it('first in a weighted category: no grade yet rather than a division by zero', () => {
+    const h = gradeHistory({
+      periods: periods(),
+      categories: [{ id: 'Q1-1', parentId: 'Q1', weight: 50 }],
+      assignments: [item('bonus', 'Q1-1', day(9, 1), 2, 0), item('quiz', 'Q1-1', day(9, 2), 8, 10)],
+    }, { now: NOW });
+    expect(h.segments[0].line.map((p) => p.grade)).toEqual([100]);
+  });
+});

@@ -15,7 +15,7 @@
 // open popup and panel stays in sync. It only uses APIs that also work in
 // content scripts: browser.storage and browser.runtime.sendMessage/getURL.
 
-import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, hasGradeData, effectiveSettings, isStudentAccount } from './rules.js';
+import { summarizeStudent, DEFAULT_SETTINGS, assignmentPercent, isExtraCredit, hasGradeData, effectiveSettings, isStudentAccount } from './rules.js';
 import {
   getSettings,
   setSettings,
@@ -136,6 +136,7 @@ function updatedLabel(iso) {
 
 function gradeText(a, settings) {
   const pct = assignmentPercent(a);
+  if (pct === null && isExtraCredit(a)) return `+${Math.round(a.score * 100) / 100} pts`;
   if (pct === null) return a.status === 'graded' && a.letterGrade ? String(a.letterGrade) : '';
   if (settings.gradeDisplay === 'points' && a.maxPoints) return `${a.score}/${a.maxPoints}`;
   return `${Math.round(pct)}%`;

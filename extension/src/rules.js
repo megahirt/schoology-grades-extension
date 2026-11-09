@@ -63,10 +63,18 @@ export function assignmentPercent(a) {
   if (!a) return null;
   const score = typeof a.score === 'number' ? a.score : null;
   if (score === null || Number.isNaN(score)) return null;
+  if (a.maxPoints === 0) return null; // extra credit (e.g. 2/0): no percent
   if (typeof a.maxPoints === 'number' && a.maxPoints > 0) {
     return (score / a.maxPoints) * 100;
   }
   return score;
+}
+
+// isExtraCredit(a): a score out of 0 points (e.g. 2/0). Schoology adds the
+// points to the class total without adding to what's possible, so it is
+// graded, has no percent, and is never below the passing grade.
+export function isExtraCredit(a) {
+  return Boolean(a) && a.maxPoints === 0 && typeof a.score === 'number' && !Number.isNaN(a.score);
 }
 
 // hasGradeData(course): true when the course has a course grade or at least
@@ -78,7 +86,7 @@ export function hasGradeData(course) {
   if (!course) return false;
   if (typeof course.grade === 'number' && !Number.isNaN(course.grade)) return true;
   return (course.assignments || []).some(
-    (a) => assignmentPercent(a) !== null || (a.status === 'graded' && Boolean(a.letterGrade)),
+    (a) => assignmentPercent(a) !== null || isExtraCredit(a) || (a.status === 'graded' && Boolean(a.letterGrade)),
   );
 }
 
@@ -208,12 +216,13 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       // Letter/scale grades (e.g. "A") carry no number: they still count as
       // graded. Only D/F letters count as below the threshold.
       const letter = pct === null && a.status === 'graded' && a.letterGrade ? String(a.letterGrade) : null;
-      const graded = pct !== null || letter !== null;
+      const extra = isExtraCredit(a);
+      const graded = pct !== null || letter !== null || extra;
       const due = a.due ? new Date(a.due) : null;
       const dueValid = due && !Number.isNaN(due.getTime());
       if (graded) {
         // Graded items leave Waiting on their own, whatever was marked.
-        const below = pct !== null ? pct < s.gradeThreshold : /^[DF]/i.test(letter);
+        const below = pct !== null ? pct < s.gradeThreshold : letter !== null && /^[DF]/i.test(letter);
         if (below) {
           // "Not so good": graded below threshold from the past
           // notSoGoodDays days only (by the date shown on the row).
@@ -223,7 +232,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
         } else {
           // "Doing well": B or higher (doingWellPercent; letters A/B) from
           // the past doingWellDays days, by the date shown on the row.
-          const good = pct !== null ? pct >= s.doingWellPercent : /^[AB]/i.test(letter);
+          const good = pct !== null ? pct >= s.doingWellPercent : letter !== null && /^[AB]/i.test(letter);
           if (good && dueValid && due >= doingWellCutoff && due <= now) doingWell.push(item);
         }
         continue;

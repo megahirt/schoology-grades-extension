@@ -5,7 +5,7 @@
 // "NO-GO — Missing work + Low grades", otherwise "GO".
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData } from '../../extension/src/rules.js';
+import { DEFAULT_SETTINGS, computeVerdict, summarizeStudent, hasGradeData, assignmentPercent, isExtraCredit } from '../../extension/src/rules.js';
 
 describe('DEFAULT_SETTINGS', () => {
   it('uses the shipped defaults (75 / 2)', () => {
@@ -289,6 +289,17 @@ describe('Submitted work and Doing well', () => {
     expect(s.missingCount).toBe(0);
     expect(s.waiting.map((a) => [a.title, a.waitingReason])).toEqual([['Script', 'submitted'], ['Essay', 'submitted']]);
     expect(s.verdict.verdict).toBe('GO');
+  });
+
+  it('extra credit (2 out of 0 points) is graded, has no percent, and is never a low score', () => {
+    const bonus = { id: '1', title: 'Test Review', status: 'graded', score: 2, maxPoints: 0, due: at(1) };
+    expect(assignmentPercent(bonus)).toBeNull();
+    expect(isExtraCredit(bonus)).toBe(true);
+    const s = summarizeStudent(course([bonus, { ...bonus, id: '2', title: 'Bonus due', due: at(-1) }]), DEFAULT_SETTINGS);
+    expect(s.notSoGood).toEqual([]);
+    expect(s.dueTomorrow).toEqual([]);
+    expect(s.waiting).toEqual([]);
+    expect(hasGradeData({ assignments: [bonus] })).toBe(true);
   });
 
   it('a submitted, ungraded item that is not Missing also waits (not Due soon)', () => {
