@@ -10,7 +10,7 @@
 // 2. Loads the DEV build (run `npm run build:dev` first) into Chromium, logs
 //    in as the parent, seeds two months of the daily log so Records has a
 //    "nothing missing" run, and refreshes for real against the mock server.
-// 3. Saves desktop shots (1280×800) of the panel, the teacher chooser, the
+// 3. Saves desktop shots (1280×800) of the panel, Missing work, the
 //    grade chart, Records, the popup and the settings page; then phone
 //    shots (390×844), each also placed in a drawn phone frame.
 // 4. Does the same as the student (Sam), in a fresh profile.
@@ -177,7 +177,9 @@ async function scrollTo(locator) {
 
 // Hide what only the dev build shows (the "DEV · Data: …" bar and the
 // settings page's Developer section): the site shows the real product.
-const HIDE_DEV = '.dev-row, .dev-only, a.dev-only { display: none !important; }';
+// Also hide the parent's "Message the teacher" envelope on Missing items:
+// that feature is deliberately not promoted on the site.
+const HIDE_DEV = '.dev-row, .dev-only, a.dev-only, [data-act="email-teacher"] { display: none !important; }';
 async function hideDev(page) {
   await page.evaluate((css) => {
     const add = (root) => {
@@ -284,22 +286,17 @@ try {
       await page.waitForTimeout(300);
       await save(page, 'parent-jamie');
 
-      // "Message the teacher" on a class with two admins: the chooser.
-      const mathCard = sheet.locator('.missing-card', { hasText: 'Integers Homework' });
-      await mathCard.locator('[data-act="email-teacher"]').click();
-      await sheet.locator('.teacher-chooser').waitFor({ timeout: 15000 });
-      await scrollTo(sheet.locator('.teacher-chooser'));
-      await page.waitForTimeout(300);
-      await save(page, 'teacher-chooser');
-      await sheet.locator('[data-act="tc-cancel"]').click();
-      // Close any compose tab the click may have opened.
-      for (const p of ctx.pages()) if (p !== page && /messages\/new/.test(p.url())) await p.close();
-
       // Turned-in mark: tick one Missing item, then show Submitted, not graded yet.
       await sheet.getByRole('button', { name: 'Mark Field Notes as turned in' }).click();
       await sheet.getByText(/Submitted, not graded yet/).first().waitFor();
-      await scrollTo(sheet.locator('h2', { hasText: 'Submitted, not graded yet' }));
-      await page.waitForTimeout(300);
+      // The panel redraws once more after the mark is saved, which resets
+      // the scroll; wait for that, then scroll and check it held.
+      await page.waitForTimeout(1000);
+      for (let i = 0; i < 5; i++) {
+        await scrollTo(sheet.locator('h2', { hasText: 'Submitted, not graded yet' }));
+        await page.waitForTimeout(400);
+        if (await body.evaluate((el) => el.scrollTop > 0)) break;
+      }
       await save(page, 'waiting-on-teacher');
       await sheet.getByRole('button', { name: 'Undo: Field Notes' }).click();
 

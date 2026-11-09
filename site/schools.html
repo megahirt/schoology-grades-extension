@@ -27,12 +27,11 @@
 <li>Read the Schoology grades pages the signed-in user can already see, using the browser's existing session.</li>
 <li>Work out what's missing, what's due and grade summaries <strong>locally</strong>, in the browser.</li>
 <li>Save results in the browser's local extension storage only.</li>
-<li>Open Schoology's own message form, filled in, when a parent asks it to (the parent presses Send).</li>
 </ul></div>
 <div class="card"><h3>It never</h3><ul class="crosses">
 <li>Asks for, stores or sees a Schoology password, API key or OAuth token.</li>
 <li>Sends data to any server. There's no backend, no analytics and no tracking. The only network requests go to the school's own <code>schoology.com</code> address.</li>
-<li>Changes anything in Schoology: no submissions, no edits, no messages sent on its own.</li>
+<li>Changes anything in Schoology: no submissions, no edits, nothing posted.</li>
 <li>Uses the Schoology API, or runs on sites other than Schoology.</li>
 </ul></div>
 </div>
@@ -45,7 +44,7 @@
 <tr><td><code>https://*.schoology.com/*</code></td><td>Read the grades pages and show the dashboard panel on Schoology. No other sites.</td></tr>
 <tr><td><code>storage</code></td><td>Save grades, settings, records and the daily log in the browser (local only).</td></tr>
 <tr><td><code>alarms</code></td><td>Refresh in the background about once an hour while the browser is open.</td></tr>
-<tr><td><code>tabs</code>, <code>scripting</code></td><td>A fallback when a grades page can't be fetched directly: read it in a hidden Schoology tab, then close it. Also used to fill in Schoology's message form.</td></tr>
+<tr><td><code>tabs</code>, <code>scripting</code></td><td>A fallback when a grades page can't be fetched directly: read it in a hidden Schoology tab, then close it.</td></tr>
 </table></div>
 <h2 style="margin-top:36px">Data it keeps (in the browser only)</h2>
 <div class="table-scroll"><table class="plain">

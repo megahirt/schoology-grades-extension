@@ -18,7 +18,7 @@ He built this extension and needs two kinds of reader to say yes to it:
    The site has to show three things: the extension **helps** (with research
    and honest citations), it's **safe** (read-only, no server, no data
    collected, open source), and it's **good for teachers** (fewer missing
-   assignments, calmer and more specific messages from parents).
+   assignments, fewer surprises at report-card time).
 
 Chris also wants teachers he knows and students with their own phones to try
 it early, since school MacBooks can't install it yet.
@@ -49,7 +49,7 @@ it early, since school MacBooks can't install it yet.
 | Install | `site/install.html` | everyone | Every browser, with honest notes about phones |
 | For schools | `site/schools.html` | IT and administrators | Permissions, what it reads, where data lives, what it never does, open source, how to review the code, how to allow it on managed Macs |
 | For NPC families | `site/npc.html` | NPC families | Short setup checklists for a parent and for a student |
-| For teachers | `site/teachers.html` | teachers | What families see, how "Message the teacher" works (the parent always presses Send), and why missing-work alerts help |
+| For teachers | `site/teachers.html` | teachers | What families see, what their Missing marks mean to families, and why missing-work alerts help |
 | Research | `site/research.html` | anyone who checks sources | The full, numbered list of citations with DOIs |
 | Privacy | `site/privacy.html` | required by the stores | Privacy policy: no data collected, everything stays in the browser |
 
@@ -72,12 +72,15 @@ to the citation list below.
 | **This week's ring** | Fills as this week's work is graded or turned in. Fresh every Monday | Watching progress toward a goal helps people reach it, more so when it's recorded [11]. Near goals build self-efficacy [12] | A weekly reset is a fresh goal, not a streak to lose. Broken streaks make people give up [15] |
 | **Up since last quarter** ("▲ 6% vs Q1") | Shows only when a class went up | Comparing with your own past builds engagement [16]. Feedback about progress on the task works [9] | Drops show nothing. Feedback that turns attention to the self ("your grade dropped") often makes performance worse [10] |
 | **Records** (personal bests) | Highest score, best week, longest run with nothing missing, highest class grade. They only go up | Personal-best goals predict engagement [16]. Praise effort and process, not ability [17] | No resets to zero, no rankings, no comparing siblings [15, 18]. No points, coins or badges to collect, because rewards for doing a task can crowd out motivation [8, 14] |
-| **Doing well** | Recent good grades, so there's something specific to praise | Specific, task-focused praise [9, 17]. Teacher messages to parents work [19] | No generic "great job!" and no praise for being smart [17] |
+| **Doing well** | Recent good grades, so there's something specific to praise | Specific, task-focused praise [9, 17]. | No generic "great job!" and no praise for being smart [17] |
 | **Grade trend and chart** | Each class's grade over time, with the passing line | Self-monitoring [11] | No class averages or peer data, so no comparison [18] |
 | **Daily log** | Saves one entry per day in the browser, so trends and records are honest | Recording progress makes monitoring work better [11] | Stays on the device. Never sent anywhere |
-| **Message the teacher** (parents only) | Opens Schoology's own message form, filled in, to the teacher the parent picks. The parent edits it and presses Send | Teacher–parent communication raises completion [19] | Students don't get the button, and it never sends anything on its own |
 | **Share a picture** | Copies a picture of the dashboard or opens the share menu | Talking about school and plans with your teen ("academic socialization") is the involvement most linked to achievement [2] | The family chooses who to share with. No social feed, no public scores |
 | **Settings sliders** | Passing grade 60–80, Missing limit 1–6, Doing-well level 75–90. The verdict is on or off | Clear rules and structure from parents help [3, 7]. Autonomy support [7, 14] | Families set the bar together. Students see the same rules |
+
+The parents-only "Message the teacher" button is deliberately **not** on the
+site (Chris's call: it might cause issues). Don't mention it, and the
+screenshot script hides its envelope buttons.
 
 ## Citations (all checked on 2026-11-08 with web searches, DOIs given)
 
@@ -99,7 +102,6 @@ to the citation list below.
 16. Martin, A. J., & Liem, G. A. D. (2010). Academic personal bests (PBs), engagement, and achievement: A cross-lagged panel analysis. *Learning and Individual Differences, 20*(3), 265–270. https://doi.org/10.1016/j.lindif.2010.01.001.
 17. Mueller, C. M., & Dweck, C. S. (1998). Praise for intelligence can undermine children's motivation and performance. *Journal of Personality and Social Psychology, 75*(1), 33–52. https://doi.org/10.1037/0022-3514.75.1.33.
 18. Hanus, M. D., & Fox, J. (2015). Assessing the effects of gamification in the classroom: A longitudinal study on intrinsic motivation, social comparison, satisfaction, effort, and academic performance. *Computers & Education, 80*, 152–161. https://doi.org/10.1016/j.compedu.2014.08.019. Badges, a leaderboard and coins lowered motivation and final exam scores over a semester. Also: Jivet, I., Scheffel, M., Drachsler, H., & Specht, M. (2017). Awareness is not enough: Pitfalls of learning analytics dashboards in the educational practice. *EC-TEL 2017, LNCS 10474*, 82–96. https://doi.org/10.1007/978-3-319-66610-5_7.
-19. Kraft, M. A., & Rogers, T. (2015). The underutilized potential of teacher-to-parent communication: Evidence from a field experiment. *Economics of Education Review, 47*, 49–63. https://doi.org/10.1016/j.econedurev.2015.04.001. Weekly one-sentence teacher messages to parents cut the share of students failing to earn credit from 15.8% to 9.3%.
 
 Background reading (not cited on the site): the earlier research report in
 this project's notes, "Reward the week, not the login" (2026-11-07).
@@ -144,7 +146,7 @@ current.
   - Student persona: **Sam Rivera**, with the same data the parent sees.
     That shows the student sees what the parent sees.
   - Teachers: Ms. Park, Mr. Ortiz, Mr. Chen, Mrs. Hall, Mr. Young and Ms.
-    Teacher. Classes with a department admin show the teacher chooser.
+    Teacher.
   - **Dates are relative to the day the script runs**, so "due today",
     "this week" and "▲ vs Q1" always look current.
 - **Script:** `npm run site:screenshots` (`scripts/site-screenshots.mjs`).
@@ -152,7 +154,7 @@ current.
   the showcase data, launches Chromium with the extension, logs in, refreshes
   and seeds two weeks of daily log so Records shows a run. Then it captures:
   - desktop (1280×800 at 2×): the parent panel, the student panel, the Missing
-    card, the teacher chooser, the grade chart, Records, the settings page and
+    card, the grade chart, Records, the settings page and
     the popup;
   - phone (390×844 at 3×, iPhone size): the same views, each placed in a drawn
     phone frame (CSS, no Apple artwork) and saved as a second image.
