@@ -4,6 +4,8 @@
 //     previous quarter (ups only; a drop shows nothing).
 //   - weekProgress: this week's ring: of everything due Monday to Sunday,
 //     how much is graded and how much is turned in waiting for a grade.
+//   - classHighScore: a class's highest-scoring assignment so far (shown
+//     under that class's grade chart).
 //   - computeRecords / mergeRecords: personal bests this school year. They
 //     are saved (storage key `records`) and only ever go up, so a rough week
 //     or a teacher changing an old grade never takes one away. The
@@ -99,32 +101,31 @@ export function weekProgress(courses, marks = {}, now = Date.now()) {
   return { total, graded, submitted };
 }
 
+// classHighScore(course, now) -> { a, pct } for the class's highest-scoring
+// graded assignment so far, or null. A tie goes to the one worth the most
+// points (a perfect test beats a perfect 5-point check-in), then the
+// earliest. Extra credit (no percent) and future work don't count.
+export function classHighScore(course, now = Date.now()) {
+  let best = null;
+  for (const a of (course && course.assignments) || []) {
+    if (!isGraded(a)) continue;
+    const pct = assignmentPercent(a);
+    const t = Date.parse(a.due || '');
+    if (pct === null || Number.isNaN(t) || t > now) continue;
+    const pts = typeof a.maxPoints === 'number' ? a.maxPoints : 0;
+    const tie = best && Math.abs(pct - best.pct) < 1e-9;
+    if (!best || pct > best.pct + 1e-9 || (tie && (pts > best.pts || (pts === best.pts && t < best.t)))) best = { a, pct, t, pts };
+  }
+  return best ? { a: best.a, pct: best.pct } : null;
+}
+
 // computeRecords(courses, now) -> this school year's bests from today's data:
-// { highestScore, bestWeek, classGrade }, each { value, key, info }
-// or absent. `key` names the event, so a record that is beaten by a different
-// event can be marked NEW.
+// { bestWeek, classGrade }, each { value, key, info } or absent. `key` names
+// the event, so a record that is beaten by a different event can be marked
+// NEW. (Each class's highest score is shown with that class: classHighScore.)
 export function computeRecords(courses, now = Date.now()) {
   const list = courses || [];
   const out = {};
-
-  // Highest score on a graded assignment (the earliest one wins a tie).
-  let best = null;
-  for (const c of list) {
-    for (const a of c.assignments || []) {
-      if (!isGraded(a)) continue;
-      const pct = assignmentPercent(a);
-      const t = Date.parse(a.due || '');
-      if (pct === null || Number.isNaN(t) || t > now) continue;
-      if (!best || pct > best.pct + 1e-9 || (Math.abs(pct - best.pct) < 1e-9 && t < best.t)) best = { pct, t, a, c };
-    }
-  }
-  if (best) {
-    out.highestScore = {
-      value: Math.round(best.pct * 10) / 10,
-      key: `${best.c.id}:${best.a.id ?? best.a.title}`,
-      info: { title: best.a.title, course: best.c.name, date: new Date(best.t).toISOString(), url: best.a.url || null },
-    };
-  }
 
   // Best week: the most assignments in one week with everything in (graded
   // or submitted) and nothing marked Missing. Only work due by now counts.

@@ -305,6 +305,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(algebra.locator('svg.gchart .gc-dot')).toHaveCount(2); // the two graded Algebra 2 items
       await expect(algebra.locator('svg.gchart .gc-pass')).toHaveCount(1); // dashed passing line
       await expect(algebra.locator('a.chart-link')).toHaveAttribute('href', `${mockBase}/course/1001/student_grades`);
+      // The class's highest score sits under its chart.
+      await expect(algebra.locator('.class-best')).toContainText('Highest score');
       // Desktop hover shows the nearest assignment: date, title and its grade.
       const box = await algebra.locator('svg.gchart .gc-hit').boundingBox();
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
@@ -324,7 +326,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).
       const journal = popup.locator('.waiting', { hasText: 'Poetry Journal' });
       await expect(journal).toBeVisible();
-      await expect(journal.locator('.sub')).not.toContainText('Submitted'); // the section title says it
+      await expect(journal).not.toContainText('Submitted'); // the section title says it
       await expect(journal.getByRole('button', { name: /Undo/ })).toHaveCount(0);
       await expect(journal.locator('.missing-tag')).toHaveCount(0); // submitted, but not marked Missing
 
@@ -614,6 +616,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await popup.locator('.class', { hasText: 'American Literature' }).locator('button.class-toggle').click();
       await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('a.chart-link'))
         .toHaveAttribute('href', /\/course\/\d+\/preview\/2000001\/parent\?url=course\/\d+\/student_grades$/);
+      // Submitted, not graded yet: grouped by class, with a count per class.
+      await expect(popup.locator('.wait-class .wait-h').first()).toHaveText(/ · \d+$/);
       const samEssay = popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' });
       await expect(samEssay).toBeVisible();
       // Still marked Missing on Schoology: Schoology's Missing icon + "Missing".
@@ -624,7 +628,8 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.class', { hasText: 'House Group 1' })).toHaveCount(0);
       // Records: personal bests saved with the refresh (they only go up).
       await expect(popup.locator('.sec-h', { hasText: 'Records' })).toBeVisible();
-      await expect(popup.locator('.record', { hasText: 'Highest score' })).toBeVisible();
+      await expect(popup.locator('.record', { hasText: 'Highest score' })).toHaveCount(0); // shown per class now
+      await expect(popup.locator('.record', { hasText: 'Highest class grade' })).toBeVisible();
       expect(await worker.evaluate(async () => Object.keys(Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('records@'))?.[1] || {}).length)).toBe(2);
       // Jamie: 1 Missing, all classes >= 90 => GO.
       await jamieTab.click();
