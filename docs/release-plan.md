@@ -35,7 +35,7 @@ Still open: see §7.
 |---|---|
 | Version | `0.1.0` in both `package.json` and `extension/manifest.json`. No git tags exist yet. Nothing checks that the two files match. |
 | `ci.yml` | Lint, unit, prod + dev build, Playwright e2e. Its `test` job is the required check on `main`. Fine as is. |
-| `release.yml` | Runs on `v*` tag pushes. Builds the ZIP, then a Safari job, a Chrome job, and a Release job. **Stale, details below.** |
+| `release.yml` | Runs on `v*` tag pushes. Builds the ZIP, then a Safari job, a Chrome job, and a Release job. **Stale, details below; replaced by megahirt/schoology-grades-extension#73.** |
 | `build-safari.mjs` | Regenerates an Xcode project from `dist/` every run, with the placeholder bundle ID `com.example.schoology-dashboard` and `--macos-only`. |
 | Accounts | None yet: no Apple Developer membership, no Chrome Web Store developer account. Only the owner can create them. |
 
@@ -62,74 +62,69 @@ Problems with the current `release.yml`:
 
 ## 1. Versioning and the release flow
 
+**Owner decision (10 Nov 2026): a release is a `vX.Y.Z` tag on `main`, and
+the tag is the only source of the version.** Implemented in
+megahirt/schoology-grades-extension#73.
+
 ### Version numbers
 
-- **SemVer `MAJOR.MINOR.PATCH`** in `package.json` and
-  `extension/manifest.json` (Chrome's `version` allows only dotted
-  integers, so no `-beta` suffix there; `version_name` may carry one).
-- These two files are the single source of truth. Every store version
-  derives from them:
-  - Chrome / Edge / Firefox: `version` as is. Chrome requires every upload
-    to be strictly greater than the last.
-  - Apple: `CFBundleShortVersionString` (MARKETING_VERSION) = the same
-    SemVer. `CFBundleVersion` (build number) = the CI run number
-    (`github.run_number`), which is unique for every upload, TestFlight
-    re-uploads included.
+- **`vX.Y.Z` tags** (no leading zeros, each part 0–65535, Chrome's rule).
+  `extension/manifest.json` and `package.json` stay at `0.0.0`; nothing is
+  bumped in a commit.
+- `scripts/build.mjs` writes the version into every built manifest
+  (`dist/`, `dist-firefox/`, `dist-safari/`) from `RELEASE_VERSION`. The
+  release workflow sets that from the tag. Local builds use the newest
+  `vX.Y.Z` tag, or `0.0.0` if there is none.
+- What derives from it:
+  - Chrome / Edge / Firefox: manifest `version`. Each store requires every
+    upload to be greater than the last, which tags give us for free.
+  - Apple: `CFBundleShortVersionString` (MARKETING_VERSION) = X.Y.Z.
+    `CFBundleVersion` (build number) = the release run number
+    (`github.run_number`), unique for every upload.
+  - The extension's own UI (settings footer, "Send feedback" subject) reads
+    the manifest, so it shows the release version.
+  - The promo site: `pages.yml` stamps the newest tag into
+    `site/links.js`, which shows "Version X.Y.Z" in every page footer and
+    next to the install page's release links.
 
-### Bumping
-
-Add `scripts/bump-version.mjs` and an `npm run release:bump -- <patch|minor|major|x.y.z>` script that:
-
-1. Updates both files at once (via `npm version --no-git-tag-version`, then
-   writes the same value into the manifest).
-2. Moves the `## Unreleased` section of `CHANGELOG.md` under a new
-   `## x.y.z — YYYY-MM-DD` heading.
-
-Add a cheap check to `ci.yml` (a step in `test`, so no new required
-check): `package.json` version == `manifest.json` version, and the prod
-`dist/manifest.json` has no `localhost` permission.
-
-### Flow (fits "main requires `test`, PRs auto-merge")
-
-`main` is protected, so a version can't be pushed straight to it, and a
-tag pushed by `GITHUB_TOKEN` won't trigger other workflows. The cleanest
-fit is a **release PR whose merge *is* the release**:
+### Flow
 
 ```
-feature PRs ──merge──▶ main          (each adds a line under "## Unreleased")
-                         │
-owner: npm run release:bump -- minor  → branch release/v0.2.0 → PR
-                         │  CI `test` passes → auto-merge
-                         ▼
-push to main ──▶ release.yml: "is manifest version untagged?"
-                   no  → exit (ordinary merge)
-                   yes → build → tag v0.2.0 → GitHub Release (+ ZIPs)
-                                   └─▶ store jobs (each guarded by its secrets)
+feature PRs ──CI `test`──▶ auto-merge to main
+                              │
+owner:  git tag v1.4.0 <commit on main> && git push origin v1.4.0
+                              ▼
+release.yml (on the tag push)
+  verify   tag is vX.Y.Z and its commit is on main (else fail, no release)
+  build    lint + unit tests; Chrome/Edge, Firefox, Safari builds stamped
+           with X.Y.Z; check each manifest; ZIPs + SHA256SUMS.txt
+  release  GitHub Release vX.Y.Z (generated notes + files), then
+           `gh workflow run pages.yml` so the site shows the new version
+  stores   chrome / safari (edge, firefox later) in the `release`
+           environment: owner approval, then upload; each skips until its
+           secrets and upload steps exist
 ```
 
-- `release.yml` triggers on `push: branches: [main]` (paths: the manifest)
-  plus `workflow_dispatch` (re-run a release, or a **dry run** with
-  `dry_run: true`).
-- The workflow creates the tag and the Release itself, with
-  `gh release create v$VERSION --target $GITHUB_SHA`, so nothing depends on
-  a tag-push event.
-- **Release notes:** the `CHANGELOG.md` section for that version, plus
-  GitHub's `--generate-notes` PR list underneath. Feature PRs keep the
-  changelog human-readable, and the generated list covers anything missed.
-- **Assets attached:**
-  - `schoology-dashboard-<v>-chrome.zip`: prod `dist/` for Chrome and Edge,
-    also good for Safari "Add Temporary Extension" and Apple's web
-    packager.
-  - `schoology-dashboard-<v>-firefox.zip` (Firefox build, Phase 4; the signed copy comes from AMO).
-  - `SHA256SUMS.txt`.
-  - No signed Apple binaries; those go to App Store Connect only.
-- Releases stay public. The repo is public anyway, and the ZIP is
-  installable "load unpacked" for anyone technical.
-
-The alternative was **release-please** (bot-maintained release PR from
-Conventional Commits). It's rejected for now: more machinery than a
-one-maintainer family project needs, and it forces a commit-message
-convention. Revisit if the bump script becomes a chore.
+- Tagging a commit that is already on `main` means it has passed the
+  required CI `test` check. The workflow re-runs lint and unit tests
+  anyway before building.
+- **Release notes:** GitHub's generated list of merged PRs since the last
+  tag, under a short header naming the files. PR titles are the changelog,
+  so keep them readable.
+- **Assets attached:** `schoology-grades-extension-<v>-chrome.zip` (Chrome
+  and Edge), `-firefox.zip`, `-safari.zip` (Safari temporary install and
+  Apple's packager input), and `SHA256SUMS.txt`. No signed Apple binaries;
+  those go to App Store Connect only.
+- **A wrong tag:** if verify fails, nothing is released. Delete the tag
+  (`git push origin :refs/tags/vX.Y.Z`) and tag the right commit. Once a
+  version has reached a store, never reuse it; tag the next patch instead.
+- **Recommended:** a tag ruleset (Settings → Rules → Rulesets → New tag
+  ruleset, target `v*`) that restricts creating, updating and deleting
+  release tags to the owner.
+- **Needed:** the `release` environment must allow tags `v*` as well as
+  `main` (Settings → Environments → release → Deployment branches and
+  tags → Add rule → Tag `v*`). Tag-triggered store jobs can't start
+  otherwise.
 
 ### 1a. Product name per store
 
@@ -380,18 +375,14 @@ demo-data screenshots.
 
 ### Phase 1: GitHub Release pipeline (no accounts needed)
 
-- Bump script, `CHANGELOG.md`, version-match check in CI.
-- Rewrite `release.yml`: push-to-main trigger + `workflow_dispatch`
-  dry run → build → tag → Release with ZIPs + checksums → store jobs as
-  guarded no-ops.
-- **Dry run:** `workflow_dispatch` with `dry_run: true` builds and uploads
-  the assets as a workflow artifact and creates a **draft** Release (only
-  maintainers see drafts), with no tag and no store calls. Delete the
-  draft afterwards. Then cut a real `v0.1.0` as the first tagged
-  baseline.
-- Also needed before any store (owner reviews): a **privacy policy page**
-  (GitHub Pages from `docs/`) and a support URL, since all three stores
-  ask for them.
+- Done in megahirt/schoology-grades-extension#73: tag-driven
+  `release.yml`, version from the tag, site shows the version.
+- **First real test:** after merging, tag `v0.1.0` on `main`. Check the
+  Release, its three ZIPs (load the Chrome one unpacked and check the
+  version in Settings), and the site footer.
+- Also needed before any store (owner reviews): the **privacy policy
+  page** (megahirt/schoology-grades-extension#32, plus `site/privacy.html`)
+  and a support URL. All the stores ask for them.
 
 ### Phase 2: Chrome Web Store (owner: $5 account)
 
