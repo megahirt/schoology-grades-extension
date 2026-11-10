@@ -46,9 +46,7 @@ it early, since school MacBooks can't install it yet.
 |---|---|---|---|
 | Home | `site/index.html` | everyone | Headline, an install button that matches the visitor's device, the three goals (research-based, parents, students), a short feature tour with screenshots, and links to the other pages |
 | Features & research | `site/features.html` | parents, students, admins | One section per feature with a desktop shot, a phone shot, "What the research says", "What we avoid" and citations |
-| Install | `site/install.html` | everyone | Every browser, with honest notes about phones |
 | For schools | `site/schools.html` | IT and administrators | Permissions, what it reads, where data lives, what it never does, open source, how to review the code, how to allow it on managed Macs |
-| For NPC families | `site/npc.html` | NPC families | Short setup checklists for a parent and for a student |
 | For teachers | `site/teachers.html` | teachers | What families see, what their Missing marks mean to families, and why missing-work alerts help |
 | Research | `site/research.html` | anyone who checks sources | The full, numbered list of citations with DOIs |
 | Privacy | `site/privacy.html` | required by the stores | Privacy policy: no data collected, everything stays in the browser |

@@ -1,5 +1,5 @@
-// links.js: every store link in one place, and the "Get it for this device"
-// button. When a store listing goes live, paste its URL here; the buttons
+// links.js: every store link in one place, and the home page's "Get it"
+// button for this device. When a store listing goes live, paste its URL here; the buttons
 // switch from "Coming soon" to a real link on every page.
 window.SITE_LINKS = {
   safariMac: '',     // Mac App Store listing
@@ -54,27 +54,22 @@ window.SITE_LINKS = {
       if (L[el.dataset.link]) el.href = L[el.dataset.link];
     }
 
-    // The hero's device-matched button.
+    // The hero's button: the store for this device, or "coming soon"
+    // until that listing exists.
     const d = detect();
     const btn = document.querySelector('#get-it');
-    const note = document.querySelector('#get-it-note');
-    if (btn && d) {
-      const url = L[d.key];
+    if (btn) {
+      const url = d && L[d.key];
       if (url) {
         btn.href = url;
         btn.textContent = `Get it for ${d.label}`;
       } else {
-        btn.href = `install.html#${d.key}`;
-        btn.textContent = `How to get it on ${d.label}`;
+        btn.removeAttribute('href');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.classList.add('soon');
+        btn.classList.remove('primary');
+        btn.textContent = d ? `Coming soon for ${d.label}` : 'Coming soon';
       }
-      if (note) note.textContent = 'Picked for the device you’re on. ';
-    }
-    // Highlight this device on the install page.
-    if (d) {
-      const card = document.getElementById(d.key);
-      if (card) card.classList.add('here');
-      const here = document.getElementById('you-are-on');
-      if (here) here.textContent = `You’re on ${d.label}: that browser is highlighted below.`;
     }
   });
 })();
