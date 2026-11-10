@@ -3,8 +3,8 @@
 // and the usual made-up teachers. Never real student data.
 //
 // Unlike the test personas in server.js, every date here is relative to
-// `now`, so "due today", "this week" and "▲ vs Q1" look current whenever
-// the screenshots are taken.
+// `now`. The screenshot script pins `now` (and the extension's clock) to one
+// fixed day, so the pictures come out the same whenever they're taken.
 //
 //   parent persona:  Sam Rivera   (grade 10, 8 classes, GO: 1 Missing,
 //                                  two classes up since Q1, lots of good work)

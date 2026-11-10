@@ -5,9 +5,9 @@
 // will see.
 //
 // 1. Starts the mock Schoology server with the made-up "showcase" data
-//    (test/mock-server/showcase.js: the Rivera family, 8 classes each, dates
-//    relative to today).
-// 2. Loads the DEV build (run `npm run build:dev` first) into Chromium, logs
+//    (test/mock-server/showcase.js: the Rivera family, 8 classes each).
+// 2. Builds the DEV extension with its clock pinned to SHOWCASE_NOW, loads it
+//    into Chromium, logs
 //    in as the parent, seeds two months of the daily log so Records has a
 //    "nothing missing" run, and refreshes for real against the mock server.
 // 3. Saves desktop shots (1280×800) of the panel, the teacher chooser, the
@@ -15,10 +15,16 @@
 //    shots (390×844), each also placed in a drawn phone frame.
 // 4. Does the same as the student (Sam), in a fresh profile.
 //
+// Pinned date: everything (the showcase data, the extension's clock and the
+// daily log) uses SHOWCASE_NOW, so "Due today", this week's ring and Records
+// look the same on every run. It's a Sunday afternoon, so the week is nearly
+// done. Override with SHOWCASE_NOW=2026-11-08T16:42:00 (local time).
+//
 // Never point this at real Schoology or use real student data: the repo
 // is public and these images are committed.
 
 import { chromium } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,9 +35,17 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
 const OUT = path.join(ROOT, 'site/img');
 const DAY = 24 * 60 * 60 * 1000;
+const SHOWCASE_NOW_TEXT = process.env.SHOWCASE_NOW || '2026-11-08T16:42:00';
+const NOW = new Date(SHOWCASE_NOW_TEXT).getTime();
+if (Number.isNaN(NOW)) {
+  console.error(`SHOWCASE_NOW "${SHOWCASE_NOW_TEXT}" is not a date.`);
+  process.exit(1);
+}
 
+// A dev build whose clock starts at SHOWCASE_NOW.
+execFileSync('node', [path.join(ROOT, 'scripts/build.mjs'), '--dev', `--fake-now=${SHOWCASE_NOW_TEXT}`], { stdio: 'inherit' });
 if (!existsSync(path.join(DIST, 'manifest.json'))) {
-  console.error('No dist/ build. Run `npm run build:dev` first.');
+  console.error('The dev build did not produce dist/.');
   process.exit(1);
 }
 const manifest = JSON.parse(readFileSync(path.join(DIST, 'manifest.json'), 'utf8'));
@@ -54,7 +68,7 @@ const DESKTOP = { width: 1280, height: 800 };
 const PHONE = { width: 390, height: 844 };
 const saved = [];
 
-const mock = await startServer(0, { dataset: 'showcase' });
+const mock = await startServer(0, { dataset: 'showcase', now: NOW });
 const base = mock.url.replace('127.0.0.1', 'localhost'); // the dev build allows localhost, not 127.0.0.1
 
 async function launch() {
@@ -112,12 +126,40 @@ async function login(ctx, persona) {
   await page.close();
 }
 
+// User data (the daily log) is kept per signed-in user
+// ("dailyLog@<origin>#<uid>"), and the uid is only known once the extension
+// has seen who is signed in. So this runs after the first refresh: it adds
+// the made-up past days to the log the refresh started (today's entry stays),
+// and a second refresh then works out Records from it.
+async function seedUserData(worker, values) {
+  await worker.evaluate(async ({ site, values }) => {
+    const { [`user@${site}`]: user } = await chrome.storage.local.get(`user@${site}`);
+    if (!user || !user.uid) throw new Error(`no signed-in user recorded for ${site}`);
+    const scope = `${site}#${user.uid}`;
+    const keys = Object.keys(values).map((k) => `${k}@${scope}`);
+    const current = await chrome.storage.local.get(keys);
+    const next = {};
+    for (const [k, seeded] of Object.entries(values)) {
+      const have = current[`${k}@${scope}`] || {};
+      const merged = { ...have };
+      // '*' = every child the refresh already logged (the student's own
+      // dashboard is keyed by its uid or 'self').
+      const ids = (id) => (id === '*' ? Object.keys(have) : [id]);
+      for (const [id, log] of Object.entries(seeded)) {
+        for (const one of ids(id)) merged[one] = { ...log, ...(have[one] || {}) };
+      }
+      next[`${k}@${scope}`] = merged;
+    }
+    await chrome.storage.local.set(next);
+  }, { site: new URL(base).origin, values });
+}
+
 // Daily log: one entry per day. `missingOn(daysAgo)` says how many items
 // were teacher-marked Missing that day.
 function dailyLog(missingOn, days = 60) {
   const out = {};
   for (let ago = days; ago >= 1; ago--) {
-    const d = new Date(Date.now() - ago * DAY);
+    const d = new Date(NOW - ago * DAY);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     out[key] = { v: 1, at: d.toISOString(), teacherMissing: missingOn(ago) };
   }
@@ -125,16 +167,20 @@ function dailyLog(missingOn, days = 60) {
 }
 
 async function refresh(ctx, extId, worker, expected) {
+  const read = () => worker.evaluate(async () => {
+    const all = await chrome.storage.local.get(null);
+    const pick = (k) => Object.entries(all).find(([key]) => key.startsWith(`${k}@`))?.[1];
+    return { dashboards: pick('dashboards') || {}, refreshState: pick('refreshState') || {} };
+  });
+  const before = (await read()).refreshState.finishedAt || null;
   const page = await ctx.newPage();
   await page.goto(`chrome-extension://${extId}/popup/popup.html`);
   await page.evaluate(() => chrome.runtime.sendMessage({ type: 'refresh-now' }));
   for (let i = 0; i < 60; i++) {
-    const { dashboards = {}, refreshState = {} } = await worker.evaluate(async () => {
-      const all = await chrome.storage.local.get(null);
-      const pick = (k) => Object.entries(all).find(([key]) => key.startsWith(`${k}@`))?.[1];
-      return { dashboards: pick('dashboards') || {}, refreshState: pick('refreshState') || {} };
-    });
-    if (Object.keys(dashboards).length >= expected && !refreshState.running) break;
+    const { dashboards = {}, refreshState = {} } = await read();
+    // Done once this refresh has finished (not an earlier one).
+    const finished = !refreshState.running && refreshState.finishedAt && refreshState.finishedAt !== before;
+    if (Object.keys(dashboards).length >= expected && finished) break;
     await page.waitForTimeout(500);
   }
   await page.close();
@@ -239,16 +285,17 @@ try {
     try {
       await setStorage(worker, {
         settings: { schoologyBase: base, showGoNoGo: true },
+      });
+      await login(ctx, 'parent');
+      await refresh(ctx, extId, worker, 2);
+      await seedUserData(worker, {
         // Sam: nothing missing for weeks until 11 days ago. Jamie: a shorter run earlier.
         dailyLog: {
           2000001: dailyLog((ago) => (ago <= 11 ? 1 : 0)),
           2000002: dailyLog((ago) => (ago >= 30 && ago <= 42 ? 0 : 2)),
         },
-        turnedIn: {},
-        markedDone: {},
       });
-      await login(ctx, 'parent');
-      await refresh(ctx, extId, worker, 2);
+      await refresh(ctx, extId, worker, 2); // records are worked out when a refresh saves
 
       const { page, sheet, body } = await openPanel(ctx);
       await waitIdle(sheet);
@@ -357,11 +404,10 @@ try {
     try {
       await setStorage(worker, {
         settings: { schoologyBase: base },
-        dailyLog: { self: dailyLog((ago) => (ago <= 11 ? 1 : 0)) },
-        turnedIn: {},
-        markedDone: {},
       });
       await login(ctx, 'student');
+      await refresh(ctx, extId, worker, 1);
+      await seedUserData(worker, { dailyLog: { '*': dailyLog((ago) => (ago <= 11 ? 1 : 0)) } });
       await refresh(ctx, extId, worker, 1);
       const { page, sheet, body } = await openPanel(ctx);
       await waitIdle(sheet);
@@ -382,4 +428,7 @@ try {
 
 // Keep the raw (unframed) phone shots out of the published site.
 for (const f of saved.filter((f) => f.endsWith('-raw.png'))) rmSync(f, { force: true });
-writeFileSync(path.join(OUT, 'README.md'), '# Site screenshots\n\nGenerated by `npm run site:screenshots` (scripts/site-screenshots.mjs) from the made-up showcase data. Do not edit by hand; never add real student data.\n');
+writeFileSync(path.join(OUT, 'README.md'), '# Site screenshots\n\nGenerated by `npm run site:screenshots` (scripts/site-screenshots.mjs) from the made-up showcase data, with the date pinned (SHOWCASE_NOW). Do not edit by hand; never add real student data.\n');
+
+// Don't leave a fake-clock build in dist/: rebuild the normal dev build.
+execFileSync('node', [path.join(ROOT, 'scripts/build.mjs'), '--dev'], { stdio: 'ignore' });
