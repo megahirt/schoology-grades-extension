@@ -56,9 +56,13 @@ no Schoology login.
 **Chrome or Edge:** `npm run build`, open `chrome://extensions`, turn on
 Developer mode, click **Load unpacked** and choose `dist/`.
 
-**Firefox:** `npm run build:firefox` (a dev build in `dist-firefox/`), then
-`about:debugging` → This Firefox → **Load Temporary Add-on** → choose
-`dist-firefox/manifest.json`.
+**Firefox:** `npm run firefox` builds the dev version (`dist-firefox/`) and
+opens Firefox with it loaded, through Mozilla's `web-ext`. It uses its own
+profile in `.firefox-profile/`, so you sign in to Schoology there once.
+While it runs, every `npm run build:firefox` reloads the extension in that
+window (press R in its terminal to reload by hand). By hand instead:
+`npm run build:firefox`, then `about:debugging` → This Firefox → **Load
+Temporary Add-on** → choose `dist-firefox/manifest.json`.
 
 **Safari (Mac):**
 
@@ -82,7 +86,9 @@ Full Safari pipeline (TestFlight, App Store, review):
 npm run lint          # node --check on the extension sources
 npm test              # unit tests (vitest)
 npm run build:dev     # dev build: localhost permission for the mock server
-npm run build:firefox # Firefox dev build
+npm run build:firefox # Firefox dev build (reloads a running `npm run firefox`)
+npm run chromium      # Chromium window with the dev build, on real Schoology
+npm run firefox       # Firefox window with the dev build; reloads on every Firefox build
 npm run test:e2e      # Playwright e2e in Chromium and Firefox, against the mock Schoology server
 npm run mock-server   # the mock Schoology server on its own (port 8123)
 ```

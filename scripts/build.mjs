@@ -144,6 +144,12 @@ async function main() {
   await cp(path.join(extDir, 'options', 'options.css'), path.join(distDir, 'options', 'options.css'));
   await cp(path.join(extDir, 'icons'), path.join(distDir, 'icons'), { recursive: true });
 
+  // Dev builds: a marker written last, so `npm run firefox` (web-ext) reloads
+  // the extension once the whole build is in place, never halfway through.
+  // It sits next to the build folder (dist-firefox.build-done), not in it:
+  // the build deletes and remakes that folder, and a watcher loses files in it.
+  if (isDev) await writeFile(`${distDir}.build-done`, `${new Date().toISOString()}\n`);
+
   console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''}${isSafari ? ' Safari' : ''} extension ${manifest.version} -> ${distDir}`);
   if (isDev) console.log('Dev build includes http://localhost:*/* host permission.');
 }
