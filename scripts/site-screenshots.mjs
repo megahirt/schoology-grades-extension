@@ -10,7 +10,9 @@
 // 2. Loads the DEV build (run `npm run build:dev` first) into Chromium, logs
 //    in as the parent, seeds two months of the daily log so Records has a
 //    "nothing missing" run, and refreshes for real against the mock server.
-// 3. Saves desktop shots (1280×800) of the panel, Missing work, the
+// 3. Saves the home page hero (1440×900: the panel open beside a made-up
+//    Schoology course page, scripts/schoology-backdrop.mjs), then desktop
+//    shots (1280×800) of the panel, Missing work, the
 //    grade chart, Records, the popup and the settings page; then phone
 //    shots (390×844), each also placed in a drawn phone frame.
 // 4. Does the same as the student (Sam), in a fresh profile.
@@ -24,6 +26,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../test/mock-server/server.js';
+import { buildShowcase } from '../test/mock-server/showcase.js';
+import { schoologyGradesPage } from './schoology-backdrop.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
@@ -51,6 +55,7 @@ const BACKDROP = '<!doctype html><html><head><meta name="viewport" content="widt
   '<div style="background:#fff;margin:10px 0;height:44px;border-radius:6px"></div>'.repeat(10) + '</div></body></html>';
 
 const DESKTOP = { width: 1280, height: 800 };
+const HERO = { width: 1440, height: 900 }; // the home page's big picture
 const PHONE = { width: 390, height: 844 };
 const saved = [];
 
@@ -70,6 +75,11 @@ async function launch() {
   if (!worker) worker = await ctx.waitForEvent('serviceworker', { timeout: 15000 });
   const extId = new URL(worker.url()).hostname;
   await ctx.route(`${base}/showcase`, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: BACKDROP }));
+  // The hero shot: a made-up Schoology course page (Sam's Biology) behind the panel.
+  await ctx.route(`${base}/showcase-grades`, (r) => {
+    const sam = buildShowcase().parent.children[0];
+    r.fulfill({ status: 200, contentType: 'text/html', body: schoologyGradesPage(sam.courses[0], sam.name, 'SR') });
+  });
   // Profile pictures the mock server links to: plain initials.
   await ctx.route('https://mock.schoology.test/pictures/**', (r) => {
     const uid = r.request().url().match(/(\d+)\.png/)?.[1];
@@ -147,9 +157,10 @@ async function save(target, name, opts = {}) {
   return file;
 }
 
-async function openPanel(ctx) {
+async function openPanel(ctx, where = '/showcase', viewport = DESKTOP) {
   const page = await ctx.newPage();
-  await page.goto(`${base}/showcase`);
+  await page.setViewportSize(viewport);
+  await page.goto(`${base}${where}`);
   const sheet = page.locator('#sgd-panel-host aside.sheet');
   const tab = page.locator('#sgd-panel-host button.edge-tab');
   await tab.waitFor();
@@ -251,6 +262,17 @@ try {
       });
       await login(ctx, 'parent');
       await refresh(ctx, extId, worker, 2);
+
+      // Hero: the dashboard open beside a Schoology course page.
+      {
+        const hero = await openPanel(ctx, '/showcase-grades', HERO);
+        await waitIdle(hero.sheet);
+        await hero.sheet.getByRole('tab', { name: 'Sam' }).click();
+        await hero.sheet.locator('.card', { hasText: 'Sam Rivera' }).waitFor();
+        await hero.page.waitForTimeout(400);
+        await save(hero.page, 'desktop-hero');
+        await hero.page.close();
+      }
 
       const { page, sheet, body } = await openPanel(ctx);
       await waitIdle(sheet);
