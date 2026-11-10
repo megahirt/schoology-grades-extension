@@ -136,10 +136,29 @@ npm run build:dev # dev build (localhost host permission for the mock server)
 node scripts/build-safari.mjs   # Safari Xcode project (or safari/convert.sh on Linux)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, unit tests, both builds, and
-e2e on every push/PR. Releases (`.github/workflows/release.yml`) run on
-version tags (`v*`): Safari artifacts first, Chrome Web Store upload
-second (skipped gracefully until the CWS secrets are configured).
+CI (`.github/workflows/ci.yml`) runs lint, unit tests, the builds, and
+e2e on every push/PR.
+
+### Releasing
+
+The version comes **only from the tag**. `extension/manifest.json` and
+`package.json` stay at `0.0.0`; the build writes the real version into
+every built manifest. To release, tag a commit on `main` with `vX.Y.Z`:
+
+```bash
+git checkout main && git pull
+git tag v1.4.0
+git push origin v1.4.0
+```
+
+`.github/workflows/release.yml` then checks that the tag is `vX.Y.Z` and on
+`main`, builds Chrome/Edge, Firefox and Safari ZIPs stamped with that
+version, creates the GitHub Release (generated notes, ZIPs, checksums), and
+redeploys the site so it shows the new version. Store uploads run after
+that, behind the `release` environment's approval gate, and skip until
+their secrets and upload steps exist (`docs/release-plan.md`). Local
+builds take the newest `vX.Y.Z` tag, or `0.0.0` if there is none; set
+`RELEASE_VERSION=1.4.0` to override.
 
 ## Project layout
 
