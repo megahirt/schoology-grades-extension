@@ -1,10 +1,12 @@
 node_modules/
 dist/
 dist-firefox/
+*.build-done
 *.zip
 .DS_Store
 test-results/
 .chromium-profile/
+.firefox-profile/
 
 # Private planning notes (contain family details) — never commit
 docs/schoology-extension-plan.md

@@ -7,7 +7,8 @@
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "esbuild": "^0.24.0",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "web-ext": "10.8.0"
   },
   "name": "schoology-grades-extension",
   "private": true,
@@ -22,6 +23,7 @@
     "test:watch": "vitest",
     "screenshots": "node test/screenshots/capture.mjs",
     "chromium": "node scripts/open-chromium.mjs",
+    "firefox": "node scripts/open-firefox.mjs",
     "build:firefox": "node scripts/build.mjs --dev --firefox",
     "site:screenshots": "node scripts/site-screenshots.mjs",
     "school-hosts": "node scripts/find-schoology-hosts.mjs",
