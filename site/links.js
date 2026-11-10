@@ -8,7 +8,11 @@ window.SITE_LINKS = {
   edge: '',          // Microsoft Edge Add-ons listing (Edge can also install from the Chrome Web Store)
   firefox: '',       // addons.mozilla.org listing (desktop and Android)
   releases: 'https://github.com/megahirt/schoology-grades-extension/releases',
+  latestRelease: 'https://github.com/megahirt/schoology-grades-extension/releases/latest',
   source: 'https://github.com/megahirt/schoology-grades-extension',
+  // Latest release (X.Y.Z). Leave empty here: pages.yml fills it in at
+  // deploy time from the newest vX.Y.Z tag. Keep this line's exact form.
+  version: '',
 };
 
 (function () {
@@ -56,6 +60,25 @@ window.SITE_LINKS = {
     }
     for (const el of document.querySelectorAll('[data-link]')) {
       if (L[el.dataset.link]) el.href = L[el.dataset.link];
+    }
+
+    // The latest release version: <span data-version hidden> shows
+    // "v1.4.0", and every page's footer gets a "Version 1.4.0" line.
+    if (L.version) {
+      for (const el of document.querySelectorAll('[data-version]')) {
+        el.textContent = `v${L.version}`;
+        el.hidden = false;
+      }
+      const foot = document.querySelector('.site-foot .cols > div');
+      if (foot) {
+        const line = document.createElement('div');
+        line.className = 'small muted';
+        const a = document.createElement('a');
+        a.href = L.latestRelease;
+        a.textContent = `Version ${L.version}`;
+        line.append(a);
+        foot.append(line);
+      }
     }
 
     // The hero's button: the store for this device, or "coming soon"
