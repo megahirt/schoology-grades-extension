@@ -16,12 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Set up Node 20
-        uses: actions/setup-node@v4
+      - name: Set up Node 24
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           # Caches the npm cache (node_modules is rebuilt by `npm ci`
           # below, which is the reproducible install for this repo).
           cache: npm
