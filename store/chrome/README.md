@@ -43,7 +43,7 @@ PRIVATE BY DESIGN
 • Your Schoology password is never asked for or stored.
 • The code is open source: https://github.com/megahirt/schoology-grades-extension
 
-Works on schoology.com addresses. If your school uses its own address for Schoology, open it and click the toolbar button to allow that one site.
+Works on schoology.com addresses. Support for schools that use their own address for Schoology is coming soon.
 
 Grades Dashboard is an independent project. It is not made, endorsed or supported by Schoology or PowerSchool.
 ```
@@ -77,17 +77,36 @@ Screenshots (all made-up students, the Rivera family):
 Shows a student's Schoology grades, missing work and due dates on one simple dashboard, for the student and their parents.
 ```
 
-**Permission justifications:**
+**Permission justifications** (one box each in the dashboard; paste the text):
 
-| Permission | Justification (paste) |
-|---|---|
-| `storage` | Saves the dashboard, the user's settings and their turned-in marks on the device, so the dashboard opens instantly. Nothing leaves the device. |
-| `alarms` | Refreshes the grades about once an hour while the browser is open, so the dashboard stays current. |
-| `scripting` | Shows the dashboard panel on a school's own Schoology address after the user allows that site, and checks whether the open page is a Schoology site when the user clicks the toolbar button. |
-| `tabs` | Opens assignment and class links from the dashboard, reloads a newly allowed school's open Schoology tabs, and as a fallback briefly opens a Schoology grades page in a background tab to read it, then closes it. |
-| `activeTab` | When the user clicks the toolbar button on their school's own Schoology address, checks that page is Schoology so the extension can offer to work there. |
-| Host permission `https://*.schoology.com/*` (and the school address in the manifest) | Reads the grades pages the signed-in user can already see in Schoology, using their existing session. These are the only sites read without asking. |
-| Optional host permission `https://*/*` | Never granted up front. Only requested, after a click, for the one site of a school that runs Schoology on its own address (e.g. schoology.yourschool.org), and only that site is allowed. No other website is read. |
+The release build asks only for `storage`, `alarms`, `tabs` and the Schoology
+host permissions. Adding a school's own address (`https://*/*`, `scripting`,
+`activeTab`) is left out for now to avoid the in-depth review; see
+`ASK_FOR_OTHER_SCHOOL_SITES` in `scripts/build.mjs`.
+
+storage:
+
+```text
+Saves the dashboard (grades, assignments and due dates read from Schoology), the user's settings, and items they mark as turned in, in the browser's local extension storage. This lets the dashboard open instantly and remember the user's choices. Nothing is sent off the device; there is no server.
+```
+
+alarms:
+
+```text
+Schedules a refresh about once an hour while the browser is open, so the dashboard shows current grades and due dates without the user having to open Schoology and press Refresh.
+```
+
+tabs:
+
+```text
+Opens assignment and class links from the dashboard in a tab, and finds the open Schoology tab so the toolbar button shows the right school's dashboard. As a fallback, when a grades page can't be read directly, it briefly opens that Schoology grades page in a background tab, reads it, and closes it. This is disclosed in the listing and privacy policy. It does not read or track the user's other tabs.
+```
+
+Host permission:
+
+```text
+https://*.schoology.com/* and https://schoology.npchristian.org/* : the extension reads the grades pages the signed-in user can already see in Schoology, using their existing browser session, to build the dashboard, and shows the dashboard panel on those pages. These are the only sites it can access. All data stays on the device; nothing is sent to any server.
+```
 
 **Remote code:** No, I am not using remote code. (All code is in the package; no external scripts, no `eval`.)
 
