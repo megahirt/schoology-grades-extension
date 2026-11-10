@@ -76,8 +76,14 @@ export function refreshRunning(state, now = Date.now()) {
   return Boolean(state && state.running && now - Date.parse(state.startedAt || 0) < REFRESH_STUCK_MS);
 }
 
+// A refresh that failed because nobody is signed in to Schoology.
+export function isSignedOutError(error) {
+  return error === 'NOT_LOGGED_IN' || error === 'LOGGED_OUT';
+}
+
 function friendlyRefreshError(error) {
-  if (error === 'NOT_LOGGED_IN' || error === 'LOGGED_OUT') return 'Sign in to Schoology in this browser (your school\'s Schoology page, if it has its own address), then refresh.';
+  if (isSignedOutError(error)) return 'Please log in to Schoology to see the latest.';
+  if (error === 'SCHOOLOGY_UNAVAILABLE') return 'Couldn’t reach Schoology. Press Refresh to try again.';
   return `Couldn’t refresh: ${error || 'unknown error'}`;
 }
 
@@ -684,7 +690,7 @@ export function signedOutHtml(latest, base) {
     ? ` (from ${when.toDateString() === new Date().toDateString() ? 'today' : shortDate(latest)}, ${when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })})`
     : '';
   return '<div class="signed-out" role="alert">' +
-    `<b>You’re signed out of Schoology.</b> <a href="${escapeHtml(`${base}/`)}">Sign in</a> to see the latest. ` +
+    `<b>Please <a href="${escapeHtml(`${base}/`)}">log in to Schoology</a> to see the latest.</b> ` +
     `This is old data${escapeHtml(from)}.</div>`;
 }
 
@@ -836,8 +842,12 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
 
   async function render() {
     const { settings, dashboards, turnedIn, done, refreshState, lastChild, records, user } = await loadState();
-    const signedOut = Boolean(user && user.signedOut);
     const running = refreshRunning(refreshState);
+    // Signed out: Schoology said so (user.signedOut), or the last refresh
+    // failed because nobody is signed in. Either way the data shown is old,
+    // so the dashboard asks to log in instead of saying "Press Refresh".
+    const signedOut = Boolean(user && user.signedOut)
+      || Boolean(refreshState && !running && refreshState.ok === false && isSignedOutError(refreshState.error));
     const uids = Object.keys(dashboards);
     const isParentView = uids.length > 1 || (uids.length === 1 && uids[0] !== 'self');
     viewIsParent = isParentView;

@@ -381,8 +381,18 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       const out = await panelOn(`${mockBase}/logout`);
       await expect(out.page).toHaveURL(`${mockBase}/login`);
       await expect.poll(() => read(`user@${site}`, 'signedOut'), { timeout: 15000 }).toBe(true);
-      await expect(out.panel.locator('.signed-out')).toContainText('You’re signed out of Schoology.', { timeout: 15000 });
-      await expect(out.panel.locator('.signed-out')).toContainText(/Sign in to see the latest\. This is old data \(from today, /);
+      await expect(out.panel.locator('.signed-out')).toContainText(/Please log in to Schoology to see the latest\. This is old data \(from today, /, { timeout: 15000 });
+      await expect(out.panel.locator('.stale')).toHaveCount(0);
+      // Grades more than a day old while signed out: still the log-in
+      // message, never "more than a day old. Press Refresh."
+      await worker.evaluate(async (k) => {
+        const v = (await chrome.storage.local.get(k))[k];
+        const old = new Date(Date.now() - 2 * 86400000).toISOString();
+        for (const d of Object.values(v)) d.updatedAt = old;
+        await chrome.storage.local.set({ [k]: v });
+      }, `dashboards@${site}#3000001`);
+      await expect(out.panel.locator('.signed-out')).toContainText('Please log in to Schoology to see the latest.');
+      await expect(out.panel.locator('.stale')).toHaveCount(0);
       await expect(out.panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible();
       await expect(out.panel.getByText('Missing · 1')).toBeVisible();
       await out.page.close();

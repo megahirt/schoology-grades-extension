@@ -301,6 +301,9 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     if (area === 'local' && changedFor(changes, ['refreshState'])) checkLoadedDuringRefresh().catch(() => {});
   }
   browser.storage.onChanged.addListener(onStorageChanged);
+  // The page waits to learn who is signed in before the panel shows
+  // (content.js), so a refresh may have finished in the meantime: check now.
+  checkLoadedDuringRefresh().catch(() => {});
 
   setOpen(open);
   refreshTab();

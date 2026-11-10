@@ -100,7 +100,7 @@ async function refreshGrades(site, progress = () => {}) {
   }
   // A network or server error says nothing about who is signed in.
   if (account.type !== 'parent' && account.type !== 'student') {
-    return { ok: false, accountType: account.type, error: 'NOT_LOGGED_IN', fallback: 'hidden-tab' };
+    return { ok: false, accountType: account.type, error: 'SCHOOLOGY_UNAVAILABLE', fallback: 'hidden-tab' };
   }
   const uid = String(account.userUid || (before && before.uid) || '') || null;
   await setUser({ uid, name: account.type === 'student' ? account.studentName : (before && before.uid === uid && before.name) || null, type: account.type, signedOut: false, checkedAt: now }, site);
@@ -135,6 +135,8 @@ async function refreshGrades(site, progress = () => {}) {
     progress({ done: 1, total: 2, label: 'Reading your grades' });
     const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self });
     if (result.error === 'LOGGED_OUT') {
+      // Signed out between the account check and the grades page.
+      await setUser({ ...((await getUser(site)) || { uid, name: null }), signedOut: true, checkedAt: new Date().toISOString() }, site);
       return { ok: false, accountType: 'student', error: 'LOGGED_OUT', fallback: 'hidden-tab' };
     }
     if (result.error === 'PARSE_EMPTY' || result.error === 'NO_GRADES') {
@@ -282,7 +284,11 @@ async function handlePageUser(message, sender) {
   if (before && before.uid === uid && !before.signedOut) return { ok: true };
   const same = before && before.uid === uid;
   await setUser({ uid, name: same ? before.name : null, type: same ? before.type : null, signedOut: false, checkedAt: now }, site);
-  startRefresh('signed-in', site, { again: true });
+  // A refresh already running checks who is signed in first, so it only has
+  // to run again when it may have started for someone else (a different
+  // person was known here before), not on the first visit to a site.
+  const someoneElse = Boolean(before && before.uid && before.uid !== uid);
+  startRefresh('signed-in', site, { again: someoneElse });
   return { ok: true, changed: true };
 }
 
