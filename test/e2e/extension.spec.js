@@ -346,6 +346,11 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // Each section heading carries its emoji.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('img.missing-icon')).toBeVisible(); // Schoology's icon
       await expect(popup.locator('.sec-h', { hasText: 'Classes' }).locator('.sec-emoji')).toHaveText('🏛️');
+      // Footer: a small About link to the promo site, in a new tab.
+      const about = popup.locator('.credit .about-link');
+      await expect(about).toHaveText('About');
+      await expect(about).toHaveAttribute('href', 'https://megahirt.github.io/schoology-grades-extension/');
+      await expect(about).toHaveAttribute('target', '_blank');
       await popup.close();
     } finally {
       await context.close();
