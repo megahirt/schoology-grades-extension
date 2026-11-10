@@ -549,7 +549,7 @@ export function feedbackHref(browser) {
   try { version = browser.runtime.getManifest().version || ''; } catch { version = ''; }
   const ua = (globalThis.navigator && navigator.userAgent) || '';
   const name = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'browser';
-  const subject = `Homework Dashboard feedback (${['v' + version, name].filter((x) => x && x !== 'v').join(', ')})`;
+  const subject = `Grades Dashboard feedback (${['v' + version, name].filter((x) => x && x !== 'v').join(', ')})`;
   return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
 
@@ -870,7 +870,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     }
     const stale = latest && Date.now() - new Date(latest).getTime() > STALE_MS;
     const heading = isParentView || !current
-      ? '<h1 class="title">Homework Dashboard</h1>'
+      ? '<h1 class="title">Grades Dashboard</h1>'
       : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
 
     let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row"><div class="grow">${heading}` +
@@ -991,8 +991,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const date = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
     const slug = first.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     return {
-      fileName: `homework-dashboard${slug ? `-${slug}` : ''}-${date}.png`,
-      title: first ? `Homework Dashboard: ${first}` : 'Homework Dashboard',
+      fileName: `grades-dashboard${slug ? `-${slug}` : ''}-${date}.png`,
+      title: first ? `Grades Dashboard: ${first}` : 'Grades Dashboard',
     };
   }
 

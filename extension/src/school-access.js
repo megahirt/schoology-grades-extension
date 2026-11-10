@@ -1,5 +1,5 @@
 // school-access.js — letting the extension work on a school's own Schoology
-// address (see src/sites.js). Used by the popup ("Use Schoology Dashboard
+// address (see src/sites.js). Used by the popup ("Use Grades Dashboard
 // here") and Settings ("Your school's Schoology address").
 //
 // The family allows one address at a time. That is an optional host

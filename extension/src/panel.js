@@ -169,7 +169,7 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     '<button class="edge-tab" type="button" aria-expanded="false"></button>' +
     '<div class="notice" role="status" hidden><span class="notice-text">This page loaded while the dashboard was switching between your children, so it may show the wrong child.</span>' +
     '<button class="reload" type="button">Reload page</button><button class="dismiss" type="button" aria-label="Dismiss">×</button></div>' +
-    '<div class="wrap"><aside class="sheet" aria-label="Homework dashboard">' +
+    '<div class="wrap"><aside class="sheet" aria-label="Grades dashboard">' +
     '<div class="grip" aria-hidden="true"></div><div class="body-host"></div></aside></div>';
   document.documentElement.append(host);
 
@@ -212,8 +212,8 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
       return `${k.name}${bits.length ? `: ${bits.join(', ')}` : ''}`;
     }).join('. ');
     tab.setAttribute('aria-label', isOpen
-      ? 'Hide homework dashboard'
-      : `Show homework dashboard${parts ? `. ${parts}.` : ''}`);
+      ? 'Hide grades dashboard'
+      : `Show grades dashboard${parts ? `. ${parts}.` : ''}`);
     tab.classList.toggle('open', isOpen);
     const html = kids.map((k) => {
       const pic = k.nogo ? noGoCircle('kid-pic nogo-circle') : k.pictureUrl

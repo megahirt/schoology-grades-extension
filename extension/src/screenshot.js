@@ -121,7 +121,7 @@ export async function copyImage(blobPromise, win) {
 // only open it right after a click; when drawing the picture took too
 // long for that, the answer is 'needs-click' and a second press shares the
 // finished picture straight away.
-export async function shareImage(blob, win, { fileName = 'homework-dashboard.png', title = 'Homework Dashboard' } = {}) {
+export async function shareImage(blob, win, { fileName = 'grades-dashboard.png', title = 'Grades Dashboard' } = {}) {
   const nav = win.navigator;
   if (typeof nav.share !== 'function' || typeof win.File !== 'function') return 'unsupported';
   const file = new win.File([blob], fileName, { type: 'image/png' });

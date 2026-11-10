@@ -196,8 +196,9 @@ const parentHref = (child, c) => (item) => `/course/${c.id}/preview/${child.uid}
 // dataset: 'test' (the personas above, used by the tests) or 'showcase'
 // (./showcase.js: richer data with dates relative to today, for the promo
 // site screenshots; MOCK_DATA env when run directly).
-export function createServer({ delayMs = 0, dataset = 'test' } = {}) {
-  const showcase = dataset === 'showcase' ? buildShowcase() : null;
+// now: the showcase's "today" (ms); defaults to the real time.
+export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() } = {}) {
+  const showcase = dataset === 'showcase' ? buildShowcase(now) : null;
   const STUDENT_DATA_ALL = showcase ? showcase.student : STUDENT;
   const PARENT_DATA = showcase ? showcase.parent : PARENT;
   const adminsOf = showcase ? showcase.admins : courseAdmins;
@@ -329,8 +330,8 @@ export function createServer({ delayMs = 0, dataset = 'test' } = {}) {
   });
 }
 
-export function startServer(port = DEFAULT_PORT, { delayMs = 0, dataset = 'test' } = {}) {
-  const server = createServer({ delayMs, dataset });
+export function startServer(port = DEFAULT_PORT, { delayMs = 0, dataset = 'test', now } = {}) {
+  const server = createServer({ delayMs, dataset, ...(now === undefined ? {} : { now }) });
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => {
       const address = server.address();

@@ -414,12 +414,12 @@ browser.permissions.onAdded.addListener(async () => {
       }
     }
   } catch (e) {
-    console.warn('Schoology Dashboard: could not set up the school address:', e);
+    console.warn('Grades Dashboard: could not set up the school address:', e);
   }
 });
 
 browser.permissions.onRemoved.addListener(() => {
-  syncSchoolScripts(browser).catch((e) => console.warn('Schoology Dashboard: could not remove the school address:', e));
+  syncSchoolScripts(browser).catch((e) => console.warn('Grades Dashboard: could not remove the school address:', e));
 });
 
 // --- Top-level listeners only ------------------------------------------------
@@ -456,7 +456,7 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
     }
   } catch (e) {
     // Alarm refresh is best-effort; the popup shows the stale warning.
-    console.warn('Schoology Dashboard refresh failed:', e);
+    console.warn('Grades Dashboard refresh failed:', e);
   }
 });
 

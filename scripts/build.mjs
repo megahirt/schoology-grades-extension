@@ -3,7 +3,7 @@
 //   --dev : shows a "Data: Real Schoology / Mock server" switch in the
 //           dashboard footer (default: real Schoology), adds
 //           http://localhost:*/* to host_permissions (mock server for
-//           Playwright e2e) and renames the extension "Schoology Dashboard
+//           Playwright e2e) and renames the extension "Grades Dashboard
 //           (Dev)". Prod builds NEVER contain localhost permissions.
 //   --firefox : writes a Firefox build to dist-firefox/ instead (combine
 //           with --dev for the e2e tests). Firefox runs MV3 backgrounds as
@@ -14,6 +14,10 @@
 //           permission: with it, Safari badges and prompts on every site
 //           (WebKit bug 290508), so Safari covers only the manifest's
 //           sites until that is fixed (docs/schoology-domains-research.md).
+//   --fake-now=<date> : (with --dev only) the extension's clock starts at
+//           <date> (e.g. 2026-11-08T16:42:00, local time) and runs on from
+//           there. Used by scripts/site-screenshots.mjs so the promo
+//           screenshots come out the same whatever day they're taken.
 //
 // Version: the release tag is the only source of the version number.
 // extension/manifest.json and package.json say 0.0.0 on purpose; the build
@@ -34,6 +38,23 @@ const extDir = path.join(root, 'extension');
 const isDev = process.argv.includes('--dev');
 const isFirefox = process.argv.includes('--firefox');
 const isSafari = process.argv.includes('--safari');
+const fakeNowArg = process.argv.find((a) => a.startsWith('--fake-now='));
+const fakeNow = fakeNowArg ? new Date(fakeNowArg.slice('--fake-now='.length)).getTime() : null;
+if (fakeNowArg && (!isDev || Number.isNaN(fakeNow))) {
+  console.error('--fake-now=<date> needs --dev and a valid date, e.g. --fake-now=2026-11-08T16:42:00');
+  process.exit(1);
+}
+// Prepended to every bundle when --fake-now is set: Date (and Date.now())
+// start at the fixed time and keep ticking.
+const FAKE_NOW_BANNER = fakeNow === null ? '' : `(() => {
+  const RealDate = Date;
+  const offset = ${fakeNow} - RealDate.now();
+  class FakeDate extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [RealDate.now() + offset])); }
+    static now() { return RealDate.now() + offset; }
+  }
+  globalThis.Date = FakeDate;
+})();`;
 const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : 'dist');
 const FIREFOX_ID = 'schoology-dashboard@schoologydashboard';
 
@@ -84,6 +105,7 @@ async function main() {
       sourcemap: isDev,
       // __DEV__ turns on dev-only UI (the real/mock data source switch).
       define: { __DEV__: JSON.stringify(isDev) },
+      banner: FAKE_NOW_BANNER ? { js: FAKE_NOW_BANNER } : undefined,
       loader: { '.css': 'text', '.png': 'dataurl' },
       logLevel: 'info',
     });
@@ -93,7 +115,8 @@ async function main() {
   const manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
   manifest.version = releaseVersion();
   if (isDev) {
-    manifest.name = 'Schoology Dashboard (Dev)';
+    manifest.name = 'Grades Dashboard (Dev)';
+    manifest.short_name = 'Grades Dashboard (Dev)';
     // Build stamp, so a running dev build can be identified (version_name is
     // display-only; Chrome and Safari keep using `version`).
     manifest.version_name = `${manifest.version}-dev.${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;
