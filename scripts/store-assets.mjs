@@ -4,6 +4,8 @@
 // screenshots (site/img/, made by `npm run site:screenshots` from made-up
 // students) plus two promo tiles drawn here:
 //   screenshot-1..5.png        1280×800 (the store's required size)
+//   store-icon-128.png         store icon: the logo at 96×96 inside 16px of
+//                              transparent padding (Chrome's icon guidelines)
 //   promo-small-440x280.png    small promo tile (required)
 //   promo-marquee-1400x560.png marquee tile (optional)
 // Colors follow the site brand (site/style.css --brand).
@@ -32,11 +34,11 @@ const browser = await chromium.launch({ channel: 'chromium' });
 
 // A fresh page at the exact size for each image (resizing one page between
 // captures can leave stale paint in the shot).
-async function render(name, w, h, html) {
+async function render(name, w, h, html, { transparent = false } = {}) {
   const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
   await page.setContent(html);
   await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
-  await page.screenshot({ path: path.join(OUT, name) });
+  await page.screenshot({ path: path.join(OUT, name), omitBackground: transparent });
   await page.close();
   console.log(`store/chrome/${name}`);
 }
@@ -46,6 +48,11 @@ for (const [i, name] of SHOTS.entries()) {
   await render(`screenshot-${i + 1}.png`, 1280, 800,
     page0(1280, 800, `<img src="${dataUrl(`${name}.png`)}" style="display:block;width:1280px;height:800px">`));
 }
+
+// Store icon: the logo at 96×96, centred, on a transparent 128×128.
+await render('store-icon-128.png', 128, 128, page0(128, 128,
+  `<div style="padding:16px">${icon.replace('<svg ', '<svg width="96" height="96" style="display:block" ')}</div>`,
+  'body { background: transparent; }'), { transparent: true });
 
 // Small promo tile: icon, name, one line.
 await render('promo-small-440x280.png', 440, 280, page0(440, 280, `
