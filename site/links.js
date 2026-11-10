@@ -50,6 +50,10 @@ window.SITE_LINKS = {
   document.addEventListener('DOMContentLoaded', () => {
     // Store buttons: <a class="btn" data-store="chrome" data-label="Add to Chrome">
     for (const el of document.querySelectorAll('[data-store]')) wire(el, el.dataset.store);
+    // Footer store links: placeholders ("#") until the listing exists.
+    for (const el of document.querySelectorAll('[data-store-link]')) {
+      if (L[el.dataset.storeLink]) el.href = L[el.dataset.storeLink];
+    }
     for (const el of document.querySelectorAll('[data-link]')) {
       if (L[el.dataset.link]) el.href = L[el.dataset.link];
     }
