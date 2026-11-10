@@ -36,7 +36,7 @@ import {
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
-import { quarterChange, weekProgress, isNewRecord, classHighScore } from './rewards.js';
+import { quarterChange, weekProgress, isNewRecord, classHighScore, classWeek, weekRange, dueThisWeek, WEEK_DONE } from './rewards.js';
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
 import { captureDashboard, copyImage, shareImage, isApplePlatform } from './screenshot.js';
 import css from './dashboard.css';
@@ -106,6 +106,8 @@ const ICON = {
   shareApple: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/></svg>',
   mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  // Submitted, not graded yet: an outbox tray (sent, waiting for the teacher).
+  tray: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/><path d="M12 11V3.5"/><path d="M8.5 7L12 3.5 15.5 7"/></svg>',
   spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
   cog: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   checkSmall: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -314,7 +316,59 @@ function trendLine(history, threshold) {
     lines + (last ? `<circle cx="${x(last.t).toFixed(1)}" cy="${y(last.grade).toFixed(1)}" r="2.4" fill="#4f6a9a"/>` : '') + '</svg>';
 }
 
-function renderClasses(courses, settings, showGrades, uid, openClass = null) {
+// This week's assignments for one class, shown when the class is opened:
+// one compact line each, with a check button (mark done or turned in, or
+// undo the family's own mark), the title, a Missing or Submitted icon, the
+// day it's due and, once graded, the grade. Work Schoology shows as graded or
+// submitted (or past due without a Missing mark) is already checked.
+const WEEK_ICON_TITLE = {
+  submitted: 'Submitted, not graded yet',
+  turnedIn: 'Marked turned in, not graded yet',
+  done: 'Marked done, not graded yet',
+  assumed: 'Past due and not marked Missing',
+};
+function weekSpan(now) {
+  const { from, to } = weekRange(now);
+  const a = new Date(from);
+  const b = new Date(to - 1);
+  const m = (d) => d.toLocaleDateString(undefined, { month: 'short' });
+  return a.getMonth() === b.getMonth() ? `${m(a)} ${a.getDate()} to ${b.getDate()}` : `${m(a)} ${a.getDate()} to ${m(b)} ${b.getDate()}`;
+}
+function weekListHtml(wk, uid, settings, showGrades, now) {
+  const head = `<div class="week-h">This week · ${escapeHtml(weekSpan(now))}</div>`;
+  if (!wk.total) return `<div class="week-list">${head}<p class="empty">Nothing due in this class this week.</p></div>`;
+  const rows = wk.items.map(({ a, state }) => {
+    const done = WEEK_DONE.has(state);
+    const hasId = a.id !== undefined && a.id !== null;
+    const marked = state === 'turnedIn' || state === 'done';
+    const locked = !hasId || state === 'graded' || state === 'submitted' || state === 'assumed';
+    const title = a.title || 'Assignment';
+    let btn;
+    if (locked) {
+      const why = state === 'graded' ? 'graded' : state === 'submitted' ? 'submitted in Schoology' : done ? 'counted as turned in' : 'cannot be marked';
+      btn = `<button class="wk-check${done ? ' on' : ''}" type="button" disabled aria-label="${escapeHtml(`${title}: ${why}`)}">${ICON.check}</button>`;
+    } else if (marked) {
+      btn = `<button class="wk-check on" type="button" data-act="undo" data-reason="${state}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="true" aria-label="${escapeHtml(`Undo: ${title}`)}" title="Undo">${ICON.check}</button>`;
+    } else {
+      // Missing work is marked turned in (as in the Missing section), other
+      // work done (as in Due soon).
+      const act = state === 'missing' ? 'turned-in' : 'done';
+      const verb = state === 'missing' ? 'turned in' : 'done';
+      btn = `<button class="wk-check" type="button" data-act="${act}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="false" aria-label="${escapeHtml(`Mark ${title} as ${verb}`)}" title="Mark as ${verb}">${ICON.check}</button>`;
+    }
+    let icon = '';
+    if (state === 'missing') icon = `<span class="wk-icon" role="img" aria-label="Missing" title="Missing">${MISSING_IMG}</span>`;
+    else if (WEEK_ICON_TITLE[state]) icon = `<span class="wk-icon wk-sub" role="img" aria-label="${WEEK_ICON_TITLE[state]}" title="${WEEK_ICON_TITLE[state]}">${ICON.tray}</span>`;
+    const t = new Date(a.due);
+    const day = Number.isNaN(t.getTime()) ? '' : t.toLocaleDateString(undefined, { weekday: 'short' });
+    const grade = state === 'graded' && showGrades ? gradeText(a, settings) : '';
+    return `<li class="wk">${btn}${titleLink(a, `wk-title${done ? ' done' : ''}`)}${icon}<span class="wk-due">${escapeHtml(day)}</span>` +
+      `<span class="wk-grade">${escapeHtml(grade)}</span></li>`;
+  });
+  return `<div class="week-list">${head}<ul class="wk-rows">${rows.join('')}</ul></div>`;
+}
+
+function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, now = Date.now() } = {}) {
   const list = visibleCourses(courses);
   if (!list.length) return '';
   const t = settings.gradeThreshold;
@@ -336,7 +390,9 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
     // Clicking anywhere on the class's row opens the grade chart; again
     // closes it.
     const key = `${uid}:${c.id || c.name}`;
-    const open = showGrades && openClass === key;
+    // Every class opens (its week list), grades hidden or not; the chart
+    // inside is only there when grades are shown.
+    const open = openClass === key;
     const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
     const history = showGrades ? gradeHistory(c) : null;
     let trend = '';
@@ -355,19 +411,23 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
       ? `${(cols.quarter && upPill(c)) || trend}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
-    // The bar shows the grade GO/NO-GO uses: the quarter, or the semester
-    // grade while the quarter has none.
-    const barGrade = first !== null ? first : grade;
-    const barLow = barGrade !== null && barGrade < t;
-    const bar = showGrades && barGrade !== null
-      ? `<div class="bar" aria-hidden="true"><div class="bar-fill${barLow ? ' low' : ''}" style="width:${Math.max(0, Math.min(100, barGrade))}%"></div><div class="bar-line" style="left:${t}%"></div></div>`
+    // The bar is this week's work in the class: graded or turned in, out of
+    // everything due Monday to Sunday (the same count as this week's ring).
+    // A low grade shows as the red pill on the grade itself.
+    const wk = classWeek(c, marks, now);
+    const weekLabel = wk.total ? `${wk.done} of ${wk.total} this week` : 'Nothing due this week';
+    const pct = wk.total ? Math.round((wk.done / wk.total) * 100) : 0;
+    const cid = String(c.id ?? c.name);
+    const missingN = summary ? summary.missingItems.filter((m) => String(m.courseId ?? m.courseName) === cid).length : 0;
+    const missingTag = missingN
+      ? `<span class="class-missing" role="img" aria-label="${missingN} missing" title="${missingN} missing">${MISSING_IMG}${missingN}</span>`
       : '';
-    const name = showGrades
-      ? toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle')
-      : `<span class="class-name">${escapeHtml(c.name)}</span>`;
+    const bar = `<div class="week-row"><div class="bar" role="img" aria-label="${escapeHtml(`${c.name}: ${weekLabel}`)}"><div class="bar-fill" style="width:${pct}%"></div></div>` +
+      `${missingTag}<span class="week-label">${escapeHtml(weekLabel)}</span></div>`;
+    const name = toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle');
 
     let chart = '';
-    if (open) {
+    if (open && showGrades) {
       const svg = renderGradeChart(history, { threshold: t, name: c.name });
       if (svg) drawnCharts.set(key, { history, gradeDisplay: settings.gradeDisplay });
       const link = c.url ? `<a class="chart-link" href="${escapeHtml(c.url)}">Open ${escapeHtml(c.name)} in Schoology</a>` : '';
@@ -377,12 +437,13 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null) {
         classBestHtml(c, settings) +
         link + '</div>';
     }
-    // The whole row (name, trend line, grades and bar) opens the chart; the
+    // The whole row (name, trend line, grades and bar) opens the class; the
     // class name stays the keyboard and screen-reader control.
     const row = `<div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}`;
+    const week = open ? weekListHtml(wk, uid, settings, showGrades, now) : '';
     return `<div class="class${open ? ' open' : ''}">` +
-      (showGrades ? `<div class="class-row" data-act="toggle-chart" data-key="${escapeHtml(key)}">${row}</div>` : row) +
-      `${chart}</div>`;
+      `<div class="class-row" data-act="toggle-chart" data-key="${escapeHtml(key)}">${row}</div>` +
+      `${week}${chart}</div>`;
   });
   const dates = showGrades ? quarterDatesLine(list) : '';
   return `<section class="sec">${head}${rows.join('')}${dates ? `<p class="legend">${escapeHtml(dates)}</p>` : ''}</section>`;
@@ -445,8 +506,12 @@ const WAITING_HOW = {
 // count), one thin row per item. Classes with nothing waiting don't show.
 // Within a class: Schoology-reported submissions first, then the family's
 // own marks, each by due date.
-function renderWaiting(summary, uid, courses = []) {
-  const n = summary.waiting.length;
+function renderWaiting(summary, uid, courses = [], now = Date.now()) {
+  // This week's work is listed under its class (Classes); this section keeps
+  // the rest: earlier weeks' work still waiting for a grade (and anything
+  // marked ahead of time), so it usually doesn't show.
+  const waiting = summary.waiting.filter((a) => !dueThisWeek(a, now));
+  const n = waiting.length;
   if (!n) return '';
   const order = { submitted: 0, turnedIn: 1, done: 2 };
   const due = (a) => {
@@ -454,7 +519,7 @@ function renderWaiting(summary, uid, courses = []) {
     return Number.isNaN(t) ? Infinity : t;
   };
   const groups = new Map(); // class name -> items
-  for (const a of summary.waiting) {
+  for (const a of waiting) {
     const name = a.courseName || 'Other';
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name).push(a);
@@ -475,7 +540,7 @@ function renderWaiting(summary, uid, courses = []) {
     });
     return `<div class="wait-class"><h3 class="wait-h">${escapeHtml(name)} · ${items.length}</h3>${rows.join('')}</div>`;
   });
-  const manual = summary.waiting.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
+  const manual = waiting.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
   const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
   return section(`Submitted, not graded yet · ${n}`, blocks.join('') + disclaimer, SECTION_EMOJI.waiting);
 }
@@ -633,11 +698,11 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
   if (!failed) {
     html += renderMissing(summary, uid, isParentView);
     html += renderDue(summary, uid);
-    html += renderClasses(courses, settings, showGrades, uid, openClass);
+    html += renderClasses(courses, settings, showGrades, uid, openClass, { marks, summary, now });
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderDoingWell(summary.doingWell, settings, showGrades);
     html += renderRecords(records, showGrades, now);
-    html += renderWaiting(summary, uid, visibleCourses(courses));
+    html += renderWaiting(summary, uid, visibleCourses(courses), now);
   }
   return { html, summary };
 }

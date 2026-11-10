@@ -324,7 +324,15 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       const lit = popup.locator('.class', { hasText: 'American Literature' });
       await expect(lit.locator('.class-grade')).toHaveText('—');
       await expect(lit.locator('.class-overall')).toHaveText('82%');
-      await expect(lit.locator('.bar-fill')).toHaveAttribute('style', /width:\s*82%/); // bar follows the semester grade
+      // Each class's bar is this week's work; the mock's work is all from
+      // earlier weeks, so there's nothing due this week.
+      await expect(lit.locator('.week-label')).toHaveText('Nothing due this week');
+      // Opening a class lists this week's assignments above its chart.
+      await lit.locator('.class-row').click();
+      await expect(lit.locator('.week-h')).toHaveText(/^This week · /);
+      await expect(lit.locator('.week-list .empty')).toHaveText('Nothing due in this class this week.');
+      await lit.locator('.class-row').click();
+      await expect(lit.locator('.week-list')).toHaveCount(0);
       // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).
       const journal = popup.locator('.waiting', { hasText: 'Poetry Journal' });
       await expect(journal).toBeVisible();
@@ -460,8 +468,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.class', { hasText: 'Advisory 11' })).toHaveCount(0);
       // Passing line at the default 75%: Algebra 2 (68%) is below it,
       // American Literature (82%) is not.
-      await expect(popup.locator('.class', { hasText: 'Algebra 2' }).locator('.bar-fill')).toHaveClass(/low/);
-      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.bar-fill')).not.toHaveClass(/low/);
+      // A low grade is a red pill on the grade itself.
+      await expect(popup.locator('.class', { hasText: 'Algebra 2' }).locator('.class-grade')).toHaveClass(/low/);
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.low')).toHaveCount(0);
 
       // A saved passing grade (from a parent) doesn't apply to a student: the
       // default 75% stands. A Display choice still saves automatically.
@@ -470,7 +479,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
         await chrome.storage.local.set({ settings: { ...settings, gradeThreshold: 85 } });
       });
       await popup.waitForTimeout(500);
-      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.bar-fill')).not.toHaveClass(/low/);
+      await expect(popup.locator('.class', { hasText: 'American Literature' }).locator('.low')).toHaveCount(0);
       // The slider: End jumps to the top of its range (90%).
       await opts.locator('#doing-well-percent').focus();
       await opts.keyboard.press('End');

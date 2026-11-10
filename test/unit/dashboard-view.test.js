@@ -153,3 +153,60 @@ describe('footer', () => {
     expect(ABOUT_URL).toBe('https://megahirt.github.io/schoology-grades-extension/');
   });
 });
+
+describe('classes: this week\'s work', () => {
+  // Made-up week, anchored to this week's Monday so it never straddles two.
+  const DAY = 86400000;
+  const monday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); })();
+  const at = (days, h = 12) => new Date(monday + days * DAY + h * 3600000).toISOString();
+  const NOW = monday + 3 * DAY + 12 * 3600000; // Thursday noon
+  const course = {
+    id: 'c9', name: 'Biology', grade: 70,
+    assignments: [
+      { id: 'w1', title: 'Cell Lab', status: 'graded', score: 9, maxPoints: 10, due: at(0) },
+      { id: 'w2', title: 'Reading Quiz', status: 'missing', submitted: true, due: at(1) },
+      { id: 'w3', title: 'Osmosis Worksheet', status: 'missing', due: at(1) },
+      { id: 'w4', title: 'Photosynthesis Diagram', status: 'pending', due: at(4) },
+      { id: 'w0', title: 'Last Week Essay', status: 'missing', submitted: true, due: at(-3) },
+    ],
+  };
+  const render = (marks = {}, openClass = null) => renderStudentBody({ studentName: 'Sam Rivera', courses: [course] }, 'u1', { ...DEFAULT_SETTINGS },
+    { turnedIn: marks.turnedIn || [], done: marks.done || [] }, { isParentView: true, openClass, now: NOW }).html;
+
+  it('the bar counts this week\'s work, with the class\'s Missing count; a low grade is a pill', () => {
+    const html = render();
+    expect(html).toContain('2 of 4 this week');
+    expect(html).toMatch(/class="class-missing"[^>]*aria-label="1 missing"/);
+    expect(html).toMatch(/class="class-grade col-q low"|class="class-grade low"/);
+    expect(html).not.toContain('class="week-list"'); // closed
+  });
+  it('opened: one line per assignment, checked when graded or submitted, with icons', () => {
+    const html = render({}, 'u1:c9');
+    const list = html.slice(html.indexOf('class="week-list"'));
+    expect((list.match(/<li class="wk">/g) || []).length).toBe(4);
+    expect(list).toMatch(/Cell Lab[\s\S]*?90%/);
+    // Graded and submitted are checked and can't be unticked.
+    expect((list.match(/class="wk-check on" type="button" disabled/g) || []).length).toBe(2);
+    // Missing: the Missing icon, and the check marks it turned in.
+    expect(list).toMatch(/data-act="turned-in"[^>]*aria-label="Mark Osmosis Worksheet as turned in"/);
+    expect(list).toMatch(/Osmosis Worksheet[\s\S]*?aria-label="Missing"/);
+    // Not done yet: the check marks it done.
+    expect(list).toMatch(/data-act="done"[^>]*aria-label="Mark Photosynthesis Diagram as done"/);
+    expect(list).toContain('aria-label="Submitted, not graded yet"');
+    // The chart comes after the list.
+    expect(html.indexOf('class="week-list"')).toBeLessThan(html.indexOf('class="chart-box"'));
+  });
+  it('a family mark crosses it out and can be undone', () => {
+    const list = render({ done: ['w4'] }, 'u1:c9');
+    expect(list).toContain('3 of 4 this week');
+    expect(list).toMatch(/data-act="undo" data-reason="done"[^>]*aria-label="Undo: Photosynthesis Diagram"/);
+    expect(list).toMatch(/class="wk-title done">Photosynthesis Diagram/);
+  });
+  it('Submitted, not graded yet keeps only earlier weeks\' work', () => {
+    const html = render();
+    const waiting = html.slice(html.indexOf('Submitted, not graded yet'));
+    expect(waiting).toContain('Last Week Essay');
+    expect(waiting).not.toContain('Reading Quiz');
+    expect(html).toContain('Submitted, not graded yet · 1');
+  });
+});

@@ -161,6 +161,35 @@
 .sgd .bar-fill { height: 6px; border-radius: 3px; background: var(--go); } /* passing: green; .low: red */
 .sgd .bar-fill.low { background: var(--nogo); }
 .sgd .bar-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #9aa4b1; }
+/* Each class's bar is this week's work (graded or turned in, of everything
+   due Monday to Sunday), with a Missing count and "2 of 5 this week". */
+.sgd .week-row { display: flex; align-items: center; gap: 10px; }
+.sgd .week-row .bar { flex: 1 1 auto; }
+.sgd .week-label { flex: 0 0 auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.sgd .class-missing { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #c2410c; }
+.sgd .class-missing .missing-icon { width: 12px; height: 11px; }
+/* A class grade below the passing grade: white on a faded red pill. */
+.sgd .class-grade.low, .sgd .class-overall.low { color: #fff !important; background: #c24a40; border-radius: 999px; padding: 1px 8px; font-weight: 700; }
+/* An opened class: this week's assignments, one compact line each. */
+.sgd .week-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.sgd .week-h { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.sgd .wk-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sgd .wk { display: flex; align-items: center; gap: 8px; min-height: 38px; border-top: 1px solid var(--line-2); }
+.sgd .wk-check { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #d5dae0; background: #fff; color: #8a94a1; }
+.sgd .wk-check:not(:disabled):hover { color: var(--go); border-color: #b9dcc5; background: var(--go-bg); }
+.sgd .wk-check.on { background: var(--go); border-color: var(--go); color: #fff; }
+.sgd .wk-check.on:not(:disabled):hover { background: #145f30; border-color: #145f30; color: #fff; }
+.sgd .wk-check:disabled { cursor: default; }
+.sgd .wk-check svg { width: 14px; height: 14px; }
+.sgd .wk-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; color: var(--ink); text-decoration: none; }
+.sgd a.wk-title:hover { text-decoration: underline; }
+.sgd .wk-title.done, .sgd a.wk-title.done:hover { text-decoration: line-through; text-decoration-color: #9aa4b1; color: var(--muted); }
+.sgd .wk-icon { flex: 0 0 auto; display: inline-flex; }
+.sgd .wk-icon .missing-icon { width: 15px; height: 13px; }
+.sgd .wk-sub { color: #2563eb; }
+.sgd .wk-due { flex: 0 0 auto; width: 34px; text-align: right; font-size: 12px; color: var(--muted); }
+.sgd .wk-grade { flex: 0 0 auto; min-width: 34px; text-align: right; font-size: 12px; font-weight: 700; }
+.sgd .wk-grade:empty { min-width: 0; }
 .sgd .legend { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 .sgd .wait-class { display: flex; flex-direction: column; gap: 2px; }

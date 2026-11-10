@@ -71,33 +71,80 @@ function isGraded(a) {
   return a.status === 'graded';
 }
 
+// This week: Monday 00:00 to the next Monday 00:00 (local time).
+export function weekRange(now = Date.now()) {
+  const from = weekStart(now);
+  return { from, to: from + 7 * DAY };
+}
+
+// True when the assignment is due this week; excused work never counts.
+export function dueThisWeek(a, now = Date.now()) {
+  if (!a || a.status === 'excused') return false;
+  const t = Date.parse(a.due || '');
+  const { from, to } = weekRange(now);
+  return !Number.isNaN(t) && t >= from && t < to;
+}
+
+function markSets(marks = {}) {
+  return {
+    turnedIn: new Set((marks.turnedIn || []).map(String)),
+    done: new Set((marks.done || []).map(String)),
+  };
+}
+
+// weekState(a, marks, now): where one of this week's assignments stands.
+//   graded     has a grade
+//   submitted  Schoology shows a submission
+//   turnedIn / done   the family marked it (turned in, or done)
+//   missing    the teacher marked it Missing
+//   assumed    past due without a Missing mark: counted as turned in, as
+//              everywhere else on the dashboard (only the teacher's Missing
+//              mark makes work Missing; parents can't see submissions)
+//   open       still to do
+// The order matters: a family mark beats a Missing mark (the work is in,
+// the teacher hasn't caught up), as in the Submitted section.
+export function weekState(a, marks = {}, now = Date.now()) {
+  const sets = marks.turnedIn instanceof Set ? marks : markSets(marks);
+  if (isGraded(a)) return 'graded';
+  if (a.submitted === true) return 'submitted';
+  const id = a.id !== undefined && a.id !== null ? String(a.id) : null;
+  if (id !== null && sets.turnedIn.has(id)) return 'turnedIn';
+  if (id !== null && sets.done.has(id)) return 'done';
+  if (a.status === 'missing' || a.status === 'incomplete') return 'missing';
+  const t = Date.parse(a.due || '');
+  if (!Number.isNaN(t) && t <= now) return 'assumed';
+  return 'open';
+}
+
+// The states that count as done this week (graded or turned in).
+export const WEEK_DONE = new Set(['graded', 'submitted', 'turnedIn', 'done', 'assumed']);
+
+// classWeek(course, marks, now) -> { items: [{ a, state }], total, done }:
+// one class's assignments due this week, by due date.
+export function classWeek(course, marks = {}, now = Date.now()) {
+  const sets = markSets(marks);
+  const items = ((course && course.assignments) || [])
+    .filter((a) => dueThisWeek(a, now))
+    .map((a) => ({ a, state: weekState(a, sets, now) }))
+    .sort((x, y) => Date.parse(x.a.due) - Date.parse(y.a.due));
+  return { items, total: items.length, done: items.filter((i) => WEEK_DONE.has(i.state)).length };
+}
+
 // weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted }
 // total: everything due this week (Monday to Sunday), excused work left out.
-// graded: has a grade. submitted: not graded yet but counted as turned in,
-// matching the rest of the dashboard, where work only counts as Missing when
-// the teacher marks it Missing: past-due work without a Missing mark,
-// Missing work with a submission, and work the family marked turned in or
-// done. Parents can't see submissions on Schoology's grades page, so this is
-// the same assumption the Missing count makes.
+// graded: has a grade. submitted: not graded yet but counted as turned in
+// (weekState: submitted, marked by the family, or past due without a
+// Missing mark). The class bars add up to the same numbers.
 export function weekProgress(courses, marks = {}, now = Date.now()) {
-  const from = weekStart(now);
-  const to = from + 7 * DAY;
-  const turnedIn = new Set((marks.turnedIn || []).map(String));
-  const done = new Set((marks.done || []).map(String));
   let total = 0;
   let graded = 0;
   let submitted = 0;
   for (const c of courses || []) {
-    for (const a of c.assignments || []) {
-      if (a.status === 'excused') continue;
-      const t = Date.parse(a.due || '');
-      if (Number.isNaN(t) || t < from || t >= to) continue;
-      total += 1;
-      const id = a.id !== undefined && a.id !== null ? String(a.id) : null;
-      const marked = id !== null && (turnedIn.has(id) || done.has(id));
-      const pastDueNotMissing = t <= now && a.status !== 'missing' && a.status !== 'incomplete';
-      if (isGraded(a)) graded += 1;
-      else if (a.submitted === true || marked || pastDueNotMissing) submitted += 1;
+    const w = classWeek(c, marks, now);
+    total += w.total;
+    for (const { state } of w.items) {
+      if (state === 'graded') graded += 1;
+      else if (WEEK_DONE.has(state)) submitted += 1;
     }
   }
   return { total, graded, submitted };
