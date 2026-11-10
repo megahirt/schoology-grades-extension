@@ -20,8 +20,8 @@ extension packager, plus the script that generates it.
    (app + extension).
 2. Verify each target's bundle ID — the converter sometimes mangles
    them so the app and extension prefixes mismatch and Xcode refuses
-   to build. App: `com.example.schoology-dashboard` (placeholder),
-   extension: `…​.Extension`.
+   to build. App: `net.hirtfamily.schoology-dashboard`,
+   extension: `net.hirtfamily.schoology-dashboard.Extension`.
 3. Strip `browser_specific_settings` / `key` / `side_panel` /
    `offscreen` from the manifest if present, and read the converter's
    compatibility warnings — don't ignore them.
@@ -55,7 +55,6 @@ see [`docs/safari.md`](../docs/safari.md) in the repo root.
 
 ## Bundle ID
 
-Placeholder: `com.example.schoology-dashboard` — **TO BE REPLACED**
-with the publisher's real bundle ID (e.g. `com.<familyname>.schoology-dashboard`)
-before any App Store submission. Bundle IDs can never be reused or
-changed later.
+App: `net.hirtfamily.schoology-dashboard`. Extension: `net.hirtfamily.schoology-dashboard.Extension`.
+These are the real, permanent IDs. Bundle IDs can never be reused or
+changed after the first upload.
