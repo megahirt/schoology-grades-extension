@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Homework Dashboard logo: a rocket climbing away from a missing-assignment marker left in the dust">
+  <rect width="128" height="128" rx="26" fill="#1b7a3e"/>
+  <g transform="translate(74,54) rotate(40) scale(1.45)">
+    <path d="M-6,12 L0,30 L6,12 Z" fill="#f28c28"/>
+    <path d="M-3,12 L0,22 L3,12 Z" fill="#ffd25a"/>
+    <path d="M-10,2 L-19,17 L-10,14 Z" fill="#b42318"/>
+    <path d="M10,2 L19,17 L10,14 Z" fill="#b42318"/>
+    <path d="M0,-30 C10,-20 12,-5 10,14 L-10,14 C-12,-5 -10,-20 0,-30 Z" fill="#ffffff"/>
+    <circle cy="-8" r="5" fill="#2f6fb3" stroke="#1f2933" stroke-width="1.5"/>
+  </g>
+  <circle cx="30" cy="100" r="11" fill="#2f9257"/>
+  <circle cx="44" cy="106" r="8" fill="#2f9257"/>
+  <circle cx="22" cy="110" r="7" fill="#2f9257"/>
+  <g transform="translate(32,98) rotate(15)">
+    <polygon points="12,0 6,10.39 -6,10.39 -12,0 -6,-10.39 6,-10.39" fill="none" stroke="#f28c28" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+</svg>
