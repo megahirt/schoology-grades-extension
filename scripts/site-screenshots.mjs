@@ -288,6 +288,12 @@ try {
       await page.waitForTimeout(300);
       await save(page, 'records');
 
+      // Just the Doing well section, for the features page.
+      const doingWell = sheet.locator('section.sec').filter({ has: page.locator('h2', { hasText: 'Doing well' }) });
+      await scrollTo(doingWell);
+      await page.waitForTimeout(300);
+      await save(doingWell, 'doing-well');
+
       // Grade chart for a class that went up since Q1.
       await body.evaluate((el) => { el.scrollTop = 0; });
       const bio = sheet.locator('.class', { hasText: 'Biology' });
