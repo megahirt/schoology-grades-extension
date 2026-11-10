@@ -8,12 +8,11 @@
 # session + consistent secondary sources — verify with
 # `xcrun safari-web-extension-packager --help` on the build Mac.
 #
-# BUNDLE ID PLACEHOLDER: com.example.schoology-dashboard
-#   TO BE REPLACED with the publisher's real bundle ID before any App Store
-#   submission. Bundle IDs can never be reused or changed later.
+# BUNDLE ID: net.hirtfamily.schoology-dashboard (extension: net.hirtfamily.schoology-dashboard.Extension).
+#   Real and permanent; bundle IDs can never be reused or changed later.
 set -e
 cd "$(dirname "$0")/.."
-INPUT="dist"
+INPUT="dist-safari"
 if xcrun -find safari-web-extension-packager >/dev/null 2>&1; then
   TOOL=safari-web-extension-packager
 elif xcrun -find safari-web-extension-converter >/dev/null 2>&1; then
@@ -27,7 +26,7 @@ echo "Using $TOOL with input: $INPUT"
 xcrun "$TOOL" --copy-resources "$INPUT" \
   --project-location "./safari" \
   --app-name "Schoology Dashboard" \
-  --bundle-identifier com.example.schoology-dashboard \
+  --bundle-identifier net.hirtfamily.schoology-dashboard \
   --swift --macos-only --no-open
 echo ""
 echo "Done. Next steps (see docs/safari.md):"
