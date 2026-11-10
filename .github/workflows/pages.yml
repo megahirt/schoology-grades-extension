@@ -1,7 +1,9 @@
 # Pages — publishes the promo site (site/) to GitHub Pages.
 #
-# Plain static files, no build step. Runs when site/ changes on main, or by
-# hand. One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# Plain static files. The only build step stamps the latest release version
+# (newest vX.Y.Z tag) into site/links.js, which shows it on every page.
+# Runs when site/ changes on main, by hand, or from release.yml after a new
+# release. One-time setup: repo Settings → Pages → Source: "GitHub Actions".
 # The site is then at https://megahirt.github.io/schoology-grades-extension/
 #
 # Screenshots in site/img/ are made on a Mac with `npm run site:screenshots`
@@ -33,6 +35,18 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags, for the version below
+      - name: Stamp the latest release version
+        run: |
+          TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | head -n1 || true)
+          if [ -n "$TAG" ]; then
+            sed -i "s/^  version: '',/  version: '${TAG#v}',/" site/links.js
+            grep -q "version: '${TAG#v}'," site/links.js || { echo "::error::could not stamp the version into site/links.js"; exit 1; }
+            echo "Site shows version ${TAG#v}"
+          else
+            echo "No release tag yet; the site shows no version."
+          fi
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site/
