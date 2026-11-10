@@ -52,7 +52,7 @@ Grades Dashboard is an independent project. It is not made, endorsed or supporte
 |---|---|
 | Category | Education |
 | Language | English (United States) |
-| Store icon | 128×128, taken from the package (`icons/icon128.png`) |
+| Store icon | `store-icon-128.png` (128×128: the logo at 96×96 with 16px of transparent padding, per Chrome's icon guidelines) |
 | Screenshots | `screenshot-1.png` … `screenshot-5.png` (1280×800, in this order) |
 | Small promo tile | `promo-small-440x280.png` |
 | Marquee promo tile (optional) | `promo-marquee-1400x560.png` |
