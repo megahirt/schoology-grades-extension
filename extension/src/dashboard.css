@@ -67,10 +67,11 @@
 .sgd .low { color: var(--nogo) !important; }
 
 .sgd .sec { display: flex; flex-direction: column; gap: 8px; }
-.sgd .sec-emoji { margin-right: 6px; font-size: 13px; letter-spacing: 0; text-transform: none; }
+.sgd .sec-emoji { margin-right: 7px; font-size: 16px; letter-spacing: 0; text-transform: none; }
 .sgd .missing-icon { width: 14px; height: 12px; display: inline-block; vertical-align: -1px; }
 .sgd .missing-tag { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 7px; border-radius: 999px; background: #fff3e8; color: #9a3412; font-size: 11px; font-weight: 600; }
-.sgd .sec-h { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.sgd .sec-h { margin: 0; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); }
+.sgd .sec-h .missing-icon { width: 17px; height: 15px; vertical-align: -2px; }
 .sgd .sub { font-size: 12px; color: #4b5563; margin-top: 2px; }
 .sgd .empty { margin: 0; font-size: 13px; color: var(--muted); }
 .sgd a.item-title, .sgd a.row-title { color: var(--ink); text-decoration: none; }
@@ -190,6 +191,11 @@
 .sgd .foot:not(:has(.dev-row, .foot-row, .status:not(:empty))) { display: none; }
 /* Credit banner at the very bottom. */
 .sgd .credit { padding: 9px 18px; background: #f6f7f9; border-top: 1px solid var(--line-2); display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #4b5563; }
+/* The made-with line stays centered; "About" sits at the right edge. */
+.sgd .credit::before, .sgd .credit-end { content: ''; flex: 1 1 0; }
+.sgd .credit-end { display: flex; justify-content: flex-end; }
+.sgd .about-link { color: #4b5563; font-size: 11px; text-decoration: underline; text-underline-offset: 2px; }
+.sgd .about-link:hover { color: var(--ink); }
 .sgd .credit-logo { width: 20px; height: 20px; border-radius: 4px; display: block; }
 .sgd .foot-row { display: flex; align-items: center; gap: 8px; }
 .sgd .status:empty { display: none; }
@@ -231,6 +237,11 @@
 .sgd .class-row { cursor: pointer; margin: -4px -8px; padding: 4px 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; transition: background 0.12s; }
 .sgd .class-row:hover { background: #f1f4f8; }
 .sgd .class.open > .class-row { background: #f6f7f9; }
+/* An opened class (row, chart, highest score) sits in a dark frame, so it's
+   clear where it ends and the next class starts. The negative margins keep
+   its text exactly where it was when closed: sideways 2px border + 10px
+   padding, and on top -6px + 2px + 4px, so the clicked row doesn't move. */
+.sgd .class.open { border: 2px solid var(--ink-2); border-radius: 12px; padding: 4px 10px 8px; margin: -6px -12px 4px; }
 .sgd .icon-btn.done { color: var(--go); border-color: #b9dcc5; background: var(--go-bg); }
 /* The copy drawn for a screenshot: no scrolling, full height. */
 .sgd.sgd-shot { height: auto; max-height: none; overflow: visible; }

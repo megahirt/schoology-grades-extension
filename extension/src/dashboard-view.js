@@ -541,6 +541,8 @@ function renderRecords(records, showGrades, now) {
 }
 
 export const FEEDBACK_EMAIL = 'schoologydashboard@gmail.com';
+// The promo site (footer "About" link).
+export const ABOUT_URL = 'https://megahirt.github.io/schoology-grades-extension/';
 
 // "Send feedback": the family's own mail app, with the version and browser
 // in the subject. Never any grades or names.
@@ -942,7 +944,8 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       (showDemo ? '<div class="foot-row"><button class="btn btn-sm" type="button" data-act="demo">Load demo data</button></div>' : '') +
       '</footer>' +
       `<div class="credit"><span>Made with <span role="img" aria-label="love">❤️</span> for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span>` +
-      `<span aria-hidden="true">·</span><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a></div>`;
+      `<span aria-hidden="true">·</span><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a>` +
+      `<span class="credit-end"><a class="about-link" href="${ABOUT_URL}" target="_blank" rel="noopener">About</a></span></div>`;
 
     // Re-rendering replaces the whole view; keep where the reader was
     // scrolled (the panel scrolls .body, the popup scrolls the page), so
@@ -1077,8 +1080,9 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const link = openLinksInActiveTab && e.target.closest('a[href]');
     if (link && root.contains(link) && !link.href.startsWith('mailto:')) {
       e.preventDefault();
-      // Cmd/Ctrl/Shift-click or middle-click still opens a new tab.
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) await browser.tabs.create({ url: link.href });
+      // Cmd/Ctrl/Shift-click or middle-click still opens a new tab, and so
+      // do links meant for one (the footer's About).
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1 || link.target === '_blank') await browser.tabs.create({ url: link.href });
       else {
         await browser.tabs.update({ url: link.href });
         container.ownerDocument.defaultView.close();
