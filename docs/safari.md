@@ -54,8 +54,8 @@ The exact command the script runs / generates:
 ```bash
 xcrun safari-web-extension-packager --copy-resources ./dist \
   --project-location ./safari \
-  --app-name "Schoology Dashboard" \
-  --bundle-identifier com.example.schoology-dashboard \
+  --app-name "Grades Dashboard for Schoology" \
+  --bundle-identifier net.hirtfamily.schoology-dashboard \
   --swift --macos-only --no-open
 # If the packager name is not found (older Xcode), use
 # safari-web-extension-converter instead — same flags.
@@ -63,10 +63,9 @@ xcrun safari-web-extension-packager --copy-resources ./dist \
 
 - `--copy-resources` copies the extension files into the project
   (default references them at their original path).
-- **Bundle ID placeholder:** `com.example.schoology-dashboard` —
-  **TO BE REPLACED** with the publisher's real bundle ID (e.g.
-  `com.<familyname>.schoology-dashboard`) before submission. Bundle IDs
-  can never be reused or changed later — pick carefully. The converter
+- **Bundle ID:** `net.hirtfamily.schoology-dashboard` (app) and `net.hirtfamily.schoology-dashboard.Extension`
+  (extension). This is the real, permanent ID. Bundle IDs can never be
+  reused or changed after the first upload. The converter
   derives target IDs from it and appends `.Extension` to the extension
   target. Verify every target's bundle ID in Xcode after conversion:
   some Xcode versions mangle them so the app and extension prefixes
