@@ -6,6 +6,7 @@
 //   screenshot-1..5.png        1280×800 (the store's required size)
 //   promo-small-440x280.png    small promo tile (required)
 //   promo-marquee-1400x560.png marquee tile (optional)
+// Colors follow the site brand (site/style.css --brand).
 // Never use real student data: the repo is public and these images are
 // committed.
 
@@ -54,7 +55,7 @@ await render('promo-small-440x280.png', 440, 280, page0(440, 280, `
     <div class="for">for Schoology</div>
     <div class="line">What's due, what's missing, how it's going</div>
   </div>`, `
-  body { background: #1d4ed8; color: #fff; }
+  body { background: #4f7356; color: #fff; }
   .tile { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .icon svg { width: 64px; height: 64px; display: block; border-radius: 14px; box-shadow: 0 0 0 3px rgba(255,255,255,0.9); }
   .name { font-size: 36px; font-weight: 700; margin-top: 18px; letter-spacing: -0.5px; }
@@ -70,7 +71,7 @@ await render('promo-marquee-1400x560.png', 1400, 560, page0(1400, 560, `
     <div class="small">For parents and students · Free · Everything stays on your device</div>
   </div>
   <img class="phone" src="${dataUrl('phone-parent-sam.png')}">`, `
-  body { background: linear-gradient(120deg, #1d4ed8, #1e40af); color: #fff; position: relative; }
+  body { background: linear-gradient(120deg, #4f7356, #3d5a43); color: #fff; position: relative; }
   .words { position: absolute; left: 90px; top: 0; bottom: 0; width: 860px; display: flex; flex-direction: column; justify-content: center; }
   .icon svg { width: 72px; height: 72px; display: block; border-radius: 16px; box-shadow: 0 0 0 3px rgba(255,255,255,0.9); }
   .name { font-size: 52px; font-weight: 700; letter-spacing: -1px; margin-top: 26px; white-space: nowrap; }
