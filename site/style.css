@@ -164,9 +164,12 @@ ol.refs .why { display: block; color: var(--muted); font-size: 15px; margin-top:
 .site-foot .credit { margin: 14px 0 0; }
 .site-foot .credit img { display: inline-block; vertical-align: -4px; border-radius: 4px; }
 
-.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: end; }
-.gallery figure { margin: 0; }
-.gallery figcaption { text-align: center; font-size: 14px; color: var(--muted); margin-top: 8px; }
-@media (max-width: 760px) { .gallery { grid-template-columns: 1fr 1fr; } .gallery figure:last-child { display: none; } }
+/* Home: the feature cards with one phone screenshot on their right; on a
+   narrow screen the screenshot drops below the cards. */
+.feature-row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.feature-row > .cards { flex: 999 1 560px; min-width: 0; }
+.feature-phone { flex: 1 1 240px; max-width: 280px; margin: 0 0 0 auto; }
+@media (max-width: 860px) { .feature-phone { margin: 0 auto; } }
+.feature-phone figcaption { text-align: center; font-size: 14px; color: var(--muted); margin-top: 8px; }
 /* Small icons inline with heading text, like the dashboard's Missing hexagon. */
 .inline-icon { display: inline-block; height: .8em; width: auto; vertical-align: -0.05em; margin-right: .15em; }
