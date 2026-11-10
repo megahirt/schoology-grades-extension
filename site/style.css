@@ -6,10 +6,12 @@
   --muted: #52606d;
   --faint: #7b8794;
   --line: #e4e7eb;
-  --brand: #1d4ed8;
+  --brand: #4f7356;
   --brand-ink: #ffffff;
-  --brand-soft: #e8eefc;
-  --go: #1f7a4a;
+  --brand-soft: #edf2ee;
+  --accent: #f28c28;
+  --accent-ink: #a8540f;
+  --go: #4f7356;
   --go-soft: #e7f4ec;
   --warn-soft: #fdf3e3;
   --avoid: #9b3b2b;
@@ -32,13 +34,13 @@ p { margin: 0 0 1em; }
 .wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
 .muted { color: var(--muted); }
 .small { font-size: 14px; }
-.eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin-bottom: 8px; }
+.eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 
 /* Header */
 .site-head { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
 .site-head .wrap { display: flex; align-items: center; gap: 16px; min-height: 60px; flex-wrap: wrap; }
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
-.logo .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 16px; }
+.logo .mark { width: 34px; height: 34px; }
 .nav { display: flex; gap: 4px 18px; margin-left: auto; flex-wrap: wrap; font-size: 15px; }
 .nav a { color: var(--muted); text-decoration: none; padding: 6px 0; }
 .nav a:hover, .nav a[aria-current="page"] { color: var(--text); }
@@ -50,7 +52,7 @@ p { margin: 0 0 1em; }
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 20px; border-radius: 11px; font-weight: 600; text-decoration: none; border: 1px solid transparent; font-size: 16px; }
 .btn.primary { background: var(--brand); color: var(--brand-ink); }
-.btn.primary:hover { background: #1a43bd; }
+.btn.primary:hover { background: #43624a; }
 .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--line); }
 .btn.soon { background: #eef0f3; color: var(--faint); cursor: default; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -129,7 +131,7 @@ sup.cite a { text-decoration: none; font-weight: 600; font-size: 12px; padding: 
 /* Lists and steps */
 ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0 0 1em; }
 ol.steps > li { counter-increment: s; position: relative; padding: 0 0 16px 46px; }
-ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 700; display: grid; place-items: center; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); box-shadow: inset 0 0 0 2px var(--accent); font-weight: 700; display: grid; place-items: center; }
 ul.checks { list-style: none; padding: 0; margin: 0 0 1em; }
 ul.checks li { padding-left: 28px; position: relative; margin-bottom: 8px; }
 ul.checks li::before { content: "✓"; position: absolute; left: 4px; color: var(--go); font-weight: 700; }
