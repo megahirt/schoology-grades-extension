@@ -26,8 +26,8 @@ Build the production extension first:
 npm run build        # produces dist/ — must NOT contain localhost permissions
 ```
 
-Zip `dist/` as `schoology-grades-extension-<version>.zip` (the
-release workflow does this automatically on version tags — see
+Zip `dist/` as `schoology-grades-extension-<version>-chrome.zip` (the
+release workflow does this automatically on `vX.Y.Z` tags — see
 `.github/workflows/release.yml`).
 
 **Required assets:**
@@ -104,8 +104,8 @@ secrets, never in the repo.
 
 ## 5. Updates
 
-Bump the version in `package.json` and `extension/manifest.json`
-(they must match), tag `v<version>`, push — the release workflow
+Tag a commit on `main` with `vX.Y.Z` and push the tag (the version comes
+only from the tag; see README → Releasing) — the release workflow
 builds the ZIP and (if secrets are set) uploads it. Each upload is
 reviewed again before it reaches users. Users get updates
 automatically through Chrome.

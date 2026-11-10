@@ -199,11 +199,12 @@ resubmitting if it's a misunderstanding.
 
 ## Updates
 
-Updates ride with app updates: bump `CFBundleShortVersionString`
-(MARKETING_VERSION, user-visible, e.g. 1.1.0) per public release and
-`CFBundleVersion` (CURRENT_PROJECT_VERSION, build number) **per
-upload, including TestFlight builds** (a re-upload with the same build
-number is rejected). Keep app and extension targets' versions in sync.
+Updates ride with app updates. Both version numbers come from the
+release: `CFBundleShortVersionString` (MARKETING_VERSION, user-visible) is
+the `vX.Y.Z` tag's X.Y.Z, and `CFBundleVersion` (CURRENT_PROJECT_VERSION,
+build number) is the release workflow's run number, so it is new **for
+every upload, including TestFlight builds** (a re-upload with the same
+build number is rejected). Keep app and extension targets' versions in sync.
 Re-archive → upload → TestFlight → submit for review (updates are
 reviewed too, usually faster than a first submission). Users get the
 update through normal App Store updates; there is no separate
