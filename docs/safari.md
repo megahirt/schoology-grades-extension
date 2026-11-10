@@ -1,4 +1,4 @@
-# Safari distribution — Schoology Dashboard
+# Safari distribution — Grades Dashboard for Schoology
 
 **Safari first.** Many students use Safari (school Macs and iPhones), so the
 Safari version is the primary target; Chrome (Web Store) is second.

@@ -1,4 +1,4 @@
-// extension.spec.js — Playwright e2e for the Schoology Dashboard extension.
+// extension.spec.js — Playwright e2e for the Grades Dashboard extension.
 //
 // Launches Chromium with the unpacked DEV build (dist/, produced by
 // `npm run build:dev`), starts the mock Schoology server, points the
@@ -66,7 +66,7 @@ test.afterAll(async () => {
   await mock.close();
 });
 
-test.describe('Schoology Dashboard extension (mock Schoology)', () => {
+test.describe('Grades Dashboard extension (mock Schoology)', () => {
   test.beforeEach(async () => {
     if (isFirefox()) test.skip(!HAS_FIREFOX_BUILD, 'Firefox DEV build (dist-firefox/) not present yet — run `npm run build:firefox` first.');
     else test.skip(!HAS_DEV_BUILD, 'DEV build (dist/) not present yet — run `npm run build:dev` first.');
@@ -244,7 +244,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
     await expect(popup.locator('.status')).toHaveText(/Press Share again to send it\.$/);
     await shareBtn.click();
     await expect(popup.locator('.status')).toHaveText(/shared\.$/);
-    expect(await popup.evaluate(() => window.__shared)).toEqual([[expect.stringMatching(/^homework-dashboard-jamie-\d{4}-\d{2}-\d{2}\.png image\/png$/)]]);
+    expect(await popup.evaluate(() => window.__shared)).toEqual([[expect.stringMatching(/^grades-dashboard-jamie-\d{4}-\d{2}-\d{2}\.png image\/png$/)]]);
   }
 
   async function openPopup(context, extensionId) {
@@ -430,7 +430,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
 
       const opts = await context.newPage();
       await opts.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
-      await expect(opts.getByRole('heading', { name: 'Homework Dashboard settings' })).toBeVisible();
+      await expect(opts.getByRole('heading', { name: 'Grades Dashboard settings' })).toBeVisible();
       await expect(opts.locator('#account-title')).toHaveText('Connected as a student');
       for (const name of ['Account', 'Display', 'Privacy & data']) {
         await expect(opts.getByRole('heading', { name, exact: true })).toBeVisible();
@@ -516,7 +516,7 @@ test.describe('Schoology Dashboard extension (mock Schoology)', () => {
       await expect(tab).toHaveAttribute('aria-expanded', 'false', { timeout: 15000 });
       await expect(panel).toBeHidden();
       // A student's closed tab shows the counts but no verdict (GO/NO-GO is for parents).
-      await expect(tab).toHaveAttribute('aria-label', /^Show homework dashboard\. Alex Student: 1 missing/);
+      await expect(tab).toHaveAttribute('aria-label', /^Show grades dashboard\. Alex Student: 1 missing/);
       await expect(tab).not.toHaveAttribute('aria-label', /NO-GO/);
       await expect(tab.locator('.kid-pic')).toHaveCount(1);
       await expect(tab.locator('.kid-m').first()).toHaveText('1'); // Schoology Missing icon + 1

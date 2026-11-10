@@ -1,4 +1,4 @@
-# Test environment — Schoology Dashboard extension
+# Test environment — Grades Dashboard extension
 
 How to run the mock server, the unit tests, and the Playwright e2e tests.
 All commands run from the repo root.
@@ -145,7 +145,7 @@ Compare them with the "Schoology Dashboard Panel" design.
 
 ## Dev build: real Schoology or the mock server
 
-`npm run build:dev` builds "Schoology Dashboard (Dev)". It uses real
+`npm run build:dev` builds "Grades Dashboard (Dev)". It uses real
 Schoology (`https://app.schoology.com`) by default, like the normal build.
 A purple **DEV** row in the dashboard footer (popup and panel) switches the
 data source with one click:

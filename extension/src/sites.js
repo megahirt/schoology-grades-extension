@@ -14,7 +14,7 @@
 //                        short: on Chrome, each new manifest address turns
 //                        the extension off until the family re-approves it;
 //   any other school     the family allows their one school's address when
-//                        they click "Use Schoology Dashboard here" (popup) or
+//                        they click "Use Grades Dashboard here" (popup) or
 //                        add it in Settings; the browser's optional host
 //                        permission is the record of it (addedSchoolHosts),
 //                        and background.js registers the content script there.

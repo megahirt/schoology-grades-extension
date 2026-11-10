@@ -68,7 +68,7 @@ try {
 
 const page = context.pages()[0] || (await context.newPage());
 await page.goto(START_URL).catch(() => {});
-console.log(`Dev Chromium is open with "Schoology Dashboard (Dev)" ${builtName} loaded.`);
+console.log(`Dev Chromium is open with "Grades Dashboard (Dev)" ${builtName} loaded.`);
 // Confirm the running background script is this build, not a cached one.
 try {
   const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker', { timeout: 10000 }));

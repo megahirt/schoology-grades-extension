@@ -1,4 +1,4 @@
-# CI — Schoology Dashboard Extension (Safari-first, Chrome second)
+# CI — Grades Dashboard for Schoology (Safari-first, Chrome second)
 #
 # Runs on every push and pull request: lint, unit tests, both builds
 # (prod + dev + Firefox dev), then the Playwright end-to-end tests against

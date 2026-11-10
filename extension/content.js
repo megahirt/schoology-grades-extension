@@ -156,5 +156,5 @@ function isSchoologyPage() {
 if (isSchoologyPage()) {
   fillComposeForm();
   init();
-  setupPanel().catch((e) => console.warn('Schoology Dashboard panel failed:', e));
+  setupPanel().catch((e) => console.warn('Grades Dashboard panel failed:', e));
 }

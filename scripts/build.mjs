@@ -3,7 +3,7 @@
 //   --dev : shows a "Data: Real Schoology / Mock server" switch in the
 //           dashboard footer (default: real Schoology), adds
 //           http://localhost:*/* to host_permissions (mock server for
-//           Playwright e2e) and renames the extension "Schoology Dashboard
+//           Playwright e2e) and renames the extension "Grades Dashboard
 //           (Dev)". Prod builds NEVER contain localhost permissions.
 //   --firefox : writes a Firefox build to dist-firefox/ instead (combine
 //           with --dev for the e2e tests). Firefox runs MV3 backgrounds as
@@ -60,7 +60,8 @@ async function main() {
   // Manifest (transformed for --dev).
   const manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
   if (isDev) {
-    manifest.name = 'Schoology Dashboard (Dev)';
+    manifest.name = 'Grades Dashboard (Dev)';
+    manifest.short_name = 'Grades Dashboard (Dev)';
     // Build stamp, so a running dev build can be identified (version_name is
     // display-only; Chrome and Safari keep using `version`).
     manifest.version_name = `${manifest.version}-dev.${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;

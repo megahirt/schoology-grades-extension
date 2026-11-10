@@ -243,7 +243,7 @@ function setupSchools() {
     }
     const host = new URL(origin).hostname;
     if (isSchoologySite(origin)) {
-      status.textContent = `Schoology Dashboard already works on ${host}.`;
+      status.textContent = `Grades Dashboard already works on ${host}.`;
       return;
     }
     // Ask first, inside the submit: the prompt needs the user's gesture.
@@ -295,7 +295,7 @@ async function init() {
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
   $('feedback-link').href = feedbackHref(browser);
-  $('version').textContent = `Homework Dashboard ${browser.runtime.getManifest().version}`;
+  $('version').textContent = `Grades Dashboard ${browser.runtime.getManifest().version}`;
   setupDev();
   setupSchools();
   setupMenu();
