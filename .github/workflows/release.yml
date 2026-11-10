@@ -169,8 +169,12 @@ jobs:
     steps:
       - name: Check Chrome Web Store secrets
         id: cws
+        # Secrets go in through env, never pasted into the script itself.
+        env:
+          CWS_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
+          CWS_ID: ${{ vars.CWS_EXTENSION_ID }}
         run: |
-          if [ -n "${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}" ] && [ -n "${{ vars.CWS_EXTENSION_ID }}" ]; then
+          if [ -n "$CWS_JSON" ] && [ -n "$CWS_ID" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -183,7 +187,8 @@ jobs:
 
       - name: Skip (no secrets)
         if: steps.cws.outputs.configured != 'true'
-        run: echo "SKIPPED: Chrome Web Store upload. Secrets not set yet; not a failure."
+        run: |
+          echo "SKIPPED: Chrome Web Store upload. Secrets not set yet; not a failure."
 
   safari:
     # App Store Connect. Scaffold: the Xcode project, archive and TestFlight
@@ -195,8 +200,12 @@ jobs:
     steps:
       - name: Check App Store Connect secrets
         id: asc
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_P8: ${{ secrets.ASC_API_KEY_P8_B64 }}
         run: |
-          if [ -n "${{ secrets.ASC_API_KEY_ID }}" ] && [ -n "${{ secrets.ASC_API_ISSUER_ID }}" ] && [ -n "${{ secrets.ASC_API_KEY_P8_B64 }}" ]; then
+          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER" ] && [ -n "$ASC_P8" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -210,4 +219,5 @@ jobs:
 
       - name: Skip (no secrets)
         if: steps.asc.outputs.configured != 'true'
-        run: echo "SKIPPED: App Store Connect upload. Secrets not set yet; not a failure."
+        run: |
+          echo "SKIPPED: App Store Connect upload. Secrets not set yet; not a failure."
