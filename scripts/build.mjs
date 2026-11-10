@@ -58,6 +58,15 @@ const FAKE_NOW_BANNER = fakeNow === null ? '' : `(() => {
 const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : 'dist');
 const FIREFOX_ID = 'schoology-dashboard@schoologydashboard';
 
+// Adding a school's own Schoology address (schoology.yourschool.org) needs
+// the optional "https://*/*" host permission, plus "scripting" and
+// "activeTab" for that feature only. A broad host permission sends the
+// Chrome Web Store listing to an in-depth review, so release builds leave
+// all three out for now; the extension then says other addresses can't be
+// added yet (school-access.js canAddSchools). Dev builds keep them so the
+// feature stays testable. Set to true to ship the feature again.
+const ASK_FOR_OTHER_SCHOOL_SITES = false;
+
 // X.Y.Z with no leading zeros, each part 0–65535 (Chrome's rule for
 // manifest versions; Firefox, Edge and Safari accept the same form).
 const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -134,7 +143,10 @@ async function main() {
     manifest.host_permissions = noPort(manifest.host_permissions);
     for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);
   }
-  if (isSafari) delete manifest.optional_host_permissions;
+  if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;
+  if (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES) {
+    manifest.permissions = manifest.permissions.filter((p) => p !== 'scripting' && p !== 'activeTab');
+  }
   await writeFile(path.join(distDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
   // Static assets.
