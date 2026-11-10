@@ -12,6 +12,7 @@ import { mountPanel } from './src/panel.js';
 import { storageGet, storageSet, setSite } from './src/storage.js';
 import { readComposeHash } from './src/teacher-email.js';
 import { isSchoologySite, looksLikeSchoology } from './src/sites.js';
+import { extractUserUid } from './src/schoology.js';
 
 // Same parser as the service worker (parser-core.js), run on the live DOM.
 function scrapeGrades() {
@@ -81,13 +82,29 @@ browser.runtime.onMessage.addListener((message) => {
   return undefined;
 });
 
+// Who is signed in on this page: { uid } from Schoology's page settings, or
+// { signedOut } on the sign-in page. Data is kept per signed-in person
+// (storage.js), so the background must know before the panel shows any.
+function pageUser() {
+  const scripts = [...document.scripts].map((s) => s.textContent || '').join('\n');
+  const uid = extractUserUid(scripts);
+  if (uid) return { uid };
+  const login = /\/login(\b|\?|#|$)/i.test(window.location.pathname) ||
+    document.querySelector('form[id*="login" i], form[class*="login" i]') !== null;
+  return login ? { signedOut: true } : {};
+}
+
 // Dashboard panel on the right edge of the page (top frame only). Whether it
 // is open is shared by every Schoology tab (storage key panelOpen; open by
 // default the first time). The panel is always on.
 async function setupPanel() {
   if (window.top !== window) return;
-  // This page's Schoology site: the panel shows that site's account.
+  // This page's Schoology site: the panel shows that site's account, for
+  // whoever is signed in on this page.
   setSite(window.location.origin);
+  await browser.runtime
+    .sendMessage({ type: 'page-user', url: window.location.href, ...pageUser() })
+    .catch(() => {});
   const panel = mountPanel({
     document,
     browser,

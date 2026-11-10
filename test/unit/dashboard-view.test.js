@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderStudentBody } from '../../extension/src/dashboard-view.js';
+import { renderStudentBody, signedOutHtml, isSignedOutError } from '../../extension/src/dashboard-view.js';
 import { DEFAULT_SETTINGS } from '../../extension/src/rules.js';
 
 // Made-up data only.
@@ -129,5 +129,20 @@ describe('the student view looks like the parent view', () => {
     expect(student).toContain('card plain');
     expect(parent).toContain('data-act="email-teacher"');
     expect(student).not.toContain('data-act="email-teacher"');
+  });
+});
+
+describe('signed out of Schoology', () => {
+  it('says the data is old, from when, and links to Schoology', () => {
+    const html = signedOutHtml(new Date().toISOString(), 'https://app.schoology.com');
+    expect(html).toMatch(/Please <a [^>]+>log in to Schoology<\/a> to see the latest\./);
+    expect(html).toContain('href="https://app.schoology.com/"');
+    expect(html).toMatch(/This is old data \(from today, [^)]+\)\./);
+    expect(signedOutHtml(null, 'https://app.schoology.com')).toMatch(/This is old data\.<\/div>$/);
+  });
+  it('a refresh that failed because nobody is signed in counts as signed out; a network error does not', () => {
+    expect(isSignedOutError('NOT_LOGGED_IN')).toBe(true);
+    expect(isSignedOutError('LOGGED_OUT')).toBe(true);
+    expect(isSignedOutError('SCHOOLOGY_UNAVAILABLE')).toBe(false);
   });
 });

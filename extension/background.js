@@ -35,6 +35,10 @@ import {
   storageGet,
   storageSet,
   getSites,
+  getUser,
+  setUser,
+  scopeOf,
+  originOf,
 } from './src/storage.js';
 
 const ALARM_NAME = 'refresh-grades';
@@ -60,7 +64,7 @@ async function siteOf(site) {
 async function loadSettings(site) {
   const stored = (await getSettings()) || {};
   const settings = effectiveSettings(stored, { isStudent: isStudentAccount(await getAccount(site), await getDashboards(site)) });
-  return { ...settings, schoologyBase: site };
+  return { ...settings, schoologyBase: originOf(site) || site };
 }
 
 async function writeDashboard(uid, dashboard, site) {
@@ -73,14 +77,38 @@ async function writeDashboard(uid, dashboard, site) {
 // Full refresh of one site: detect account, fetch dashboards, parse,
 // summarize, store. progress({ done, total, label }) reports steps for the
 // UI (see startRefresh).
+//
+// Who is signed in is checked FIRST: each person's data is kept apart
+// (storage.js, PER SITE AND PER USER), so when someone else has signed in
+// the site switches to their data before anything is read or written, and
+// every write below is pinned to that person (`scope`), even if someone
+// signs in as another person while this refresh runs. Signed out: the last
+// person's data stays, marked signedOut (the dashboard shows it as old).
 async function refreshGrades(site, progress = () => {}) {
-  const settings = await loadSettings(site);
   progress({ done: 0, total: 1, label: 'Checking your Schoology account' });
-  const turnedIn = (await getTurnedIn(site)) || {};
-  const markedDone = (await getMarkedDone(site)) || {};
   const client = createClient({ baseUrl: site });
+  const started = JSON.stringify((await getUser(site)) || null);
   const account = await client.detectAccount();
-  await setAccount({ ...account, detectedAt: new Date().toISOString() }, site);
+  const before = await getUser(site);
+  const now = new Date().toISOString();
+  if (account.type === 'loggedOut') {
+    // A page reported who is signed in while this check ran: it knows better.
+    if (JSON.stringify(before || null) === started) {
+      await setUser({ ...(before || { uid: null, name: null }), signedOut: true, checkedAt: now }, site);
+    }
+    return { ok: false, accountType: 'loggedOut', error: 'NOT_LOGGED_IN', fallback: 'hidden-tab' };
+  }
+  // A network or server error says nothing about who is signed in.
+  if (account.type !== 'parent' && account.type !== 'student') {
+    return { ok: false, accountType: account.type, error: 'SCHOOLOGY_UNAVAILABLE', fallback: 'hidden-tab' };
+  }
+  const uid = String(account.userUid || (before && before.uid) || '') || null;
+  await setUser({ uid, name: account.type === 'student' ? account.studentName : (before && before.uid === uid && before.name) || null, type: account.type, signedOut: false, checkedAt: now }, site);
+  const scope = scopeOf(site, uid);
+  await setAccount({ ...account, detectedAt: now }, scope);
+  const settings = await loadSettings(scope);
+  const turnedIn = (await getTurnedIn(scope)) || {};
+  const markedDone = (await getMarkedDone(scope)) || {};
 
   if (account.type === 'parent') {
     const dashboards = await client.fetchParentDashboards({
@@ -98,27 +126,29 @@ async function refreshGrades(site, progress = () => {}) {
       }
       byUid[d.studentUid] = { ...d, summary, updatedAt: new Date().toISOString() };
     }
-    if (Object.keys(byUid).length > 0) await setDashboards(byUid, site);
+    if (Object.keys(byUid).length > 0) await setDashboards(byUid, scope);
     return { ok: true, accountType: 'parent', students: Object.keys(byUid) };
   }
 
-  if (account.type === 'student') {
+  // A student account.
+  {
     progress({ done: 1, total: 2, label: 'Reading your grades' });
     const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self });
     if (result.error === 'LOGGED_OUT') {
+      // Signed out between the account check and the grades page.
+      await setUser({ ...((await getUser(site)) || { uid, name: null }), signedOut: true, checkedAt: new Date().toISOString() }, site);
       return { ok: false, accountType: 'student', error: 'LOGGED_OUT', fallback: 'hidden-tab' };
     }
     if (result.error === 'PARSE_EMPTY' || result.error === 'NO_GRADES') {
       return { ok: false, accountType: 'student', error: result.error, fallback: 'hidden-tab' };
     }
     const summary = summarizeStudent(result.courses, settings, turnedIn.self, markedDone.self);
-    const uid = account.children?.[0]?.uid || 'self';
+    const self = account.children?.[0]?.uid || 'self';
     const name = result.studentName || account.studentName || 'Student';
-    // A student account has one dashboard: replace what's stored, so a
-    // parent's children from an earlier sign-in on this site don't linger.
-    await setDashboards({ [uid]: {
+    // A student account has one dashboard.
+    await setDashboards({ [self]: {
       updatedAt: new Date().toISOString(),
-      studentUid: uid,
+      studentUid: self,
       studentName: name,
       pictureUrl: account.children?.[0]?.pictureUrl || account.pictureUrl || null,
       courses: result.courses,
@@ -126,12 +156,9 @@ async function refreshGrades(site, progress = () => {}) {
       source: result.source,
       parseWarnings: result.parseWarnings || [],
       error: result.error || null,
-    } }, site);
-    return { ok: true, accountType: 'student', students: [uid] };
+    } }, scope);
+    return { ok: true, accountType: 'student', students: [self] };
   }
-
-  // loggedOut / unknown: nothing to fetch from the service worker.
-  return { ok: false, accountType: account.type, error: 'NOT_LOGGED_IN', fallback: 'hidden-tab' };
 }
 
 // ---------------------------------------------------------------------------
@@ -154,8 +181,13 @@ async function setRefreshState(state, site) {
   await storageSet('refreshState', state, site);
 }
 
-function startRefresh(reason, site) {
-  if (running.has(site)) return running.get(site);
+// again: someone else signed in while a refresh runs. That refresh may have
+// checked the account before the switch, so run another one after it.
+function startRefresh(reason, site, { again = false } = {}) {
+  if (running.has(site)) {
+    const current = running.get(site);
+    return again ? current.then(() => startRefresh(reason, site), () => startRefresh(reason, site)) : current;
+  }
   const startedAt = new Date().toISOString();
   let last = { done: 0, total: 1, label: 'Starting' };
   const progress = (p) => {
@@ -211,6 +243,8 @@ async function maybeAutoRefresh(pageUrl) {
   const base = await siteOf(null);
   const where = siteForPage(pageUrl, base, await addedHosts());
   if (where === 'ignore') return { started: false, reason: 'other site' };
+  // The sign-in page: nothing to read (content.js marks the site signed out).
+  if (/\/login(\b|\?|#|$)/i.test(new URL(pageUrl).pathname)) return { started: false, reason: 'sign-in page' };
   const site = new URL(pageUrl).origin;
   if (running.has(site)) return { started: false, reason: 'already running' };
   // The last-used site follows real Schoology pages (a dev build pointed at
@@ -225,6 +259,37 @@ async function maybeAutoRefresh(pageUrl) {
   if (newest && Date.now() - newest < AUTO_REFRESH_MIN_AGE_MS) return { started: false, reason: 'fresh' };
   startRefresh('page-load', site);
   return { started: true };
+}
+
+// A Schoology page says who is signed in on it (content.js, before it shows
+// the panel): { uid } from the page's own settings, or { signedOut } on the
+// sign-in page. Someone else signed in (or the same person back after
+// signing out): switch the site to their data now, so the panel never shows
+// one person's data on another person's page, and refresh it. On the
+// sign-in page, mark the site signed out: the last person's data stays
+// visible, shown as old.
+async function handlePageUser(message, sender) {
+  const url = message.url || (sender && sender.tab && sender.tab.url) || '';
+  const site = originOf(url);
+  if (!site) return { ok: false };
+  if (site !== (await siteOf(null)) && !isSchoologySite(url, await addedHosts())) return { ok: false, ignored: 'other site' };
+  const before = await getUser(site);
+  const now = new Date().toISOString();
+  if (message.signedOut) {
+    if (!before || !before.signedOut) await setUser({ ...(before || { uid: null, name: null }), signedOut: true, checkedAt: now }, site);
+    return { ok: true, signedOut: true };
+  }
+  const uid = message.uid ? String(message.uid) : null;
+  if (!uid) return { ok: true };
+  if (before && before.uid === uid && !before.signedOut) return { ok: true };
+  const same = before && before.uid === uid;
+  await setUser({ uid, name: same ? before.name : null, type: same ? before.type : null, signedOut: false, checkedAt: now }, site);
+  // A refresh already running checks who is signed in first, so it only has
+  // to run again when it may have started for someone else (a different
+  // person was known here before), not on the first visit to a site.
+  const someoneElse = Boolean(before && before.uid && before.uid !== uid);
+  startRefresh('signed-in', site, { again: someoneElse });
+  return { ok: true, changed: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -473,6 +538,9 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
   switch (message.type) {
     case 'refresh-now': {
       return startRefresh('manual', await siteOf(message.site));
+    }
+    case 'page-user': {
+      return handlePageUser(message, sender);
     }
     case 'schoology-page-loaded': {
       return maybeAutoRefresh(message.url || (sender && sender.tab && sender.tab.url) || '');

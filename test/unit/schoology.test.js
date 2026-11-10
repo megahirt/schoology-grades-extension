@@ -4,7 +4,7 @@
 // mock login and child switching work like a browser session.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createClient, normalizeParentInfo } from '../../extension/src/schoology.js';
+import { createClient, normalizeParentInfo, extractUserUid } from '../../extension/src/schoology.js';
 import { startServer } from '../mock-server/server.js';
 
 let mock;
@@ -85,6 +85,8 @@ describe('detectAccount', () => {
     expect(account.children.map((c) => c.name)).toEqual(['Sam Rivera', 'Jamie Rivera']);
     expect(account.children[0].uid).toBe('2000001');
     expect(account.children[0].pictureUrl).toContain('2000001.png');
+    // The parent's own id, not a child's: data is kept per signed-in person.
+    expect(account.userUid).toBe('1000001');
   });
 
   it('returns student (with display name) for the student persona', async () => {
@@ -92,6 +94,14 @@ describe('detectAccount', () => {
     const account = await createClient({ baseUrl, fetchImpl }).detectAccount();
     expect(account.type).toBe('student');
     expect(account.studentName).toBe('Alex Student');
+    expect(account.userUid).toBe('3000001');
+  });
+
+  it('a second student on the same site has their own id', async () => {
+    const { fetchImpl } = await loginAs('student2');
+    const account = await createClient({ baseUrl, fetchImpl }).detectAccount();
+    expect(account.studentName).toBe('Riley Student');
+    expect(account.userUid).toBe('3000002');
   });
 
   it('returns loggedOut with no session cookie', async () => {
@@ -192,5 +202,16 @@ describe('student name from Schoology\'s page settings', () => {
     expect(account.type).toBe('student');
     expect(account.studentName).toBe('Sam Rivera');
     expect(account.pictureUrl).toBe('https://example.org/pictures/sam.png');
+  });
+});
+
+describe('extractUserUid', () => {
+  it('reads the signed-in person\'s own id from the page settings', () => {
+    // A parent's page: the "uid","name" settings are the child being viewed.
+    const page = '{"uid":2000001,"name":"Sam Rivera"} … "theme":"standard","userId":1000001,"locales":{} … "default_domain":"app.schoology.com","user":{"uid":"1000001","school_nid":"1"}';
+    expect(extractUserUid(page)).toBe('1000001');
+    expect(extractUserUid('"theme":"standard","userId":1000001,')).toBe('1000001');
+    expect(extractUserUid('<html>no settings</html>')).toBe(null);
+    expect(extractUserUid('')).toBe(null);
   });
 });

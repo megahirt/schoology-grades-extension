@@ -176,6 +176,8 @@
 .sgd .link-btn:hover { text-decoration: underline; }
 
 .sgd .stale { margin: 0; background: var(--unknown-bg); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #7a4b00; }
+.sgd .signed-out { margin: 0; background: #fff4e5; border: 1px solid #f5b971; border-left: 4px solid #e8890c; border-radius: 8px; padding: 9px 11px; font-size: 13px; line-height: 1.4; color: #6b3a00; }
+.sgd .signed-out a { color: #8a4700; font-weight: 600; }
 .sgd .warn { margin: 0; background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 8px 10px; color: #5d4037; font-size: 12px; }
 
 /* Dev builds only: real/mock data source switch. */

@@ -23,7 +23,7 @@
 
 import { mountDashboard, DASHBOARD_CSS, escapeHtml, initials, isPartial, refreshRunning, MISSING_IMG, noGoCircle } from './dashboard-view.js';
 import { summarizeStudent, effectiveSettings, isStudentAccount } from './rules.js';
-import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet, siteKey } from './storage.js';
+import { getSettings, getDashboards, getTurnedIn, getMarkedDone, storageGet, changedFor } from './storage.js';
 
 export const PANEL_HOST_ID = 'sgd-panel-host';
 
@@ -297,10 +297,13 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
   // Keep the tab's verdicts current while the panel is closed.
   const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState'];
   function onStorageChanged(changes, area) {
-    if (area === 'local' && WATCHED.some((k) => siteKey(k) in changes)) refreshTab();
-    if (area === 'local' && siteKey('refreshState') in changes) checkLoadedDuringRefresh().catch(() => {});
+    if (area === 'local' && changedFor(changes, WATCHED)) refreshTab();
+    if (area === 'local' && changedFor(changes, ['refreshState'])) checkLoadedDuringRefresh().catch(() => {});
   }
   browser.storage.onChanged.addListener(onStorageChanged);
+  // The page waits to learn who is signed in before the panel shows
+  // (content.js), so a refresh may have finished in the meantime: check now.
+  checkLoadedDuringRefresh().catch(() => {});
 
   setOpen(open);
   refreshTab();
