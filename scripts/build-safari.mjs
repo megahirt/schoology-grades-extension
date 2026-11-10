@@ -57,7 +57,8 @@ const dev = process.argv.includes('--dev');
 // The real App Store bundle ID (permanent; registered in the Apple
 // Developer portal). The packager appends .Extension for the extension target.
 const BUNDLE_ID = 'net.hirtfamily.schoology-dashboard';
-const APP_NAME = 'Schoology Dashboard';
+// The App Store name (30-char limit). The Xcode project and app are named after it.
+const APP_NAME = 'Grades Dashboard for Schoology';
 const SAFARI_DIR = path.join(repoRoot, 'safari');
 
 function run(command, args, options = {}) {

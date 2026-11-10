@@ -25,7 +25,7 @@ fi
 echo "Using $TOOL with input: $INPUT"
 xcrun "$TOOL" --copy-resources "$INPUT" \
   --project-location "./safari" \
-  --app-name "Schoology Dashboard" \
+  --app-name "Grades Dashboard for Schoology" \
   --bundle-identifier net.hirtfamily.schoology-dashboard \
   --swift --macos-only --no-open
 echo ""

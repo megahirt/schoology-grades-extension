@@ -54,7 +54,7 @@ The exact command the script runs / generates:
 ```bash
 xcrun safari-web-extension-packager --copy-resources ./dist \
   --project-location ./safari \
-  --app-name "Schoology Dashboard" \
+  --app-name "Grades Dashboard for Schoology" \
   --bundle-identifier net.hirtfamily.schoology-dashboard \
   --swift --macos-only --no-open
 # If the packager name is not found (older Xcode), use
