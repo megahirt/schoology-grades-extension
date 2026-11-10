@@ -13,7 +13,7 @@ every store listing is now public.
 
 | Decision | Choice |
 |---|---|
-| Bundle ID (permanent) | `net.hirtfamily.sabaisnoopy.schoology-dashboard`; extension target `net.hirtfamily.sabaisnoopy.schoology-dashboard.Extension` |
+| Bundle ID (permanent) | `net.hirtfamily.schoology-dashboard`; extension target `net.hirtfamily.schoology-dashboard.Extension` |
 | Product name | Full: "Grades Dashboard for Schoology students and parents". App Store name: "Grades Dashboard for Schoology", subtitle "For students and parents", short display name "Grades Dashboard" (§1a) |
 | Safari platforms | **iOS and macOS** from the start, one app record |
 | Store visibility | **Public on every store** (Chrome, Edge, Firefox AMO listed, Mac + iOS App Store). Testing still happens in private channels first (§6) |
@@ -248,8 +248,8 @@ working.
 
 Bundle IDs can never be changed or reused after the first upload.
 
-- App: **`net.hirtfamily.sabaisnoopy.schoology-dashboard`**.
-- Extension target: **`net.hirtfamily.sabaisnoopy.schoology-dashboard.Extension`**
+- App: **`net.hirtfamily.schoology-dashboard`**.
+- Extension target: **`net.hirtfamily.schoology-dashboard.Extension`**
   (packager default suffix).
 - iOS and macOS share both IDs (universal purchase, one app record).
 - Replace the `com.example.schoology-dashboard` placeholder in
