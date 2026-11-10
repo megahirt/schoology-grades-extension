@@ -85,7 +85,7 @@ students under 13. Because it collects no personal information, and
 nothing leaves the device, we don't knowingly collect data from children
 or anyone else. A parent or school can review exactly what the extension
 does, because its source code is public:
-<https://github.com/sabaisnoopy/schoology-grades-extension>.
+<https://github.com/megahirt/schoology-grades-extension>.
 
 ## Permissions, and why
 
@@ -112,5 +112,5 @@ Schoology or PowerSchool. "Schoology" is a trademark of its owner.
 ## Contact
 
 Questions or concerns:
-[open an issue on GitHub](https://github.com/sabaisnoopy/schoology-grades-extension/issues)
+[open an issue on GitHub](https://github.com/megahirt/schoology-grades-extension/issues)
 or email [schoologydashboard@gmail.com](mailto:schoologydashboard@gmail.com).
