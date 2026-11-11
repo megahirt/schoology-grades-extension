@@ -119,14 +119,15 @@ export function weekState(a, marks = {}, now = Date.now()) {
 // The states that count as done this week (graded or turned in).
 export const WEEK_DONE = new Set(['graded', 'submitted', 'turnedIn', 'done', 'assumed']);
 
-// classWeek(course, marks, now) -> { items: [{ a, state }], total, done }:
-// one class's assignments due this week, by due date.
-export function classWeek(course, marks = {}, now = Date.now()) {
+// classWeek(course, marks, now, carried) -> { items: [{ a, state }], total, done }:
+// one class's assignments due this week, plus `carried`: earlier work the
+// teacher marked Missing, which becomes this week's work (checked off once
+// it's submitted or marked turned in). By due date.
+export function classWeek(course, marks = {}, now = Date.now(), carried = []) {
   const sets = markSets(marks);
-  const items = ((course && course.assignments) || [])
-    .filter((a) => dueThisWeek(a, now))
+  const items = [...((course && course.assignments) || []).filter((a) => dueThisWeek(a, now)), ...carried.filter((a) => !dueThisWeek(a, now))]
     .map((a) => ({ a, state: weekState(a, sets, now) }))
-    .sort((x, y) => Date.parse(x.a.due) - Date.parse(y.a.due));
+    .sort((x, y) => (Date.parse(x.a.due) || 0) - (Date.parse(y.a.due) || 0));
   return { items, total: items.length, done: items.filter((i) => WEEK_DONE.has(i.state)).length };
 }
 

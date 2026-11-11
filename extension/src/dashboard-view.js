@@ -36,7 +36,7 @@ import {
 import { cleanCourseNames } from './names.js';
 import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
-import { quarterChange, weekProgress, isNewRecord, classHighScore, classWeek, weekRange, dueThisWeek, WEEK_DONE } from './rewards.js';
+import { quarterChange, isNewRecord, classHighScore, classWeek, weekRange, dueThisWeek, WEEK_DONE } from './rewards.js';
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
 import { captureDashboard, copyImage, shareImage, isApplePlatform } from './screenshot.js';
 import css from './dashboard.css';
@@ -336,9 +336,8 @@ function weekSpan(now) {
   const m = (d) => d.toLocaleDateString(undefined, { month: 'short' });
   return a.getMonth() === b.getMonth() ? `${m(a)} ${a.getDate()} to ${b.getDate()}` : `${m(a)} ${a.getDate()} to ${m(b)} ${b.getDate()}`;
 }
-function weekListHtml(wk, earlierMissing, uid, settings, showGrades, now) {
-  const when = (i) => { const t = Date.parse(i.a.due || ''); return Number.isNaN(t) ? -Infinity : t; };
-  const items = [...earlierMissing, ...wk.items].sort((x, y) => when(x) - when(y));
+function weekListHtml(wk, uid, settings, showGrades, now) {
+  const items = wk.items;
   if (!items.length) return '<div class="week-list"><p class="empty">Nothing due in this class this week.</p></div>';
   const rows = items.map(({ a, state }) => {
     const done = WEEK_DONE.has(state);
@@ -371,6 +370,19 @@ function weekListHtml(wk, earlierMissing, uid, settings, showGrades, now) {
       `<span class="wk-grade">${escapeHtml(grade)}</span></li>`;
   });
   return `<div class="week-list"><ul class="wk-rows">${rows.join('')}</ul></div>`;
+}
+
+// Earlier weeks' work the teacher marked Missing, for one class: still
+// Missing, or submitted / marked turned in since (but not graded yet). It
+// counts as this week's work: in the class's bar and list, and the ring.
+function carriedMissing(summary, course, now) {
+  if (!summary) return [];
+  const cid = String(course.id ?? course.name);
+  return [...summary.missingItems, ...summary.waiting.filter(isCarried)]
+    .filter((a) => String(a.courseId ?? a.courseName) === cid && !dueThisWeek(a, now));
+}
+function isCarried(a) {
+  return a.status === 'missing' || a.status === 'incomplete';
 }
 
 function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, now = Date.now() } = {}) {
@@ -422,7 +434,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // The bar is this week's work in the class: graded or turned in, out of
     // everything due Monday to Sunday (the same count as this week's ring).
     // A low grade shows as the red pill on the grade itself.
-    const wk = classWeek(c, marks, now);
+    const wk = classWeek(c, marks, now, carriedMissing(summary, c, now));
     // One segment per assignment due this week, filled left to right as
     // work is done; nothing due is one solid green bar, with no count.
     const weekLabel = wk.total ? `${wk.done} of ${wk.total}` : '';
@@ -454,12 +466,8 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // The whole row (name, trend line, grades and bar) opens the class; the
     // class name stays the keyboard and screen-reader control.
     const row = `<div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}`;
-    // The opened list: this week's work, plus Missing work from any week.
-    const earlierMissing = summary
-      ? summary.missingItems.filter((m) => String(m.courseId ?? m.courseName) === cid && !wk.items.some((i) => i.a === m || (i.a.id != null && String(i.a.id) === String(m.id))))
-        .map((a) => ({ a, state: 'missing' }))
-      : [];
-    const week = open ? weekListHtml(wk, earlierMissing, uid, settings, showGrades, now) : '';
+    // The opened list: this week's work, with earlier Missing work carried in.
+    const week = open ? weekListHtml(wk, uid, settings, showGrades, now) : '';
     return `<div class="class${open ? ' open' : ''}">` +
       `<div class="class-row" data-act="toggle-chart" data-key="${escapeHtml(key)}">${row}</div>` +
       `${week}${chart}</div>`;
@@ -526,10 +534,13 @@ const WAITING_HOW = {
 // Within a class: Schoology-reported submissions first, then the family's
 // own marks, each by due date.
 function renderWaiting(summary, uid, courses = [], now = Date.now()) {
-  // This week's work is listed under its class (Classes); this section keeps
-  // the rest: earlier weeks' work still waiting for a grade (and anything
-  // marked ahead of time), so it usually doesn't show.
-  const waiting = summary.waiting.filter((a) => !dueThisWeek(a, now));
+  // This week's work, and earlier Missing work, is listed under its class
+  // (Classes); this section keeps the rest: earlier weeks' work still
+  // waiting for a grade (and anything marked ahead of time), so it usually
+  // doesn't show.
+  // Earlier Missing work that's since been submitted shows checked off in
+  // its class instead.
+  const waiting = summary.waiting.filter((a) => !dueThisWeek(a, now) && !isCarried(a));
   const n = waiting.length;
   if (!n) return '';
   const order = { submitted: 0, turnedIn: 1, done: 2 };
@@ -714,9 +725,18 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // week (still to do), drawn in the Missing orange.
     let ring = '';
     if (!partial) {
-      const wp = weekProgress(courses, marks, now);
-      const earlierMissing = summary.missingItems.filter((a) => !dueThisWeek(a, now)).length;
-      ring = weekRing({ ...wp, missing: wp.missing + earlierMissing, total: wp.total + earlierMissing });
+      // The same items as the class bars: this week's work plus earlier
+      // Missing work carried in.
+      const w = { total: 0, graded: 0, submitted: 0, missing: 0 };
+      for (const c of courses) {
+        for (const { state } of classWeek(c, marks, now, carriedMissing(summary, c, now)).items) {
+          w.total += 1;
+          if (state === 'graded') w.graded += 1;
+          else if (WEEK_DONE.has(state)) w.submitted += 1;
+          else if (state === 'missing') w.missing += 1;
+        }
+      }
+      ring = weekRing(w);
     }
     html += `<div class="card ${cardTone}${ring ? ' with-ring' : ''}"><div class="card-main">` +
       `<div class="card-head">${showNoGo ? noGoCircle() : avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
