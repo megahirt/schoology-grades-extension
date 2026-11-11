@@ -13,6 +13,9 @@
 // images (Missing icon, NPC logo) are data: URLs and stay.
 
 const SCALE = 2;
+// A white margin around the picture: apps that show a pasted picture with
+// rounded corners, or trim its edges, would otherwise clip the header.
+const MARGIN = 16;
 
 function escapeXml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -80,8 +83,10 @@ export async function captureDashboard(root, css) {
   } finally {
     holder.remove();
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
-    `<foreignObject x="0" y="0" width="${width}" height="${height}">` +
+  const W = width + 2 * MARGIN;
+  const H = height + 2 * MARGIN;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
+    `<foreignObject x="${MARGIN}" y="${MARGIN}" width="${width}" height="${height}">` +
     `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;background:#fff">` +
     `<style>${escapeXml(css)}</style>${xhtml}</div></foreignObject></svg>`;
   const img = new Image();
@@ -89,13 +94,13 @@ export async function captureDashboard(root, css) {
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   await img.decode();
   const canvas = doc.createElement('canvas');
-  canvas.width = width * SCALE;
-  canvas.height = height * SCALE;
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.scale(SCALE, SCALE);
-  ctx.drawImage(img, 0, 0, width, height);
+  ctx.drawImage(img, 0, 0, W, H);
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not make the image'))), 'image/png');
   });
