@@ -184,7 +184,8 @@ describe('classes: this week\'s work', () => {
     // two submitted).
     expect(html).toContain('<span class="week-label">3 of 6</span>');
     expect(html).toMatch(/class="seg-bar" role="img" aria-label="Biology: 3 of 6 done this week">(<i class="seg on"><\/i>){3}(<i class="seg"><\/i>){3}<\/div>/);
-    expect(html).toMatch(/class="class-missing"[^>]*aria-label="2 missing"/);
+    // Teacher-marked Missing until graded, submitted or not: 4.
+    expect(html).toMatch(/class="class-missing"[^>]*aria-label="4 missing"/);
     // The week's dates sit in the Classes header.
     expect(html).toMatch(/class="col-h col-w">\w{3} \d+ to (\w{3} )?\d+</);
     expect(html).toMatch(/class="class-grade col-q low"|class="class-grade low"/);
@@ -201,7 +202,9 @@ describe('classes: this week\'s work', () => {
     // Graded and submitted (this week's quiz and last week's essay) are
     // checked and can't be unticked.
     expect((list.match(/class="wk-check on" type="button" disabled/g) || []).length).toBe(3);
-    expect(list).toMatch(/Last Week Essay[\s\S]*?aria-label="Submitted, not graded yet"/);
+    // Still marked Missing once submitted: both icons, until it's graded.
+    expect(list).toMatch(/Last Week Essay<\/span><span class="wk-icon" role="img" aria-label="Missing"[^>]*>[\s\S]*?<\/span><span class="wk-icon wk-sub" role="img" aria-label="Submitted, not graded yet"/);
+    expect(list).toMatch(/Cell Lab<\/span><span class="wk-due">/); // graded: no icons
     // Missing: the Missing icon, and the check marks it turned in.
     expect(list).toMatch(/data-act="turned-in"[^>]*aria-label="Mark Osmosis Worksheet as turned in"/);
     expect(list).toMatch(/data-act="turned-in"[^>]*aria-label="Mark Old Missing Lab as turned in"/);

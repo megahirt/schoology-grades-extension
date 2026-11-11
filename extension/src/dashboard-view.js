@@ -358,9 +358,11 @@ function weekListHtml(wk, uid, settings, showGrades, now) {
       const verb = state === 'missing' ? 'turned in' : 'done';
       btn = `<button class="wk-check" type="button" data-act="${act}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="false" aria-label="${escapeHtml(`Mark ${title} as ${verb}`)}" title="Mark as ${verb}">${ICON.check}</button>`;
     }
+    // The Missing icon stays until the work is graded (the teacher's mark is
+    // still on it), beside the Submitted icon once it's in.
     let icon = '';
-    if (state === 'missing') icon = `<span class="wk-icon" role="img" aria-label="Missing" title="Missing">${MISSING_IMG}</span>`;
-    else if (WEEK_ICON_TITLE[state]) icon = `<span class="wk-icon wk-sub" role="img" aria-label="${WEEK_ICON_TITLE[state]}" title="${WEEK_ICON_TITLE[state]}">${ICON.tray}</span>`;
+    if (isCarried(a) && state !== 'graded') icon += `<span class="wk-icon" role="img" aria-label="Missing" title="Missing">${MISSING_IMG}</span>`;
+    if (WEEK_ICON_TITLE[state]) icon += `<span class="wk-icon wk-sub" role="img" aria-label="${WEEK_ICON_TITLE[state]}" title="${WEEK_ICON_TITLE[state]}">${ICON.tray}</span>`;
     // This week: the weekday ("Fri"); earlier Missing work: the date ("Nov 3").
     const t = new Date(a.due);
     const day = Number.isNaN(t.getTime()) ? ''
@@ -439,8 +441,9 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // work is done; nothing due is one solid green bar, with no count.
     const weekLabel = wk.total ? `${wk.done} of ${wk.total}` : '';
     const ariaWeek = wk.total ? `${wk.done} of ${wk.total} done this week` : 'nothing due this week';
-    const cid = String(c.id ?? c.name);
-    const missingN = summary ? summary.missingItems.filter((m) => String(m.courseId ?? m.courseName) === cid).length : 0;
+    // The Missing count: work the teacher marked Missing, still marked so
+    // until it's graded, even once submitted or marked turned in or done.
+    const missingN = wk.items.filter((i) => isCarried(i.a) && i.state !== 'graded').length;
     // Nothing due but Missing work outstanding: the solid bar stays grey.
     const segs = wk.total
       ? Array.from({ length: wk.total }, (_, i) => `<i class="seg${i < wk.done ? ' on' : ''}"></i>`).join('')
