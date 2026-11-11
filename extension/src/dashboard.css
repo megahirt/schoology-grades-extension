@@ -158,10 +158,6 @@
 .sgd .col-h.col-q { color: var(--ink-2); }
 .sgd .class-overall { font-size: 13px; color: var(--muted); }
 .sgd .class-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.sgd .bar { height: 6px; border-radius: 3px; background: var(--line-2); position: relative; overflow: hidden; }
-.sgd .bar-fill { height: 6px; border-radius: 3px; background: var(--go); } /* passing: green; .low: red */
-.sgd .bar-fill.low { background: var(--nogo); }
-.sgd .bar-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #9aa4b1; }
 /* Each class's bar is this week's work (graded or turned in, of everything
    due Monday to Sunday), with a Missing count and "2 of 5 this week". */
 .sgd .week-row { display: flex; align-items: center; gap: 10px; }
