@@ -377,7 +377,7 @@ async function handleGradesScraped(message, sender) {
 
 // ---------------------------------------------------------------------------
 // SCHOOLS' OWN ADDRESSES (see src/sites.js). The manifest covers
-// *.schoology.com and SCHOOL_HOSTS. For any other school, the family allows
+// app.schoology.com and SCHOOL_HOSTS. For any other school, the family allows
 // that one address (popup or Settings: permissions.request, an optional host
 // permission). The granted permissions are the record: this keeps a content
 // script registered for exactly those addresses, however access was given or
