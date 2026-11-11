@@ -32,7 +32,8 @@ describe('known school addresses (school-hosts.json)', () => {
     expect(isKnownSchoolHost('LMS.LAUSD.NET')).toBe(true);
     expect(isKnownSchoolHost('example.com')).toBe(false);
   });
-  it('is not a permission: the manifest only lists *.schoology.com and SCHOOL_HOSTS', () => {
+  it('is not a permission: the manifest only lists app.schoology.com and SCHOOL_HOSTS', () => {
+    expect(manifest.host_permissions).toEqual(['https://app.schoology.com/*', ...SCHOOL_HOSTS.map((h) => `https://${h}/*`)]);
     expect(manifest.host_permissions.length).toBe(1 + SCHOOL_HOSTS.length);
     expect(manifest.optional_host_permissions).toEqual(['https://*/*']);
     expect(manifest.permissions).toContain('activeTab');

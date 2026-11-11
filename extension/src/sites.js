@@ -8,7 +8,9 @@
 // maybeAutoRefresh.
 //
 // Three kinds of school site (docs/schoology-domains-research.md):
-//   *.schoology.com      always allowed (manifest);
+//   app.schoology.com    always allowed (manifest). Only that address, not
+//                        every *.schoology.com: the Chrome Web Store sends a
+//                        wildcard host to an in-depth review;
 //   SCHOOL_HOSTS         a few schools' own addresses, also in the manifest
 //                        (a unit test keeps the two in step). Keep this list
 //                        short: on Chrome, each new manifest address turns
@@ -34,7 +36,7 @@ export const SCHOOL_HOSTS = ['schoology.npchristian.org'];
 export const KNOWN_SCHOOL_HOSTS = schoolHostList.hosts;
 
 // Match patterns for the manifest's host_permissions and content script.
-export const SCHOOLOGY_MATCHES = ['https://*.schoology.com/*', ...SCHOOL_HOSTS.map((h) => `https://${h}/*`)];
+export const SCHOOLOGY_MATCHES = [`${REAL_SCHOOLOGY}/*`, ...SCHOOL_HOSTS.map((h) => `https://${h}/*`)];
 
 // isSchoologySite(url, addedHosts) -> true for an https page on one of those
 // sites, or on a school address the family allowed (addedHosts).
@@ -47,7 +49,7 @@ export function isSchoologySite(url, addedHosts = []) {
   }
   if (u.protocol !== 'https:') return false;
   const host = u.hostname.toLowerCase();
-  return host === 'schoology.com' || host.endsWith('.schoology.com') || SCHOOL_HOSTS.includes(host) || addedHosts.includes(host);
+  return host === 'app.schoology.com' || SCHOOL_HOSTS.includes(host) || addedHosts.includes(host);
 }
 
 // isKnownSchoolHost('schoology.example.org') -> on the list of schools' own

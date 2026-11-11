@@ -12,6 +12,8 @@ describe('Schoology sites', () => {
     expect(isSchoologySite('https://npchristian.org/')).toBe(false);
     expect(isSchoologySite('https://schoology.npchristian.org.evil.com/')).toBe(false);
     expect(isSchoologySite('https://notschoology.com/')).toBe(false);
+    // Only app.schoology.com: no other *.schoology.com address (no wildcard host).
+    expect(isSchoologySite('https://district.schoology.com/home')).toBe(false);
     expect(isSchoologySite('http://app.schoology.com/')).toBe(false);
     expect(isSchoologySite('http://localhost:8123/home')).toBe(false);
     expect(isSchoologySite('not a url')).toBe(false);
