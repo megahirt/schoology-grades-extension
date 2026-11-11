@@ -378,9 +378,9 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
   const cols = gradeColumns(list);
   const qHead = cols.quarter || 'Grade';
   const oHead = cols.overall;
-  // "Nov 9 to 15": the week the class bars count, beside the grade columns.
+  // "Nov 9 to 15": the week the class bars count, right after the heading.
   const weekHead = `<span class="col-h col-w">${escapeHtml(weekSpan(now))}</span>`;
-  const head = `<div class="class-cols">${sectionHeading('Classes', SECTION_EMOJI.classes, ' grow')}${weekHead}` +
+  const head = `<div class="class-cols">${sectionHeading('Classes', SECTION_EMOJI.classes)}${weekHead}` +
     (showGrades
       ? `<span class="col-h col-q">${escapeHtml(qHead)}</span>` + (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '')
       : '') + '</div>';
@@ -413,7 +413,8 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     const grades = showGrades
       // "▲ 6% vs Q1" sits just left of the quarter grade, so the grades
       // stay lined up in their columns.
-      ? `${trend}${(cols.quarter && upPill(c)) || ''}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
+      // The up pill sits left of the trend line, so the trend lines line up.
+      ? `${(cols.quarter && upPill(c)) || ''}${trend}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
     // The bar is this week's work in the class: graded or turned in, out of

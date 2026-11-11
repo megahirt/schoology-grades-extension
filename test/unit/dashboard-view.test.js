@@ -59,7 +59,7 @@ describe('trend line next to each class', () => {
     const out = html([cls({ id: 'a', name: 'Up Class', assignments: graded(6, 'a') })]);
     expect(out).toContain('up-pill');
     expect(out).toContain('trend-line');
-    expect(out.indexOf('trend-line')).toBeLessThan(out.indexOf('up-pill'));
+    expect(out.indexOf('up-pill')).toBeLessThan(out.indexOf('trend-line'));
   });
   it('shows a trend line when there is no pill and 5+ grades; the whole row opens the chart', () => {
     const out = html([cls({ id: 'b', name: 'Flat Class', quarterGrade: 80, grade: 80, assignments: graded(6, 'b') })]);
