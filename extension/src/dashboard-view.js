@@ -424,11 +424,12 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // work is done; nothing due is one solid green bar, with no count.
     const weekLabel = wk.total ? `${wk.done} of ${wk.total}` : '';
     const ariaWeek = wk.total ? `${wk.done} of ${wk.total} done this week` : 'nothing due this week';
-    const segs = wk.total
-      ? Array.from({ length: wk.total }, (_, i) => `<i class="seg${i < wk.done ? ' on' : ''}"></i>`).join('')
-      : '<i class="seg on"></i>';
     const cid = String(c.id ?? c.name);
     const missingN = summary ? summary.missingItems.filter((m) => String(m.courseId ?? m.courseName) === cid).length : 0;
+    // Nothing due but Missing work outstanding: the solid bar stays grey.
+    const segs = wk.total
+      ? Array.from({ length: wk.total }, (_, i) => `<i class="seg${i < wk.done ? ' on' : ''}"></i>`).join('')
+      : `<i class="seg${missingN ? '' : ' on'}"></i>`;
     const missingTag = missingN
       ? `<span class="class-missing" role="img" aria-label="${missingN} missing" title="${missingN} missing">${MISSING_IMG}${missingN}</span>`
       : '';

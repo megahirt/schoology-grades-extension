@@ -215,6 +215,10 @@ describe('classes: this week\'s work', () => {
       { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;
     expect(html).toContain('aria-label="Art: nothing due this week"><i class="seg on"></i></div>');
     expect(html).not.toContain('class="week-label"');
+    // With Missing work outstanding, that bar stays grey.
+    const missing = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'q', name: 'Art', grade: 95, assignments: [{ id: 'z', title: 'Old', status: 'missing', due: at(-9) }] }] }, 'u1',
+      { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;
+    expect(missing).toContain('aria-label="Art: nothing due this week"><i class="seg"></i></div>');
   });
   it('Submitted, not graded yet keeps only earlier weeks\' work', () => {
     const html = render();
