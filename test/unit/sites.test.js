@@ -16,6 +16,12 @@ describe('Schoology sites', () => {
     expect(isSchoologySite('http://localhost:8123/home')).toBe(false);
     expect(isSchoologySite('not a url')).toBe(false);
   });
+  it('pinned (release builds): app.schoology.com and the school address only', () => {
+    expect(isSchoologySite('https://app.schoology.com/home', [], false)).toBe(true);
+    expect(isSchoologySite('https://schoology.npchristian.org/home', [], false)).toBe(true);
+    expect(isSchoologySite('https://district.schoology.com/home', [], false)).toBe(false);
+    expect(isSchoologySite('https://district.schoology.com/home', [], true)).toBe(true);
+  });
   it('the manifest lists the same sites for access and the content script', () => {
     const m = JSON.parse(readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8'));
     expect(m.host_permissions).toEqual(SCHOOLOGY_MATCHES);

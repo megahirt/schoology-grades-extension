@@ -43,7 +43,7 @@ PRIVATE BY DESIGN
 • Your Schoology password is never asked for or stored.
 • The code is open source: https://github.com/megahirt/schoology-grades-extension
 
-Works on schoology.com addresses. Support for schools that use their own address for Schoology is coming soon.
+Works on app.schoology.com and schoology.npchristian.org. Support for other schools' Schoology addresses is coming soon.
 
 Grades Dashboard is an independent project. It is not made, endorsed or supported by Schoology or PowerSchool.
 ```
@@ -79,8 +79,10 @@ Shows a student's Schoology grades, missing work and due dates on one simple das
 
 **Permission justifications** (one box each in the dashboard; paste the text):
 
-The release build asks only for `storage`, `alarms`, `tabs` and the Schoology
-host permissions. Adding a school's own address (`https://*/*`, `scripting`,
+The release build asks only for `storage`, `alarms`, `tabs` and two exact
+Schoology hosts (`app.schoology.com`, `schoology.npchristian.org`; the
+wildcard `*.schoology.com` is pinned by `PIN_SCHOOLOGY_HOSTS` in
+`scripts/build.mjs`). Adding a school's own address (`https://*/*`, `scripting`,
 `activeTab`) is left out for now to avoid the in-depth review; see
 `ASK_FOR_OTHER_SCHOOL_SITES` in `scripts/build.mjs`.
 
@@ -105,7 +107,7 @@ Opens assignment and class links from the dashboard in a tab, and finds the open
 Host permission:
 
 ```text
-https://*.schoology.com/* and https://schoology.npchristian.org/* : the extension reads the grades pages the signed-in user can already see in Schoology, using their existing browser session, to build the dashboard, and shows the dashboard panel on those pages. These are the only sites it can access. All data stays on the device; nothing is sent to any server.
+https://app.schoology.com/* and https://schoology.npchristian.org/* : the extension reads the grades pages the signed-in user can already see in Schoology, using their existing browser session, to build the dashboard, and shows the dashboard panel on those pages. These are the only sites it can access. All data stays on the device; nothing is sent to any server.
 ```
 
 **Remote code:** No, I am not using remote code. (All code is in the package; no external scripts, no `eval`.)

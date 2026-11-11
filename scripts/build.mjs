@@ -67,6 +67,18 @@ const FIREFOX_ID = 'schoology-dashboard@schoologydashboard';
 // feature stays testable. Set to true to ship the feature again.
 const ASK_FOR_OTHER_SCHOOL_SITES = false;
 
+// The manifest allows every Schoology subdomain ("https://*.schoology.com/*",
+// which includes districts' own name.schoology.com addresses). The Chrome Web
+// Store counts any wildcard host as broad and sends the listing to an
+// in-depth review, so release builds pin it to app.schoology.com (the school
+// addresses in the manifest stay). sites.js follows the same setting through
+// __ALL_SCHOOLOGY_SUBDOMAINS__, so the extension only treats the pinned
+// addresses as Schoology. Dev builds keep the wildcard. Set to false to ship
+// every subdomain again.
+const PIN_SCHOOLOGY_HOSTS = true;
+const PINNED_SCHOOLOGY = 'https://app.schoology.com/*';
+const pinHosts = !isDev && PIN_SCHOOLOGY_HOSTS;
+
 // X.Y.Z with no leading zeros, each part 0–65535 (Chrome's rule for
 // manifest versions; Firefox, Edge and Safari accept the same form).
 const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -113,7 +125,7 @@ async function main() {
       outfile: path.join(distDir, `${outName}.js`),
       sourcemap: isDev,
       // __DEV__ turns on dev-only UI (the real/mock data source switch).
-      define: { __DEV__: JSON.stringify(isDev) },
+      define: { __DEV__: JSON.stringify(isDev), __ALL_SCHOOLOGY_SUBDOMAINS__: JSON.stringify(!pinHosts) },
       banner: FAKE_NOW_BANNER ? { js: FAKE_NOW_BANNER } : undefined,
       loader: { '.css': 'text', '.png': 'dataurl' },
       logLevel: 'info',
@@ -142,6 +154,11 @@ async function main() {
     const noPort = (list) => (list || []).map((m) => m.replace('localhost:*', 'localhost'));
     manifest.host_permissions = noPort(manifest.host_permissions);
     for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);
+  }
+  if (pinHosts) {
+    const pin = (list) => (list || []).map((m) => (m === 'https://*.schoology.com/*' ? PINNED_SCHOOLOGY : m));
+    manifest.host_permissions = pin(manifest.host_permissions);
+    for (const cs of manifest.content_scripts || []) cs.matches = pin(cs.matches);
   }
   if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;
   if (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES) {

@@ -8,7 +8,10 @@
 // maybeAutoRefresh.
 //
 // Three kinds of school site (docs/schoology-domains-research.md):
-//   *.schoology.com      always allowed (manifest);
+//   *.schoology.com      always allowed (manifest). Release builds pin
+//                        this to app.schoology.com for now
+//                        (scripts/build.mjs PIN_SCHOOLOGY_HOSTS), and
+//                        ALL_SCHOOLOGY_SUBDOMAINS below follows suit;
 //   SCHOOL_HOSTS         a few schools' own addresses, also in the manifest
 //                        (a unit test keeps the two in step). Keep this list
 //                        short: on Chrome, each new manifest address turns
@@ -33,12 +36,24 @@ export const SCHOOL_HOSTS = ['schoology.npchristian.org'];
 // Schools' own Schoology addresses known to point at Schoology.
 export const KNOWN_SCHOOL_HOSTS = schoolHostList.hosts;
 
+// Every *.schoology.com address (true), or only app.schoology.com (release
+// builds while PIN_SCHOOLOGY_HOSTS is on). Tests and dev builds: true.
+export const ALL_SCHOOLOGY_SUBDOMAINS =
+  typeof __ALL_SCHOOLOGY_SUBDOMAINS__ === 'undefined' ? true : __ALL_SCHOOLOGY_SUBDOMAINS__; // eslint-disable-line no-undef
+
+// isSchoologyHost('district.schoology.com') -> one of Schoology's own
+// addresses that this build covers.
+export function isSchoologyHost(host, allSubdomains = ALL_SCHOOLOGY_SUBDOMAINS) {
+  const h = String(host || '').toLowerCase();
+  return allSubdomains ? h === 'schoology.com' || h.endsWith('.schoology.com') : h === 'app.schoology.com';
+}
+
 // Match patterns for the manifest's host_permissions and content script.
 export const SCHOOLOGY_MATCHES = ['https://*.schoology.com/*', ...SCHOOL_HOSTS.map((h) => `https://${h}/*`)];
 
 // isSchoologySite(url, addedHosts) -> true for an https page on one of those
 // sites, or on a school address the family allowed (addedHosts).
-export function isSchoologySite(url, addedHosts = []) {
+export function isSchoologySite(url, addedHosts = [], allSubdomains = ALL_SCHOOLOGY_SUBDOMAINS) {
   let u;
   try {
     u = new URL(url);
@@ -47,7 +62,7 @@ export function isSchoologySite(url, addedHosts = []) {
   }
   if (u.protocol !== 'https:') return false;
   const host = u.hostname.toLowerCase();
-  return host === 'schoology.com' || host.endsWith('.schoology.com') || SCHOOL_HOSTS.includes(host) || addedHosts.includes(host);
+  return isSchoologyHost(host, allSubdomains) || SCHOOL_HOSTS.includes(host) || addedHosts.includes(host);
 }
 
 // isKnownSchoolHost('schoology.example.org') -> on the list of schools' own
