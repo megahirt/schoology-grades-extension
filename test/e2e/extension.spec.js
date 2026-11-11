@@ -314,7 +314,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
       await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
       await expect(algebra.locator('svg.gchart .gc-tip')).toHaveText(/^[A-Z][a-z]{2} \d{1,2} · Factoring Worksheet · 70%$/);
-      await algebra.locator('.class-row .bar').click(); // anywhere on the row toggles too
+      await algebra.locator('.class-row .seg-bar').click(); // anywhere on the row toggles too
       await expect(algebra.locator('svg.gchart')).toHaveCount(0);
       // Assignment titles link to Schoology.
       await expect(popup.locator('.missing-card a.item-title', { hasText: 'Persuasive Essay Draft' })).toHaveAttribute('href', /\/assignment\/5101$/);
@@ -326,11 +326,12 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(lit.locator('.class-overall')).toHaveText('82%');
       // Each class's bar is this week's work; the mock's work is all from
       // earlier weeks, so there's nothing due this week.
-      await expect(lit.locator('.week-label')).toHaveText('Nothing due this week');
-      // Opening a class lists this week's assignments above its chart.
+      await expect(lit.locator('.seg-bar')).toHaveAttribute('aria-label', 'American Literature: nothing due this week');
+      await expect(lit.locator('.week-label')).toHaveCount(0);
+      // Opening a class lists this week's work and any Missing work above its
+      // chart: here, last week's Missing essay.
       await lit.locator('.class-row').click();
-      await expect(lit.locator('.week-h')).toHaveText(/^This week · /);
-      await expect(lit.locator('.week-list .empty')).toHaveText('Nothing due in this class this week.');
+      await expect(lit.locator('.wk', { hasText: 'Persuasive Essay Draft' }).getByRole('img', { name: 'Missing' })).toBeVisible();
       await lit.locator('.class-row').click();
       await expect(lit.locator('.week-list')).toHaveCount(0);
       // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).

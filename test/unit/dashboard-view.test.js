@@ -55,10 +55,11 @@ describe('trend line next to each class', () => {
   const cls = (over) => ({ grade: 90, quarterGrade: 90, overallGrade: 85, gradeLabel: 'Quarter 2', gradeSource: 'Quarter 2', periods, ...over });
   const html = (list) => renderStudentBody({ studentName: 'Sam Rivera', courses: list }, 'u1', { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true }).html;
 
-  it('shows the ▲ pill instead of a trend line when the class is up on last quarter', () => {
+  it('always shows the trend line, and the ▲ pill too when the class is up on last quarter', () => {
     const out = html([cls({ id: 'a', name: 'Up Class', assignments: graded(6, 'a') })]);
     expect(out).toContain('up-pill');
-    expect(out).not.toContain('trend-line');
+    expect(out).toContain('trend-line');
+    expect(out.indexOf('trend-line')).toBeLessThan(out.indexOf('up-pill'));
   });
   it('shows a trend line when there is no pill and 5+ grades; the whole row opens the chart', () => {
     const out = html([cls({ id: 'b', name: 'Flat Class', quarterGrade: 80, grade: 80, assignments: graded(6, 'b') })]);
@@ -168,22 +169,29 @@ describe('classes: this week\'s work', () => {
       { id: 'w3', title: 'Osmosis Worksheet', status: 'missing', due: at(1) },
       { id: 'w4', title: 'Photosynthesis Diagram', status: 'pending', due: at(4) },
       { id: 'w0', title: 'Last Week Essay', status: 'missing', submitted: true, due: at(-3) },
+      { id: 'w5', title: 'Old Missing Lab', status: 'missing', due: at(-10) },
     ],
   };
   const render = (marks = {}, openClass = null) => renderStudentBody({ studentName: 'Sam Rivera', courses: [course] }, 'u1', { ...DEFAULT_SETTINGS },
     { turnedIn: marks.turnedIn || [], done: marks.done || [] }, { isParentView: true, openClass, now: NOW }).html;
 
-  it('the bar counts this week\'s work, with the class\'s Missing count; a low grade is a pill', () => {
+  it('the bar has a segment per assignment this week, filled as work is done, with the Missing count; a low grade is a pill', () => {
     const html = render();
-    expect(html).toContain('2 of 4 this week');
-    expect(html).toMatch(/class="class-missing"[^>]*aria-label="1 missing"/);
+    expect(html).toContain('<span class="week-label">2 of 4</span>');
+    expect(html).toMatch(/class="seg-bar" role="img" aria-label="Biology: 2 of 4 done this week"><i class="seg on"><\/i><i class="seg on"><\/i><i class="seg"><\/i><i class="seg"><\/i><\/div>/);
+    expect(html).toMatch(/class="class-missing"[^>]*aria-label="2 missing"/);
+    // The week's dates sit in the Classes header.
+    expect(html).toMatch(/class="col-h col-w">\w{3} \d+ to (\w{3} )?\d+</);
     expect(html).toMatch(/class="class-grade col-q low"|class="class-grade low"/);
     expect(html).not.toContain('class="week-list"'); // closed
   });
   it('opened: one line per assignment, checked when graded or submitted, with icons', () => {
     const html = render({}, 'u1:c9');
     const list = html.slice(html.indexOf('class="week-list"'));
-    expect((list.match(/<li class="wk">/g) || []).length).toBe(4);
+    // This week's four, plus Missing work from an earlier week (first, by date).
+    expect((list.match(/<li class="wk">/g) || []).length).toBe(5);
+    expect(list.indexOf('Old Missing Lab')).toBeLessThan(list.indexOf('Cell Lab'));
+    expect(list).not.toContain('This week ·');
     expect(list).toMatch(/Cell Lab[\s\S]*?90%/);
     // Graded and submitted are checked and can't be unticked.
     expect((list.match(/class="wk-check on" type="button" disabled/g) || []).length).toBe(2);
@@ -198,9 +206,15 @@ describe('classes: this week\'s work', () => {
   });
   it('a family mark crosses it out and can be undone', () => {
     const list = render({ done: ['w4'] }, 'u1:c9');
-    expect(list).toContain('3 of 4 this week');
+    expect(list).toContain('<span class="week-label">3 of 4</span>');
     expect(list).toMatch(/data-act="undo" data-reason="done"[^>]*aria-label="Undo: Photosynthesis Diagram"/);
     expect(list).toMatch(/class="wk-title done">Photosynthesis Diagram/);
+  });
+  it('nothing due this week: one solid green bar, no count', () => {
+    const html = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'q', name: 'Art', grade: 95, assignments: [{ id: 'z', title: 'Old', status: 'graded', score: 1, maxPoints: 1, due: at(-9) }] }] }, 'u1',
+      { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;
+    expect(html).toContain('aria-label="Art: nothing due this week"><i class="seg on"></i></div>');
+    expect(html).not.toContain('class="week-label"');
   });
   it('Submitted, not graded yet keeps only earlier weeks\' work', () => {
     const html = render();

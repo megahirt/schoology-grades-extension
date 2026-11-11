@@ -334,10 +334,11 @@ function weekSpan(now) {
   const m = (d) => d.toLocaleDateString(undefined, { month: 'short' });
   return a.getMonth() === b.getMonth() ? `${m(a)} ${a.getDate()} to ${b.getDate()}` : `${m(a)} ${a.getDate()} to ${m(b)} ${b.getDate()}`;
 }
-function weekListHtml(wk, uid, settings, showGrades, now) {
-  const head = `<div class="week-h">This week · ${escapeHtml(weekSpan(now))}</div>`;
-  if (!wk.total) return `<div class="week-list">${head}<p class="empty">Nothing due in this class this week.</p></div>`;
-  const rows = wk.items.map(({ a, state }) => {
+function weekListHtml(wk, earlierMissing, uid, settings, showGrades, now) {
+  const when = (i) => { const t = Date.parse(i.a.due || ''); return Number.isNaN(t) ? -Infinity : t; };
+  const items = [...earlierMissing, ...wk.items].sort((x, y) => when(x) - when(y));
+  if (!items.length) return '<div class="week-list"><p class="empty">Nothing due in this class this week.</p></div>';
+  const rows = items.map(({ a, state }) => {
     const done = WEEK_DONE.has(state);
     const hasId = a.id !== undefined && a.id !== null;
     const marked = state === 'turnedIn' || state === 'done';
@@ -359,13 +360,15 @@ function weekListHtml(wk, uid, settings, showGrades, now) {
     let icon = '';
     if (state === 'missing') icon = `<span class="wk-icon" role="img" aria-label="Missing" title="Missing">${MISSING_IMG}</span>`;
     else if (WEEK_ICON_TITLE[state]) icon = `<span class="wk-icon wk-sub" role="img" aria-label="${WEEK_ICON_TITLE[state]}" title="${WEEK_ICON_TITLE[state]}">${ICON.tray}</span>`;
+    // This week: the weekday ("Fri"); earlier Missing work: the date ("Nov 3").
     const t = new Date(a.due);
-    const day = Number.isNaN(t.getTime()) ? '' : t.toLocaleDateString(undefined, { weekday: 'short' });
+    const day = Number.isNaN(t.getTime()) ? ''
+      : dueThisWeek(a, now) ? t.toLocaleDateString(undefined, { weekday: 'short' }) : t.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const grade = state === 'graded' && showGrades ? gradeText(a, settings) : '';
     return `<li class="wk">${btn}${titleLink(a, `wk-title${done ? ' done' : ''}`)}${icon}<span class="wk-due">${escapeHtml(day)}</span>` +
       `<span class="wk-grade">${escapeHtml(grade)}</span></li>`;
   });
-  return `<div class="week-list">${head}<ul class="wk-rows">${rows.join('')}</ul></div>`;
+  return `<div class="week-list"><ul class="wk-rows">${rows.join('')}</ul></div>`;
 }
 
 function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, now = Date.now() } = {}) {
@@ -375,10 +378,12 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
   const cols = gradeColumns(list);
   const qHead = cols.quarter || 'Grade';
   const oHead = cols.overall;
-  const head = showGrades
-    ? `<div class="class-cols">${sectionHeading('Classes', SECTION_EMOJI.classes, ' grow')}<span class="col-h col-q">${escapeHtml(qHead)}</span>` +
-      (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '') + '</div>'
-    : sectionHeading('Classes', SECTION_EMOJI.classes);
+  // "Nov 9 to 15": the week the class bars count, beside the grade columns.
+  const weekHead = `<span class="col-h col-w">${escapeHtml(weekSpan(now))}</span>`;
+  const head = `<div class="class-cols">${sectionHeading('Classes', SECTION_EMOJI.classes, ' grow')}${weekHead}` +
+    (showGrades
+      ? `<span class="col-h col-q">${escapeHtml(qHead)}</span>` + (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '')
+      : '') + '</div>';
   const rows = list.map((c) => {
     const grade = typeof c.grade === 'number' ? c.grade : null;
     // With quarters, the first column is the quarter grade, or a dash while
@@ -396,7 +401,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     const toggle = (inner, cls, label) => `<button type="button" class="${cls}" data-act="toggle-chart" data-key="${escapeHtml(key)}" aria-expanded="${open}"${label ? ` aria-label="${escapeHtml(label)}"` : ''}>${inner}</button>`;
     const history = showGrades ? gradeHistory(c) : null;
     let trend = '';
-    if (history && !(cols.quarter && quarterChange(c))) {
+    if (history) {
       const n = history.points.length;
       if (n >= TREND_MIN_GRADES && history.segments.length) {
         const first0 = history.segments[0].line[0].grade;
@@ -408,22 +413,27 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     const grades = showGrades
       // "▲ 6% vs Q1" sits just left of the quarter grade, so the grades
       // stay lined up in their columns.
-      ? `${(cols.quarter && upPill(c)) || trend}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
+      ? `${trend}${(cols.quarter && upPill(c)) || ''}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
     // The bar is this week's work in the class: graded or turned in, out of
     // everything due Monday to Sunday (the same count as this week's ring).
     // A low grade shows as the red pill on the grade itself.
     const wk = classWeek(c, marks, now);
-    const weekLabel = wk.total ? `${wk.done} of ${wk.total} this week` : 'Nothing due this week';
-    const pct = wk.total ? Math.round((wk.done / wk.total) * 100) : 0;
+    // One segment per assignment due this week, filled left to right as
+    // work is done; nothing due is one solid green bar, with no count.
+    const weekLabel = wk.total ? `${wk.done} of ${wk.total}` : '';
+    const ariaWeek = wk.total ? `${wk.done} of ${wk.total} done this week` : 'nothing due this week';
+    const segs = wk.total
+      ? Array.from({ length: wk.total }, (_, i) => `<i class="seg${i < wk.done ? ' on' : ''}"></i>`).join('')
+      : '<i class="seg on"></i>';
     const cid = String(c.id ?? c.name);
     const missingN = summary ? summary.missingItems.filter((m) => String(m.courseId ?? m.courseName) === cid).length : 0;
     const missingTag = missingN
       ? `<span class="class-missing" role="img" aria-label="${missingN} missing" title="${missingN} missing">${MISSING_IMG}${missingN}</span>`
       : '';
-    const bar = `<div class="week-row"><div class="bar" role="img" aria-label="${escapeHtml(`${c.name}: ${weekLabel}`)}"><div class="bar-fill" style="width:${pct}%"></div></div>` +
-      `${missingTag}<span class="week-label">${escapeHtml(weekLabel)}</span></div>`;
+    const bar = `<div class="week-row"><div class="seg-bar" role="img" aria-label="${escapeHtml(`${c.name}: ${ariaWeek}`)}">${segs}</div>` +
+      `${missingTag}${weekLabel ? `<span class="week-label">${escapeHtml(weekLabel)}</span>` : ''}</div>`;
     const name = toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle');
 
     let chart = '';
@@ -440,7 +450,12 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // The whole row (name, trend line, grades and bar) opens the class; the
     // class name stays the keyboard and screen-reader control.
     const row = `<div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}`;
-    const week = open ? weekListHtml(wk, uid, settings, showGrades, now) : '';
+    // The opened list: this week's work, plus Missing work from any week.
+    const earlierMissing = summary
+      ? summary.missingItems.filter((m) => String(m.courseId ?? m.courseName) === cid && !wk.items.some((i) => i.a === m || (i.a.id != null && String(i.a.id) === String(m.id))))
+        .map((a) => ({ a, state: 'missing' }))
+      : [];
+    const week = open ? weekListHtml(wk, earlierMissing, uid, settings, showGrades, now) : '';
     return `<div class="class${open ? ' open' : ''}">` +
       `<div class="class-row" data-act="toggle-chart" data-key="${escapeHtml(key)}">${row}</div>` +
       `${week}${chart}</div>`;

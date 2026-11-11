@@ -164,7 +164,10 @@
 /* Each class's bar is this week's work (graded or turned in, of everything
    due Monday to Sunday), with a Missing count and "2 of 5 this week". */
 .sgd .week-row { display: flex; align-items: center; gap: 10px; }
-.sgd .week-row .bar { flex: 1 1 auto; }
+.sgd .seg-bar { flex: 1 1 auto; display: flex; gap: 3px; }
+.sgd .seg { flex: 1 1 0; height: 6px; border-radius: 3px; background: var(--line-2); transition: background 0.25s; }
+.sgd .seg.on { background: var(--go); }
+.sgd .col-w { flex: 0 0 auto; white-space: nowrap; }
 .sgd .week-label { flex: 0 0 auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .sgd .class-missing { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #c2410c; }
 .sgd .class-missing .missing-icon { width: 12px; height: 11px; }
@@ -172,7 +175,6 @@
 .sgd .class-grade.low, .sgd .class-overall.low { color: #fff !important; background: #c24a40; border-radius: 999px; padding: 1px 8px; font-weight: 700; }
 /* An opened class: this week's assignments, one compact line each. */
 .sgd .week-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-.sgd .week-h { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .sgd .wk-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .sgd .wk { display: flex; align-items: center; gap: 8px; min-height: 38px; border-top: 1px solid var(--line-2); }
 .sgd .wk-check { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #d5dae0; background: #fff; color: #8a94a1; }
@@ -187,7 +189,7 @@
 .sgd .wk-icon { flex: 0 0 auto; display: inline-flex; }
 .sgd .wk-icon .missing-icon { width: 15px; height: 13px; }
 .sgd .wk-sub { color: #2563eb; }
-.sgd .wk-due { flex: 0 0 auto; width: 34px; text-align: right; font-size: 12px; color: var(--muted); }
+.sgd .wk-due { flex: 0 0 auto; width: 44px; text-align: right; font-size: 12px; color: var(--muted); }
 .sgd .wk-grade { flex: 0 0 auto; min-width: 34px; text-align: right; font-size: 12px; font-weight: 700; }
 .sgd .wk-grade:empty { min-width: 0; }
 .sgd .legend { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
