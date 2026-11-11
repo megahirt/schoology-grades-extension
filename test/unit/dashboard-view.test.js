@@ -220,6 +220,18 @@ describe('classes: this week\'s work', () => {
       { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;
     expect(missing).toContain('aria-label="Art: nothing due this week"><i class="seg"></i></div>');
   });
+  it('the ring counts Missing work from any week, in orange', () => {
+    // This week: 4 (2 done, 1 Missing, 1 to do), plus 'Old Missing Lab' from an
+    // earlier week: 2 of 5, 2 of them Missing.
+    const html = render();
+    expect(html).toContain('aria-label="2 of 5 assignments this week: 1 graded, 1 turned in, 2 missing, 1 remaining"');
+    expect(html).toContain('stroke="#ea580c"');
+    expect(html).toContain('data-tip="2 missing"');
+    // Earlier Missing work marked turned in leaves the ring (it waits in
+    // Submitted, not graded yet); this week's counts as turned in.
+    expect(render({ turnedIn: ['w5'] })).toContain('2 of 4 assignments this week: 1 graded, 1 turned in, 1 missing, 1 remaining');
+    expect(render({ turnedIn: ['w3'] })).toContain('3 of 5 assignments this week: 1 graded, 2 turned in, 1 missing, 1 remaining');
+  });
   it('Submitted, not graded yet keeps only earlier weeks\' work', () => {
     const html = render();
     const waiting = html.slice(html.indexOf('Submitted, not graded yet'));

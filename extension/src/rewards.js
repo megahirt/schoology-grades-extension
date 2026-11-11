@@ -130,24 +130,27 @@ export function classWeek(course, marks = {}, now = Date.now()) {
   return { items, total: items.length, done: items.filter((i) => WEEK_DONE.has(i.state)).length };
 }
 
-// weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted }
+// weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted, missing }
 // total: everything due this week (Monday to Sunday), excused work left out.
 // graded: has a grade. submitted: not graded yet but counted as turned in
 // (weekState: submitted, marked by the family, or past due without a
-// Missing mark). The class bars add up to the same numbers.
+// Missing mark). missing: teacher-marked Missing, not turned in. The class
+// bars add up to the same numbers.
 export function weekProgress(courses, marks = {}, now = Date.now()) {
   let total = 0;
   let graded = 0;
   let submitted = 0;
+  let missing = 0;
   for (const c of courses || []) {
     const w = classWeek(c, marks, now);
     total += w.total;
     for (const { state } of w.items) {
       if (state === 'graded') graded += 1;
       else if (WEEK_DONE.has(state)) submitted += 1;
+      else if (state === 'missing') missing += 1;
     }
   }
-  return { total, graded, submitted };
+  return { total, graded, submitted, missing };
 }
 
 // classHighScore(course, now) -> { a, pct } for the class's highest-scoring

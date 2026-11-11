@@ -572,23 +572,33 @@ function weekRing(w) {
   if (!w.total) return '';
   const R = 42;
   const C = 2 * Math.PI * R;
-  const g = (w.graded / w.total) * C;
-  const sub = (w.submitted / w.total) * C;
-  const gap = w.graded && w.submitted ? 3 : 0; // a hairline between the two
+  const missing = w.missing || 0;
   const n = w.graded + w.submitted;
-  const left = Math.max(0, w.total - n);
-  const label = `${n} of ${w.total} assignments this week: ${w.graded} graded, ${w.submitted} turned in, ${left} remaining`;
+  const left = Math.max(0, w.total - n - missing);
+  const label = `${n} of ${w.total} assignments this week: ${w.graded} graded, ${w.submitted} turned in, ` +
+    `${missing ? `${missing} missing, ` : ''}${left} remaining`;
   const rot = 'transform="rotate(-90 50 50)"';
-  const arc = (len, color, offset) => (len > 0
-    ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.max(0.01, len - gap).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" ${rot}/>`
-    : '');
-  const hit = (start, len, tip) => (len > 0
-    ? `<circle class="ring-hit" data-tip="${escapeHtml(tip)}" cx="50" cy="50" r="${R}" fill="none" stroke="transparent" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" ${rot}/>`
-    : '');
+  // Clockwise from the top: graded (dark blue), turned in (light blue), then
+  // Missing work from any week (the Missing orange); the rest is to do.
+  const parts = [
+    { n: w.graded, color: '#1d4ed8', tip: `${w.graded} graded` },
+    { n: w.submitted, color: '#93b4f5', tip: `${w.submitted} turned in` },
+    { n: missing, color: '#ea580c', tip: `${missing} missing` },
+  ].filter((p) => p.n > 0);
+  const gap = parts.length > 1 ? 3 : 0; // a hairline between parts
+  let start = 0;
+  let arcs = '';
+  let hits = '';
+  for (const p of parts) {
+    const len = (p.n / w.total) * C;
+    arcs += `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${p.color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.max(0.01, len - gap).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-(start + (start ? gap / 2 : 0))).toFixed(1)}" ${rot}/>`;
+    hits += `<circle class="ring-hit" data-tip="${escapeHtml(p.tip)}" cx="50" cy="50" r="${R}" fill="none" stroke="transparent" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" ${rot}/>`;
+    start += len;
+  }
+  if (left > 0) hits += `<circle class="ring-hit" data-tip="${escapeHtml(`${left} remaining`)}" cx="50" cy="50" r="${R}" fill="none" stroke="transparent" stroke-width="16" stroke-dasharray="${(C - start).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" ${rot}/>`;
   return `<div class="week" role="img" aria-label="${escapeHtml(label)}"><div class="ring">` +
     `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="10"/>` +
-    arc(sub, '#93b4f5', -(g + gap / 2)) + arc(g, '#1d4ed8', 0) +
-    hit(0, g, `${w.graded} graded`) + hit(g, sub, `${w.submitted} turned in`) + hit(g + sub, C - g - sub, `${left} remaining`) + '</svg>' +
+    arcs + hits + '</svg>' +
     `<div class="ring-text" aria-hidden="true"><div class="ring-n${String(n).length + String(w.total).length >= 4 ? ' long' : ''}">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div>` +
     '<div class="ring-tip" aria-hidden="true" hidden></div></div></div>';
 }
@@ -700,7 +710,14 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
     const reason = partial ? `<div class="card-reason">Only part of the grades loaded${verdictsOn ? ', so no verdict yet' : ''}. Press Refresh.</div>` : '';
-    const ring = partial ? '' : weekRing(weekProgress(courses, marks, now));
+    // The ring counts this week's work plus Missing work from any earlier
+    // week (still to do), drawn in the Missing orange.
+    let ring = '';
+    if (!partial) {
+      const wp = weekProgress(courses, marks, now);
+      const earlierMissing = summary.missingItems.filter((a) => !dueThisWeek(a, now)).length;
+      ring = weekRing({ ...wp, missing: wp.missing + earlierMissing, total: wp.total + earlierMissing });
+    }
     html += `<div class="card ${cardTone}${ring ? ' with-ring' : ''}"><div class="card-main">` +
       `<div class="card-head">${showNoGo ? noGoCircle() : avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
       `${reason}</div>${pill}</div>` +

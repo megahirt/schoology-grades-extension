@@ -54,8 +54,8 @@ describe('weekProgress', () => {
         { id: 'a9', status: 'pending', due: d(10, 8) }, // Sunday 11:59 pm, still this week
       ],
     });
-    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3 });
-    expect(weekProgress([c], { turnedIn: ['a3'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 4 });
+    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3, missing: 1 });
+    expect(weekProgress([c], { turnedIn: ['a3'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 4, missing: 1 });
   });
   it('each class lists its own week, by due date, with where each item stands', () => {
     const c = course({
