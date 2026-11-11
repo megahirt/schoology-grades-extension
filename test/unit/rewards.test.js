@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { quarterChange, weekProgress, weekStart, computeRecords, classHighScore, mergeRecords, isNewRecord, mergeAllRecords, cleanRunFromLog } from '../../extension/src/rewards.js';
+import { quarterChange, weekProgress, weekStart, weekState, classWeek, weekRange, computeRecords, classHighScore, mergeRecords, isNewRecord, mergeAllRecords, cleanRunFromLog } from '../../extension/src/rewards.js';
 import { setDashboards, storageGet, __clearMemoryStore } from '../../extension/src/storage.js';
 
 // Made-up data only. "Today" is Friday 2026-11-06 at noon.
@@ -54,8 +54,43 @@ describe('weekProgress', () => {
         { id: 'a9', status: 'pending', due: d(10, 8) }, // Sunday 11:59 pm, still this week
       ],
     });
-    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3 });
-    expect(weekProgress([c], { turnedIn: ['a3'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 4 });
+    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3, missing: 1 });
+    expect(weekProgress([c], { turnedIn: ['a3'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 4, missing: 1 });
+  });
+  it('each class lists its own week, by due date, with where each item stands', () => {
+    const c = course({
+      assignments: [
+        { id: 'b5', title: 'Sunday', status: 'pending', due: d(10, 8) },
+        { id: 'b1', title: 'Graded', status: 'graded', score: 9, maxPoints: 10, due: d(10, 2) },
+        { id: 'b2', title: 'Submitted', status: 'missing', submitted: true, due: d(10, 3) },
+        { id: 'b3', title: 'Missing', status: 'missing', due: d(10, 4) },
+        { id: 'b4', title: 'Overdue', status: 'overdue', due: d(10, 5) },
+        { id: 'b6', title: 'Excused', status: 'excused', due: d(10, 5) },
+        { id: 'b7', title: 'Last week', status: 'pending', due: d(9, 30) },
+      ],
+    });
+    const w = classWeek(c, { done: ['b5'] }, NOW);
+    expect(w.items.map((i) => [i.a.title, i.state])).toEqual([
+      ['Graded', 'graded'], ['Submitted', 'submitted'], ['Missing', 'missing'], ['Overdue', 'assumed'], ['Sunday', 'done'],
+    ]);
+    expect([w.done, w.total]).toEqual([4, 5]);
+    // The family's mark beats a Missing mark (the work is in).
+    expect(weekState(c.assignments[3], { turnedIn: ['b3'] }, NOW)).toBe('turnedIn');
+    expect(weekState(c.assignments[0], {}, NOW)).toBe('open');
+    // Monday 00:00 to the next Monday.
+    const { from, to } = weekRange(NOW);
+    expect([new Date(from).getDay(), (to - from) / 86400000]).toEqual([1, 7]);
+  });
+  it('the class bars add up to this week\'s ring', () => {
+    const a = course({ id: 'x', assignments: [
+      { id: 'c1', status: 'graded', score: 1, maxPoints: 1, due: d(10, 2) },
+      { id: 'c2', status: 'pending', due: d(10, 7) },
+    ] });
+    const b = course({ id: 'y', assignments: [{ id: 'c3', status: 'overdue', due: d(10, 3) }] });
+    const ring = weekProgress([a, b], {}, NOW);
+    const bars = [a, b].map((c) => classWeek(c, {}, NOW));
+    expect(bars.reduce((n, w) => n + w.total, 0)).toBe(ring.total);
+    expect(bars.reduce((n, w) => n + w.done, 0)).toBe(ring.graded + ring.submitted);
   });
 });
 
