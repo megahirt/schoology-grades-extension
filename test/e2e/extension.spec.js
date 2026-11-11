@@ -561,7 +561,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
         return { type: blob.type, w: bmp.width, h: bmp.height };
       });
       expect(shot.type).toBe('image/png');
-      expect(Math.abs(shot.w - 437 * 2)).toBeLessThanOrEqual(4); // the panel width, at 2×
+      expect(Math.abs(shot.w - (437 + 2 * 16) * 2)).toBeLessThanOrEqual(4); // the panel width plus a 16px margin each side, at 2×
       const visible = await panel.locator('main.body').evaluate((el) => el.clientHeight);
       expect(shot.h / 2).toBeGreaterThan(visible); // the whole dashboard, not just what's on screen
 
