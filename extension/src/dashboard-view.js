@@ -43,6 +43,8 @@ import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
 import npcLogo from '../icons/npc_icon_tiny.png';
+// The extension's own logo (the rocket), beside the dashboard's title.
+import appLogo from '../icons/icon128.png';
 // Schoology's own Missing icon (from its asset CDN, 14×12), so "Missing"
 // here looks like Missing on Schoology's grades page.
 import missingIcon from '../icons/schoology-missing.png';
@@ -957,7 +959,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       ? '<h1 class="title">Grades Dashboard</h1>'
       : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
 
-    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row"><div class="grow">${heading}` +
+    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row"><img class="head-logo" src="${appLogo}" alt="" width="36" height="36"><div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
