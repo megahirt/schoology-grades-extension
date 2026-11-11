@@ -26,7 +26,9 @@ function buildCopy(root) {
   const head = root.querySelector('.head');
   if (head) {
     const h = head.cloneNode(true);
-    for (const el of h.querySelectorAll('button, .tabs')) el.remove();
+    // No buttons, child tabs or site switch (Parent | student): its pills
+    // are buttons, and the empty row would leave a blank band at the top.
+    for (const el of h.querySelectorAll('button, .tabs, .sites')) el.remove();
     copy.append(h);
   }
   const body = root.querySelector('.body');
