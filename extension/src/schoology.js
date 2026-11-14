@@ -35,7 +35,7 @@ function stripTrailingSlash(u) {
   return String(u || '').replace(/\/+$/, '');
 }
 
-function isLoginPage(html, finalUrl) {
+export function isLoginPage(html, finalUrl) {
   if (finalUrl && /\/login(\b|\?|#|$)/i.test(finalUrl)) return true;
   if (!html) return false;
   return (

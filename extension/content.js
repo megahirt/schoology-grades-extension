@@ -13,6 +13,7 @@ import { storageGet, storageSet, setSite } from './src/storage.js';
 import { readComposeHash } from './src/teacher-email.js';
 import { isSchoologySite, looksLikeSchoology } from './src/sites.js';
 import { extractUserUid } from './src/schoology.js';
+import { PAGE_FETCH, answerPageFetch } from './src/page-fetch.js';
 
 // Same parser as the service worker (parser-core.js), run on the live DOM.
 function scrapeGrades() {
@@ -78,6 +79,11 @@ browser.runtime.onMessage.addListener((message) => {
     sent = false;
     const courses = scrapeGrades();
     return Promise.resolve({ type: 'grades-scraped', url: window.location.href, courses });
+  }
+  // The background's own requests reached Schoology signed out (Safari): it
+  // asks this page to make the same read-only request (page-fetch.js).
+  if (message && message.type === PAGE_FETCH && window.top === window) {
+    return answerPageFetch(message, { origin: window.location.origin });
   }
   return undefined;
 });

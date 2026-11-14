@@ -37,7 +37,10 @@ no Schoology login.
   page. A plain 0 is never treated as Missing.
 - **Data path, in order:** (1) a background fetch + the bundled parser,
   (2) the same from the dashboard page, (3) a hidden background tab with
-  the content script. Everything is stored in `browser.storage.local` on
+  the content script. If Schoology answers the background as signed out
+  while a Schoology tab is open, the same reads go through that tab
+  (`extension/src/page-fetch.js`): Safari sends the background's requests
+  without the sign-in. Everything is stored in `browser.storage.local` on
   the device; the service worker never keeps grades only in memory.
 - **Parent accounts** are detected with `GET /iapi/parent/info`. For each
   child the extension switches the viewed child (as Schoology's own menu
