@@ -236,6 +236,8 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
       // worker, whose requests arrive without the sign-in. While on, only a
       // page load or a request made from one of this site's own pages counts
       // as signed in. GET /__mock/page-only?on=1|0
+      // Told apart by the Sec-Fetch headers Chromium sends (Firefox sends its
+      // background requests as same-origin, so this only works in Chromium).
       if (pathname === '/__mock/page-only') {
         pageOnly = reqUrl.searchParams.get('on') === '1';
         sendJson(res, 200, { pageOnly });

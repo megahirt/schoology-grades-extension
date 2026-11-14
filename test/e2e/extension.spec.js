@@ -445,6 +445,11 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
   // the site's own pages is signed in. The extension must then read through
   // the open Schoology page (extension/src/page-fetch.js).
   test('background requests signed out (as in Safari): reads through the open Schoology page', async () => {
+    // Chromium only: the mock tells the worker's requests from a page's by
+    // their Sec-Fetch headers, and Firefox sends its background requests
+    // with the same ones as a page's (same-origin). The code under test has
+    // no browser check, so one browser covers it.
+    test.skip(isFirefox(), 'The mock cannot tell Firefox background requests from page requests.');
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
     const site = new URL(mockBase).origin;
