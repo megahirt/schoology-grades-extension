@@ -60,16 +60,31 @@ export function pageFetchVia(send) {
   };
 }
 
+// How long one page may take to answer one request. A page left over from
+// before the extension was updated or reloaded has no listener, and some
+// browsers (Safari) then never answer at all instead of failing.
+export const PAGE_ANSWER_MS = 20000;
+
+function withTimeout(promise, ms) {
+  let timer;
+  const late = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('The Schoology page took too long to answer')), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
+
 // Send to the first of `tabIds` whose content script answers, and keep using
-// that tab. `sendToTab(tabId, message)` is browser.tabs.sendMessage.
-export function firstTabSender(tabIds, sendToTab) {
+// that tab. `sendToTab(tabId, message)` is browser.tabs.sendMessage. A tab
+// that fails, has nothing listening, or takes longer than `timeoutMs` is
+// passed over.
+export function firstTabSender(tabIds, sendToTab, timeoutMs = PAGE_ANSWER_MS) {
   let chosen = null;
   return async (message) => {
     const order = chosen === null ? tabIds : [chosen];
     let lastError = new Error('No Schoology page is open');
     for (const tabId of order) {
       try {
-        const reply = await sendToTab(tabId, message);
+        const reply = await withTimeout(Promise.resolve().then(() => sendToTab(tabId, message)), timeoutMs);
         // undefined: that tab has no content script listening (an old page).
         if (reply !== undefined && reply !== null) {
           chosen = tabId;
