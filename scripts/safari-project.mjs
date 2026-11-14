@@ -25,11 +25,14 @@ function setAll(text, key, change) {
   });
 }
 
-// fixSafariProject(text, { bundleId, version, build }) -> text
+// fixSafariProject(text, { bundleId, version, build, teamId }) -> text
 //   bundleId: the app's bundle ID (the extension gets bundleId + '.Extension')
 //   version:  X.Y.Z shown to users (CFBundleShortVersionString)
 //   build:    build number (CFBundleVersion); new for every upload to Apple
-export function fixSafariProject(text, { bundleId, version, build = '1' }) {
+//   teamId:   the Apple developer team that signs BOTH targets (optional).
+//             Without it the Team has to be picked in Xcode on each target
+//             after every regeneration; the app and the extension must match.
+export function fixSafariProject(text, { bundleId, version, build = '1', teamId = '' }) {
   let out = text;
   out = setAll(out, 'PRODUCT_BUNDLE_IDENTIFIER', (old) => (/\.Extension$/.test(old) ? `${bundleId}.Extension` : bundleId));
   out = setAll(out, 'MARKETING_VERSION', () => version);
@@ -42,6 +45,18 @@ export function fixSafariProject(text, { bundleId, version, build = '1' }) {
       (line, indent, quote, sep) => {
         const end = sep.includes(':') ? ',' : ';';
         return `${line}\n${indent}${quote}INFOPLIST_KEY_LSApplicationCategoryType${quote}${sep}"${APP_CATEGORY}"${end}`;
+      },
+    );
+  }
+  if (teamId) {
+    // Drop any team already there (one picked in Xcode sits elsewhere in the
+    // target's settings), then add ours next to each target's signing style.
+    out = out.replace(/^[ \t]*"?DEVELOPMENT_TEAM"?\s*[:=][^\n]*\n/gm, '');
+    out = out.replace(
+      /^([ \t]*)("?)CODE_SIGN_STYLE"?(\s*[:=]\s*)[^\n]*$/gm,
+      (line, indent, quote, sep) => {
+        const end = sep.includes(':') ? ',' : ';';
+        return `${line}\n${indent}${quote}DEVELOPMENT_TEAM${quote}${sep}"${teamId}"${end}`;
       },
     );
   }

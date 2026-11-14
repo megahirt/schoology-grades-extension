@@ -12,6 +12,7 @@ const XCPROJ = `{
     {
       "name": "Grades Dashboard for Schoology",
       "build-settings": {
+        "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "INFOPLIST_KEY_CFBundleDisplayName": "Grades Dashboard for Schoology",
         "MARKETING_VERSION": "1.0",
@@ -20,6 +21,7 @@ const XCPROJ = `{
     }, {
       "name": "Grades Dashboard for Schoology Extension",
       "build-settings": {
+        "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "INFOPLIST_KEY_CFBundleDisplayName": "Grades Dashboard for Schoology Extension",
         "MACOSX_DEPLOYMENT_TARGET": "12.0",
@@ -35,6 +37,7 @@ const XCPROJ = `{
 
 // The older project.pbxproj format.
 const PBXPROJ = `
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_KEY_CFBundleDisplayName = "Grades Dashboard for Schoology";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
@@ -65,6 +68,20 @@ describe('fixSafariProject', () => {
     expect(out).toContain('CURRENT_PROJECT_VERSION = "57";');
     expect(out).toContain(`MACOSX_DEPLOYMENT_TARGET = "${MIN_MACOS}";`);
     expect(out).toContain(`INFOPLIST_KEY_LSApplicationCategoryType = "${APP_CATEGORY}";`);
+  });
+
+  it('signs both targets with the given team, and leaves the team alone without one', () => {
+    const TEAM = { ...OPTIONS, teamId: 'ABCDE12345' };
+    const out = fixSafariProject(XCPROJ, TEAM);
+    expect(out.match(/"DEVELOPMENT_TEAM": "[^"]*",/g)).toEqual(['"DEVELOPMENT_TEAM": "ABCDE12345",', '"DEVELOPMENT_TEAM": "ABCDE12345",']);
+    expect(out).toContain('        "CODE_SIGN_STYLE": "Automatic",\n        "DEVELOPMENT_TEAM": "ABCDE12345",');
+    expect(fixSafariProject(PBXPROJ, TEAM)).toContain('CODE_SIGN_STYLE = Automatic;\n\t\t\t\tDEVELOPMENT_TEAM = "ABCDE12345";');
+    expect(fixSafariProject(XCPROJ, OPTIONS)).not.toContain('DEVELOPMENT_TEAM');
+    // A team picked in Xcode on one target only (what Xcode saved): both end up the same.
+    // Xcode keeps the team a few lines below the signing style.
+    const half = XCPROJ.replace('"MARKETING_VERSION": "1.0",', '"DEVELOPMENT_TEAM": "OTHER00000",\n        "MARKETING_VERSION": "1.0",');
+    expect(fixSafariProject(half, TEAM).match(/"DEVELOPMENT_TEAM": "[^"]*",/g)).toEqual(['"DEVELOPMENT_TEAM": "ABCDE12345",', '"DEVELOPMENT_TEAM": "ABCDE12345",']);
+    expect(fixSafariProject(out, TEAM)).toBe(out);
   });
 
   it('changes nothing more when run twice', () => {

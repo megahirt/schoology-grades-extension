@@ -209,7 +209,9 @@ if (packager) {
   // The packager's project is not ready to ship: fix the app's bundle ID,
   // the version, the oldest macOS it runs on and the App Store category
   // (scripts/safari-project.mjs). BUILD_NUMBER (CFBundleVersion) must be
-  // new for every upload to Apple; it defaults to 1.
+  // new for every upload to Apple; it defaults to 1. APPLE_TEAM_ID (the
+  // Apple developer team, e.g. APPLE_TEAM_ID=ABCDE12345) signs both targets;
+  // without it, pick the Team on EACH target in Xcode after every run.
   const projectDir = path.join(SAFARI_DIR, APP_NAME, `${APP_NAME}.xcodeproj`);
   const projectFile = ['project.xcproj', 'project.pbxproj'].map((f) => path.join(projectDir, f)).find((f) => existsSync(f));
   if (!projectFile) {
@@ -218,8 +220,13 @@ if (packager) {
   }
   const version = JSON.parse(readFileSync(path.join(inputDir, 'manifest.json'), 'utf8')).version;
   const build = process.env.BUILD_NUMBER || '1';
-  writeFileSync(projectFile, fixSafariProject(readFileSync(projectFile, 'utf8'), { bundleId: BUNDLE_ID, version, build }), 'utf8');
-  console.log(`Fixed the project: bundle ID ${BUNDLE_ID}, version ${version} (build ${build}).`);
+  const teamId = (process.env.APPLE_TEAM_ID || '').trim();
+  if (teamId && !/^[A-Z0-9]{10}$/.test(teamId)) {
+    console.error(`ERROR: APPLE_TEAM_ID "${teamId}" is not a 10-character Apple team ID.`);
+    process.exit(1);
+  }
+  writeFileSync(projectFile, fixSafariProject(readFileSync(projectFile, 'utf8'), { bundleId: BUNDLE_ID, version, build, teamId }), 'utf8');
+  console.log(`Fixed the project: bundle ID ${BUNDLE_ID}, version ${version} (build ${build}), ${teamId ? `team ${teamId} on both targets` : 'no team (set APPLE_TEAM_ID, or pick the Team on each target in Xcode)'}.`);
   console.log(`\nSafari Xcode project generated in ${SAFARI_DIR}`);
   console.log('Next: open the .xcodeproj, set the Team on every target, verify bundle IDs — see docs/safari.md.');
 } else {

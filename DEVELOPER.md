@@ -71,7 +71,9 @@ Temporary Add-on** → choose `dist-firefox/manifest.json`.
 
 1. `node scripts/build-safari.mjs` builds `dist-safari/`. On a Mac with
    Xcode it also makes the Xcode project; otherwise it writes
-   `safari/convert.sh` to run on one.
+   `safari/convert.sh` to run on one. Set `APPLE_TEAM_ID` to sign both
+   targets with your Apple team (or pick the Team on each target in Xcode
+   after every run), and `BUILD_NUMBER` for an upload to Apple.
 2. Quick loop with no Xcode: Safari → Settings → Developer → **Allow
    Unsigned Extensions** (resets when Safari quits) → **Add Temporary
    Extension…** → choose `dist-safari/`.
