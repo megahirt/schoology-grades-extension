@@ -160,35 +160,62 @@ jobs:
         run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
 
   chrome:
-    # Chrome Web Store. Scaffold: skips until the CWS secrets exist. The
-    # real upload (Chrome Web Store API v2, STAGED_PUBLISH) is Phase 2 of
-    # docs/release-plan.md.
+    # Chrome Web Store (API v2, scripts/publish-chrome.mjs): uploads the
+    # release's Chrome ZIP and submits it for review as STAGED_PUBLISH, so a
+    # reviewed update waits for the owner's Publish click in the Developer
+    # Dashboard. Runs in the `release` environment (owner approval). Skips,
+    # without failing, until the service account key and IDs are set
+    # (docs/chrome-web-store-setup.md §4).
     runs-on: ubuntu-latest
     needs: [verify, release]
     environment: release
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
     steps:
-      - name: Check Chrome Web Store secrets
+      - name: Check Chrome Web Store settings
         id: cws
         # Secrets go in through env, never pasted into the script itself.
         env:
           CWS_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
           CWS_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_PUB: ${{ vars.CWS_PUBLISHER_ID }}
         run: |
-          if [ -n "$CWS_JSON" ] && [ -n "$CWS_ID" ]; then
+          if [ -n "$CWS_JSON" ] && [ -n "$CWS_ID" ] && [ -n "$CWS_PUB" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload to the Chrome Web Store
+      - name: Check out
         if: steps.cws.outputs.configured == 'true'
-        run: |
-          echo "Chrome Web Store secrets are set, but the API v2 upload isn't built yet (docs/release-plan.md, Phase 2)."
+        uses: actions/checkout@v7
 
-      - name: Skip (no secrets)
+      - name: Set up Node 24
+        if: steps.cws.outputs.configured == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Download release files
+        if: steps.cws.outputs.configured == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: release-files
+          path: out
+
+      - name: Upload to the Chrome Web Store and submit for review
+        if: steps.cws.outputs.configured == 'true'
+        env:
+          CWS_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_PUBLISH_TYPE: STAGED_PUBLISH
+        run: node scripts/publish-chrome.mjs "out/schoology-grades-extension-${VERSION}-chrome.zip"
+
+      - name: Skip (not set up yet)
         if: steps.cws.outputs.configured != 'true'
         run: |
-          echo "SKIPPED: Chrome Web Store upload. Secrets not set yet; not a failure."
+          echo "SKIPPED: Chrome Web Store upload. Set the CWS_SERVICE_ACCOUNT_JSON_B64 secret and the CWS_EXTENSION_ID and CWS_PUBLISHER_ID variables (docs/chrome-web-store-setup.md); not a failure."
 
   safari:
     # App Store Connect. Scaffold: the Xcode project, archive and TestFlight

@@ -43,8 +43,9 @@ release workflow does this automatically on `vX.Y.Z` tags — see
 
 **Privacy practices (Chrome Web Store "Privacy" tab):**
 
-- The extension requests host permission for `https://*.schoology.com/*`
-  only, plus `storage`, `alarms`, `scripting`, `tabs`.
+- The extension requests host permission for `https://app.schoology.com/*`
+  and `https://schoology.npchristian.org/*` only, plus `storage`, `alarms`
+  and `tabs`.
 - It collects **no data**: grades are fetched with the user's own
   logged-in Schoology session, parsed locally, and stored only in
   `chrome.storage.local` on the user's machine. There is no server, no
@@ -75,32 +76,53 @@ release workflow does this automatically on `vX.Y.Z` tags — see
 After the first upload, the dashboard shows the item's extension ID —
 that is the `CWS_EXTENSION_ID` secret value for CI (below).
 
-## 4. CI upload (optional — guarded skip)
+## 4. CI upload (service account, API v2)
 
-The release workflow (`.github/workflows/release.yml`) uploads to the
-Web Store **second**, after the Safari job, using
-`chrome-webstore-upload-cli` via `npx` with these repository secrets:
+On every `vX.Y.Z` tag, the release workflow's `chrome` job runs after the
+GitHub Release is made, in the `release` environment, so it waits for the
+owner's approval. It runs `scripts/publish-chrome.mjs`, which:
 
-| Secret | Value |
-|---|---|
-| `CWS_CLIENT_ID` | OAuth client ID (Google Cloud project, Chrome Web Store API enabled) |
-| `CWS_CLIENT_SECRET` | OAuth client secret |
-| `CWS_REFRESH_TOKEN` | OAuth refresh token for the developer account |
-| `CWS_EXTENSION_ID` | The store item ID from step 3 |
+1. signs in as a Google **service account**;
+2. uploads the release's `…-chrome.zip` (Chrome Web Store API v2);
+3. submits it for review as **`STAGED_PUBLISH`**: once review passes, the
+   update waits for the owner's **Publish** click in the Developer
+   Dashboard. Nothing goes live on its own.
 
-**Skip behaviour (by design):** if any of those secrets is not set,
-the upload step **skips gracefully** with a clear echo message and the
-release still succeeds with the ZIP attached. The account owner has **not** done
-Chrome Web Store developer setup yet, and no store credentials exist —
-do not invent them. The manual upload in step 3 is the path until the
-secrets are set.
+Until all three settings below exist, the job prints `SKIPPED` and the
+release still succeeds.
 
-To set up the OAuth credentials when ready: create a Google Cloud
-project, enable the Chrome Web Store API, create OAuth 2.0 credentials
-(Web application), and generate a refresh token for the developer
-account (the `chrome-webstore-upload-cli` README documents the flow —
-verify it at setup time). Store all four values as GitHub repository
-secrets, never in the repo.
+| Name | Kind | Value |
+|---|---|---|
+| `CWS_EXTENSION_ID` | repository **variable** | `nglbmnaepjadllenolmliglnonjkdhjp` (already set) |
+| `CWS_PUBLISHER_ID` | repository **variable** | Developer Dashboard → **Publisher → Settings** |
+| `CWS_SERVICE_ACCOUNT_JSON_B64` | **secret** in the `release` environment | the service account's JSON key, base64-encoded |
+
+**One-time setup (owner):**
+
+1. [Google Cloud Console](https://console.cloud.google.com/): create a
+   project (any name), then **APIs & Services → Enable APIs** → enable the
+   **Chrome Web Store API**.
+2. **IAM & Admin → Service Accounts → Create service account** (no roles
+   needed). Open it → **Keys → Add key → JSON**. A `.json` file downloads.
+3. [Developer Dashboard](https://chrome.google.com/webstore/devconsole) →
+   **Account**: add the service account's email (it ends in
+   `iam.gserviceaccount.com`). Only one service account per publisher.
+4. Store the key as a secret in the `release` environment, then delete the
+   downloaded file:
+   ```bash
+   base64 -i ~/Downloads/<key>.json | gh secret set CWS_SERVICE_ACCOUNT_JSON_B64 --env release
+   ```
+5. Set the publisher ID:
+   ```bash
+   gh variable set CWS_PUBLISHER_ID --body <publisher-id>
+   ```
+6. The Google account that owns the listing needs **2-step verification**
+   on to publish updates.
+
+**Gotchas:**
+- The upload fails unless the tag's version is higher than the store's.
+- If you change visibility (Unlisted, Public) in the dashboard, publish
+  once by hand there before the API can publish again.
 
 ## 5. Updates
 

@@ -4,7 +4,7 @@
 window.SITE_LINKS = {
   safariMac: '',     // Mac App Store listing
   safariIOS: '',     // App Store listing (iPhone and iPad)
-  chrome: '',        // Chrome Web Store listing
+  chrome: 'https://chromewebstore.google.com/detail/grades-dashboard-for-scho/nglbmnaepjadllenolmliglnonjkdhjp', // Chrome Web Store listing
   edge: '',          // Microsoft Edge Add-ons listing (Edge can also install from the Chrome Web Store)
   firefox: '',       // addons.mozilla.org listing (desktop and Android)
   releases: 'https://github.com/megahirt/schoology-grades-extension/releases',
@@ -17,6 +17,9 @@ window.SITE_LINKS = {
 
 (function () {
   const L = window.SITE_LINKS;
+  // A store's link; Edge falls back to the Chrome Web Store (Edge installs
+  // from it too) until there's an Edge Add-ons listing.
+  const urlFor = (key) => L[key] || (key === 'edge' ? L.chrome : '');
   const NAMES = {
     safariMac: 'Safari on Mac', safariIOS: 'Safari on iPhone/iPad', chrome: 'Chrome',
     edge: 'Edge', firefox: 'Firefox',
@@ -36,7 +39,7 @@ window.SITE_LINKS = {
   }
 
   function wire(el, key) {
-    const url = L[key];
+    const url = urlFor(key);
     if (url) {
       el.href = url;
       el.classList.remove('soon');
@@ -56,7 +59,9 @@ window.SITE_LINKS = {
     for (const el of document.querySelectorAll('[data-store]')) wire(el, el.dataset.store);
     // Footer store links: placeholders ("#") until the listing exists.
     for (const el of document.querySelectorAll('[data-store-link]')) {
-      if (L[el.dataset.storeLink]) el.href = L[el.dataset.storeLink];
+      const key = el.dataset.storeLink;
+      if (urlFor(key)) el.href = urlFor(key);
+      if (key === 'edge' && !L.edge && L.chrome) el.title = 'Chrome Web Store (works in Edge)';
     }
     for (const el of document.querySelectorAll('[data-link]')) {
       if (L[el.dataset.link]) el.href = L[el.dataset.link];
@@ -86,7 +91,7 @@ window.SITE_LINKS = {
     const d = detect();
     const btn = document.querySelector('#get-it');
     if (btn) {
-      const url = d && L[d.key];
+      const url = d && urlFor(d.key);
       if (url) {
         btn.href = url;
         btn.textContent = `Get it for ${d.label}`;
