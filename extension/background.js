@@ -10,7 +10,8 @@
 // that names no site is about the last one used (settings.schoologyBase).
 
 import browser from 'webextension-polyfill';
-import { createClient } from './src/schoology.js';
+import { createClient, isLoginPage } from './src/schoology.js';
+import { pageFetchVia, firstTabSender, readableTabs } from './src/page-fetch.js';
 import {
   REAL_SCHOOLOGY,
   siteForPage,
@@ -74,6 +75,21 @@ async function writeDashboard(uid, dashboard, site) {
   return dashboards;
 }
 
+// A fetch() that runs inside an open, signed-in page of `site` (see
+// page-fetch.js), or null when no such page is open. For browsers that send
+// this worker's requests to Schoology without the family's sign-in (Safari).
+async function pageFetchFor(site) {
+  let tabs = [];
+  try {
+    tabs = await browser.tabs.query({ url: `${site}/*` });
+  } catch {
+    return null;
+  }
+  const ids = readableTabs(tabs, site);
+  if (ids.length === 0) return null;
+  return pageFetchVia(firstTabSender(ids, (tabId, message) => browser.tabs.sendMessage(tabId, message, { frameId: 0 })));
+}
+
 // Full refresh of one site: detect account, fetch dashboards, parse,
 // summarize, store. progress({ done, total, label }) reports steps for the
 // UI (see startRefresh).
@@ -86,9 +102,24 @@ async function writeDashboard(uid, dashboard, site) {
 // person's data stays, marked signedOut (the dashboard shows it as old).
 async function refreshGrades(site, progress = () => {}) {
   progress({ done: 0, total: 1, label: 'Checking your Schoology account' });
-  const client = createClient({ baseUrl: site });
+  let client = createClient({ baseUrl: site });
   const started = JSON.stringify((await getUser(site)) || null);
-  const account = await client.detectAccount();
+  let account = await client.detectAccount();
+  if (account.type === 'loggedOut') {
+    // Schoology answered this worker with its sign-in page. In some browsers
+    // (Safari) that only means the worker's requests go out without the
+    // sign-in: ask an open Schoology page of this site, where the sign-in
+    // applies. Only an answer that finds someone signed in replaces ours.
+    const pageFetch = await pageFetchFor(site);
+    if (pageFetch) {
+      const viaPage = createClient({ baseUrl: site, fetchImpl: pageFetch });
+      const seen = await viaPage.detectAccount();
+      if (seen.type === 'parent' || seen.type === 'student') {
+        client = viaPage;
+        account = seen;
+      }
+    }
+  }
   const before = await getUser(site);
   const now = new Date().toISOString();
   if (account.type === 'loggedOut') {
@@ -468,9 +499,20 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 const ADMINS_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
 async function fetchCoursePage(base, isParent, uid, courseId) {
-  const res = await fetch(base + coursePagePath({ isParent, childUid: uid, courseId }), { credentials: 'include' });
+  const url = base + coursePagePath({ isParent, childUid: uid, courseId });
+  let res = await fetch(url, { credentials: 'include' });
+  let html = res.ok ? await res.text() : '';
+  if (res.ok && isLoginPage(html, res.url)) {
+    // Signed out as far as this worker can tell: read it from an open
+    // Schoology page instead (see pageFetchFor).
+    const pageFetch = await pageFetchFor(base);
+    if (pageFetch) {
+      res = await pageFetch(url, {});
+      html = res.ok ? await res.text() : '';
+    }
+  }
   if (!res.ok) throw new Error(`Schoology answered ${res.status}`);
-  return res.text();
+  return html;
 }
 
 // How many of the family's classes list each admin: { [adminUid]: n }.

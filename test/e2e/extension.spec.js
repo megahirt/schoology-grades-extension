@@ -439,6 +439,48 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  // Safari sends the background worker's requests to Schoology without the
+  // sign-in (seen live). The mock's page-only switch does the same here: the
+  // worker is answered with the sign-in page, and only a request from one of
+  // the site's own pages is signed in. The extension must then read through
+  // the open Schoology page (extension/src/page-fetch.js).
+  test('background requests signed out (as in Safari): reads through the open Schoology page', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    const site = new URL(mockBase).origin;
+    try {
+      await loginAs(context, 'parent');
+      await configureExtension(context, extensionId, worker);
+      await fetch(`${mock.url}/__mock/page-only?on=1`);
+      // The worker itself really is turned away.
+      expect(await worker.evaluate(async (u) => (await fetch(u, { credentials: 'include' })).url, `${site}/iapi/parent/info`)).toBe(`${site}/login`);
+
+      // A Schoology page loads: the refresh it starts reads through that page.
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 30000 });
+      await expect(panel.getByRole('tab', { name: 'Jamie' })).toBeVisible();
+      await expect(panel.locator('.card').getByText('Sam Rivera', { exact: true })).toBeVisible();
+      await expect(panel.locator('.signed-out')).toHaveCount(0);
+      await expect(panel.getByText('Please log in to Schoology')).toHaveCount(0);
+      expect(await worker.evaluate(async (k) => (await chrome.storage.local.get(k))[k], `user@${site}`)).toMatchObject({ type: 'parent', signedOut: false });
+
+      // The Refresh button works the same way while the page is open.
+      const refresh = panel.getByRole('button', { name: 'Refresh grades' });
+      await expect(refresh).toBeEnabled({ timeout: 30000 });
+      await refresh.click();
+      await expect(refresh).toBeEnabled({ timeout: 30000 });
+      await expect(panel.getByRole('tab', { name: 'Jamie' })).toBeVisible();
+      await expect(panel.locator('.signed-out')).toHaveCount(0);
+      await page.close();
+    } finally {
+      await fetch(`${mock.url}/__mock/page-only?on=0`);
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('settings page: one auto-saving page; students get no Family rules', async () => {
     test.skip(isFirefox(), "Playwright's Firefox can't open moz-extension:// pages (the settings page).");
     const userDataDir = freshUserDataDir();

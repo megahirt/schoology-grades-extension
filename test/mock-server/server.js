@@ -203,6 +203,7 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
   const PARENT_DATA = showcase ? showcase.parent : PARENT;
   const adminsOf = showcase ? showcase.admins : courseAdmins;
   const adminNames = showcase ? SHOWCASE_ADMINS : ADMIN_NAMES;
+  let pageOnly = false; // see /__mock/page-only below
   return http.createServer(async (req, res) => {
     if (delayMs > 0 && /\/(grades|parent\/home|course\/)/.test(req.url || '')) {
       await new Promise((r) => setTimeout(r, delayMs));
@@ -231,7 +232,17 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
         return;
       }
 
-      if (cookies['mock-session'] !== '1') {
+      // Test switch: behave like Schoology does for Safari's background
+      // worker, whose requests arrive without the sign-in. While on, only a
+      // page load or a request made from one of this site's own pages counts
+      // as signed in. GET /__mock/page-only?on=1|0
+      if (pathname === '/__mock/page-only') {
+        pageOnly = reqUrl.searchParams.get('on') === '1';
+        sendJson(res, 200, { pageOnly });
+        return;
+      }
+      const fromPage = req.headers['sec-fetch-mode'] === 'navigate' || req.headers['sec-fetch-site'] === 'same-origin';
+      if (cookies['mock-session'] !== '1' || (pageOnly && !fromPage)) {
         redirect(res, '/login');
         return;
       }
