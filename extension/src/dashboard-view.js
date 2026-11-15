@@ -648,7 +648,7 @@ function renderRecords(records, showGrades, now) {
   return section('Records', rows.join(''), SECTION_EMOJI.records);
 }
 
-export const FEEDBACK_EMAIL = 'schoologydashboard@gmail.com';
+export const FEEDBACK_EMAIL = 'gradesdashboard@hirtfamily.net';
 // The promo site (footer "About" link).
 export const ABOUT_URL = 'https://megahirt.github.io/schoology-grades-extension/';
 
