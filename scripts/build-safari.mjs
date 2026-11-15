@@ -51,6 +51,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'n
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { fixSafariProject } from './safari-project.mjs';
+import { applySafariApp } from './safari-app.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dev = process.argv.includes('--dev');
@@ -227,8 +228,13 @@ if (packager) {
   }
   writeFileSync(projectFile, fixSafariProject(readFileSync(projectFile, 'utf8'), { bundleId: BUNDLE_ID, version, build, teamId }), 'utf8');
   console.log(`Fixed the project: bundle ID ${BUNDLE_ID}, version ${version} (build ${build}), ${teamId ? `team ${teamId} on both targets` : 'no team (set APPLE_TEAM_ID, or pick the Team on each target in Xcode)'}.`);
+  // The containing app: our screen in place of the packager's template, and
+  // a privacy manifest in both targets (scripts/safari-app.mjs).
+  const problems = applySafariApp(path.join(SAFARI_DIR, APP_NAME), APP_NAME);
+  console.log('Replaced the template app screen and added the privacy manifest.');
+  for (const problem of problems) console.warn(`WARNING: ${problem}`);
   console.log(`\nSafari Xcode project generated in ${SAFARI_DIR}`);
-  console.log('Next: open the .xcodeproj, set the Team on every target, verify bundle IDs — see docs/safari.md.');
+  console.log(`Next: open the .xcodeproj${teamId ? '' : ', set the Team on every target'} and archive — see docs/safari.md.`);
 } else {
   const scriptPath = writeConvertScript(inputDir);
   console.log(
