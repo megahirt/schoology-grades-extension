@@ -8,8 +8,10 @@
 //   - wide screens: a 437 px panel slides in from the right; a tab on its
 //     left edge opens and closes it. While closed, the tab shows each child's
 //     initial in their GO/NO-GO color (when the badge is turned on).
-//   - narrow screens (phones, ≤ 600 px): the panel is a bottom sheet over a
-//     dimmed page; tapping the dimmed page or the × closes it.
+//   - narrow windows (≤ 600 px): the panel is a bottom sheet over a dimmed
+//     page; tapping the dimmed page or the × closes it.
+//   - phones: the dashboard fills the screen and the × closes it. It is
+//     scaled to the screen, because Schoology's page is zoomed out.
 //
 // The panel lives in a shadow root so Schoology's CSS cannot restyle it and
 // its CSS cannot leak into Schoology. It never touches Schoology's own
@@ -36,6 +38,42 @@ export const PANEL_HOST_ID = 'sgd-panel-host';
 export const SCHOOLOGY_MIN_WIDTH = 980;
 export const PANEL_WIDTH = 437;
 export const DOCK_MIN_WIDTH = SCHOOLOGY_MIN_WIDTH + PANEL_WIDTH;
+
+// The bottom sheet's look in narrow windows.
+const SHEET_RULES = (p) => `
+  ${p}.wrap .sheet, ${p} .sheet { border-left: none; border-radius: 18px 18px 0 0; box-shadow: 0 -2px 4px rgba(15, 23, 42, 0.20), 0 -10px 28px rgba(15, 23, 42, 0.48), 0 -24px 56px rgba(15, 23, 42, 0.36); }
+  ${p}.wrap .grip, ${p} .grip { display: block; align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #d3d7dc; margin-top: 8px; flex: 0 0 auto; }
+  ${p}.backdrop { display: block; position: fixed; inset: 0; z-index: 2147483645; background: rgba(15, 23, 42, 0.32); border: none; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+  ${p}.backdrop.open { opacity: 1; pointer-events: auto; }
+  ${p}.edge-tab.open { display: none; }
+`;
+
+// A phone is a screen whose short side is 600 CSS px or less. Returns null on
+// anything else, or where to draw on a phone:
+//   s    — how much to scale up: page pixels per device pixel right now
+//          (about 2.4 on a zoomed-out Schoology page, 1 on a mobile page)
+//   x, y — top-left of what the screen shows, in page pixels
+//   w, h — the screen's size in device pixels
+//   r    — gap between the right edge of what's shown and the page's
+// It follows pinch-zoom, so the sheet stays the same size on the glass.
+export function phoneMetrics(win) {
+  const scr = win && win.screen;
+  const vv = win && win.visualViewport;
+  if (!scr || !vv) return null;
+  const short = Math.min(scr.width, scr.height);
+  if (!(short > 0 && short <= 600) || !(vv.width > 0)) return null;
+  let s = vv.width / scr.width;
+  if (Math.abs(s - 1) < 0.05) s = 1;
+  const layoutW = win.document.documentElement.clientWidth || vv.width;
+  return {
+    s,
+    x: vv.offsetLeft,
+    y: vv.offsetTop,
+    w: vv.width / s,
+    h: vv.height / s,
+    r: Math.max(0, layoutW - (vv.offsetLeft + vv.width)),
+  };
+}
 
 const PANEL_CSS = `
 :host { all: initial; }
@@ -90,12 +128,25 @@ const PANEL_CSS = `
 .kid-unknown { font-size: 10px; font-weight: 800; color: #3d2c00; background: #f2b84b; border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 600px) {
   .wrap { top: auto; left: 0; width: 100%; height: 85vh; transform: translateY(100%); }
-  .sheet { border-left: none; border-radius: 18px 18px 0 0; box-shadow: 0 -2px 4px rgba(15, 23, 42, 0.20), 0 -10px 28px rgba(15, 23, 42, 0.48), 0 -24px 56px rgba(15, 23, 42, 0.36); }
-  .grip { display: block; align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #d3d7dc; margin-top: 8px; flex: 0 0 auto; }
-  .backdrop { display: block; position: fixed; inset: 0; z-index: 2147483645; background: rgba(15, 23, 42, 0.32); border: none; padding: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
-  .backdrop.open { opacity: 1; pointer-events: auto; }
-  .edge-tab.open { display: none; }
+${SHEET_RULES('')}
 }
+/* Phones (.phone is set from script, see phoneMetrics): Schoology has no
+   mobile layout, so a phone lays the page out about 980 px wide and zooms
+   out. A media query sees 980 px, and anything drawn at page scale is tiny.
+   The dashboard fills the screen (the × closes it) and the tab is sized in
+   device pixels; both are placed on the part of the page the screen shows
+   and scaled up by --s to match. */
+.phone.wrap {
+  left: var(--vx); top: var(--vy); right: auto; bottom: auto;
+  width: var(--vw); height: var(--vh);
+  transform-origin: 0 0; transform: scale(var(--s)) translateY(100%);
+  pointer-events: none;
+}
+.phone.wrap.open { transform: scale(var(--s)); }
+.phone.wrap .sheet { height: 100%; pointer-events: auto; border-left: none; border-radius: 0; box-shadow: none; }
+.phone.wrap .grip, .phone.backdrop { display: none; }
+.phone.edge-tab.open { display: none; }
+.phone.edge-tab { right: var(--vr); top: calc(var(--vy) + 96px * var(--s)); transform-origin: 100% 0; transform: scale(var(--s)); }
 @media (prefers-reduced-motion: reduce) { .wrap, .edge-tab, .backdrop { transition: none; } }
 .notice {
   position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2147483647;
@@ -291,6 +342,34 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     notice.hidden = false;
   }
 
+  // Phones: size and place the sheet and the tab for the screen, and keep
+  // them there through scrolling, pinch-zoom and rotation.
+  const win = document.defaultView;
+  let phoneFrame = 0;
+  function applyPhone() {
+    phoneFrame = 0;
+    const m = phoneMetrics(win);
+    for (const el of [wrap, tab, backdrop]) el.classList.toggle('phone', Boolean(m));
+    if (!m) return;
+    const px = (n) => `${Math.round(n * 100) / 100}px`;
+    host.style.setProperty('--s', String(Math.round(m.s * 1000) / 1000));
+    host.style.setProperty('--vx', px(m.x));
+    host.style.setProperty('--vy', px(m.y));
+    host.style.setProperty('--vw', px(m.w));
+    host.style.setProperty('--vh', px(m.h));
+    host.style.setProperty('--vr', px(m.r));
+  }
+  function queuePhone() {
+    if (phoneFrame) return;
+    phoneFrame = win.requestAnimationFrame ? win.requestAnimationFrame(applyPhone) : win.setTimeout(applyPhone, 16);
+  }
+  const vv = win && win.visualViewport;
+  if (vv) {
+    vv.addEventListener('resize', queuePhone);
+    vv.addEventListener('scroll', queuePhone);
+  }
+  applyPhone();
+
   tab.addEventListener('click', () => userToggle(!isOpen));
   backdrop.addEventListener('click', () => userToggle(false));
 
@@ -315,6 +394,10 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     isDocked: () => isOpen && document.defaultView.matchMedia(`(min-width: ${DOCK_MIN_WIDTH}px)`).matches,
     destroy() {
       browser.storage.onChanged.removeListener(onStorageChanged);
+      if (vv) {
+        vv.removeEventListener('resize', queuePhone);
+        vv.removeEventListener('scroll', queuePhone);
+      }
       if (dashboard) dashboard.destroy();
       document.documentElement.classList.remove(DOCK_CLASS);
       document.getElementById(DOCK_STYLE_ID)?.remove();
