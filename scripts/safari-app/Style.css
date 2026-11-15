@@ -4,7 +4,7 @@
 :root { color-scheme: light dark; --muted: #5f6b7a; --line: rgba(128, 128, 128, 0.25); --blue: #1d4ed8; --go: #1b7a3e; --off: #9aa4b1; }
 @media (prefers-color-scheme: dark) { :root { --muted: #a4adba; --blue: #7aa5ff; --go: #4cc47a; } }
 html { height: 100%; }
-body { margin: 0; padding: 24px 28px; font: -apple-system-body; font-size: 13px; line-height: 1.45; cursor: default; }
+body { margin: 0; padding: 24px 28px; font: 13px/1.45 -apple-system, system-ui, sans-serif; cursor: default; }
 h1 { margin: 0; font-size: 18px; line-height: 1.2; }
 h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
 p { margin: 0; }

@@ -10,7 +10,7 @@ Connect when you paste; Apple changes them.
 | Field | Value |
 |---|---|
 | Name (30) | Grades Dashboard for Schoology |
-| Subtitle (30) | Missing work and grades, calm |
+| Subtitle (30) | Missing work, grades, due soon |
 | Primary category | Education |
 | Secondary category | Productivity |
 | Content rights | Does not contain third-party content |
@@ -26,7 +26,7 @@ Connect when you paste; Apple changes them.
 **Promotional text** (170):
 
 ```text
-One calm page on top of Schoology: what's missing, what's due soon and how each class is going. For parents and students. Everything stays on your Mac.
+One dashboard on top of Schoology: what's missing, what's due soon and how each class is going. For parents and students. Everything stays on your Mac.
 ```
 
 **Keywords** (100, comma separated, no spaces):
@@ -38,7 +38,7 @@ schoology,grades,homework,missing,assignments,parent,student,school,dashboard,du
 **Description:**
 
 ```text
-Grades Dashboard is a Safari extension that puts one calm page on top of Schoology. It shows what's missing, what's due soon, and how each class is going, for parents and students.
+Grades Dashboard is a Safari extension that puts one dashboard on top of Schoology. It shows what's missing, what's due soon, and how each class is going, for parents and students.
 
 FOR PARENTS
 • See missing work and low grades at a glance, for each of your children.
@@ -72,10 +72,10 @@ First release for Safari on the Mac.
 
 ## Screenshots
 
-Mac screenshots must be 1280×800, 1440×900, 2560×1600 or 2880×1800. The five
-in `store/chrome/` (`screenshot-1.png` … `screenshot-5.png`) are 1280×800 and
-show made-up students only. Look at each before uploading: one that shows
-Chrome's window frame should be retaken in Safari.
+Mac screenshots must be 1280×800, 1440×900, 2560×1600 or 2880×1800. Upload
+the five in `store/chrome/` (`screenshot-1.png` … `screenshot-5.png`, in that
+order). They are 1280×800, show no browser window frame, and use made-up
+students only.
 
 ## App Privacy
 
@@ -111,7 +111,10 @@ scripts/build-safari.mjs --dev` includes it; a release build does not).
 
 ## Before you submit
 
-- The containing app is still Apple's template screen (Guideline 4.4 risk).
-- There is no `PrivacyInfo.xcprivacy` yet.
-- Update the feedback address in App Store Connect to
+- Build the app with `APPLE_TEAM_ID=... BUILD_NUMBER=... npm run build:safari`,
+  then archive and upload from Xcode. The build puts in the app's own screen
+  and the privacy manifest (`scripts/safari-app.mjs`).
+- Run the app once from Xcode and read its screen: it is what the reviewer
+  sees first.
+- Set the contact email in App Store Connect to
   gradesdashboard@hirtfamily.net.

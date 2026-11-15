@@ -29,8 +29,9 @@
  *   - Strip browser_specific_settings / key / side_panel / offscreen from
  *     the manifest if present; verify every target's bundle ID in Xcode
  *     (the converter sometimes mangles them — app vs .Extension suffix).
- *   - Set the Team on every target; build the containing app's help /
- *     settings screen (Guideline 4.4: it must not be blank).
+ *   - Set the Team on every target (or pass APPLE_TEAM_ID). The containing
+ *     app's screen and privacy manifest are put in by scripts/safari-app.mjs
+ *     (Guideline 4.4: the app must not be the blank template).
  *   - Local test: Safari Settings > Developer > Allow Unsigned Extensions
  *     (resets every Safari quit) > Add Temporary Extension, or the Xcode
  *     loop (open .xcodeproj, Product > Run). Enabling the extension is

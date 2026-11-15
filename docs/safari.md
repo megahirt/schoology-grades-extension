@@ -88,9 +88,11 @@ still need a Mac/iPhone to *test* in Safari.
 
 ## Step 2 — Containing app (required, Guideline 4.4)
 
-The generated app's default SwiftUI view is a starting point, not a
-shippable app. A blank window that just says "open Safari" is a
-rejection risk. Minimum viable containing app for Schoology:
+The generated app's default view is a starting point, not a shippable
+app. A blank window that just says "open Safari" is a rejection risk.
+`npm run build:safari` replaces it after every conversion
+(`scripts/safari-app.mjs`, screen files in `scripts/safari-app/`) and adds
+`PrivacyInfo.xcprivacy` to both targets. The screen covers:
 
 1. What the extension does.
 2. How to enable it (Safari → Settings → Extensions → tick it on,

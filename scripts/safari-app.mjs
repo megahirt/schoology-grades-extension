@@ -17,7 +17,7 @@ import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const WINDOW = { width: 540, height: 620 };
+export const WINDOW = { width: 540, height: 520 };
 export const PRIVACY_MANIFEST = 'PrivacyInfo.xcprivacy';
 const SOURCE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'safari-app');
 
