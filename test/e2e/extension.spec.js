@@ -376,6 +376,35 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(popup.getByText('Missing · 0')).toBeVisible();
       await essay.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
+      // New since you last looked. (Chromium only: it edits storage from the
+      // popup page, which Playwright's Firefox can't open.)
+      if (!isFirefox()) {
+        // The first look: nothing is news.
+        await expect(popup.locator('.new-in, .new-cue')).toHaveCount(0);
+        const seenKey = () => popup.evaluate(async () => Object.keys(await chrome.storage.local.get(null)).find((k) => k.startsWith('seenItems')) || null);
+        await expect.poll(seenKey).not.toBeNull();
+        // Forget the Missing item and the good news, as if they had just appeared.
+        await popup.evaluate(async () => {
+          const all = await chrome.storage.local.get(null);
+          for (const [k, v] of Object.entries(all)) {
+            if (!k.startsWith('seenItems')) continue;
+            for (const uid of Object.keys(v)) v[uid] = v[uid].filter((key) => !/^(missing|grade|record|up):/.test(key));
+            await chrome.storage.local.set({ [k]: v });
+          }
+        });
+        await popup.reload();
+        // The Missing item fades in; it is not good news, so no celebration.
+        await expect(popup.locator('.missing-card.new-in')).toHaveCount(1);
+        // Good news (a good grade, a record, a class up): one celebration only.
+        expect(await popup.locator('[data-cue]').count()).toBeGreaterThan(0);
+        await popup.locator('[data-cue]').first().scrollIntoViewIfNeeded();
+        await expect(popup.locator('.new-cue')).toHaveCount(1);
+        // Seen now: nothing is news on the next look.
+        await popup.reload();
+        await expect(popup.locator('.card-name')).toBeVisible();
+        await expect(popup.locator('.new-in, .new-cue')).toHaveCount(0);
+        await popup.evaluate(() => window.scrollTo(0, 0));
+      }
       // Each section heading carries its emoji.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('img.missing-icon')).toBeVisible(); // Schoology's icon
       await expect(popup.locator('.sec-h', { hasText: 'Classes' }).locator('.sec-emoji')).toHaveText('🏛️');

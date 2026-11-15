@@ -35,42 +35,21 @@ The Refresh, Share and Settings buttons sit at the top today.
   is easier to reach.
 - Decide whether they need to be sticky (always on screen) at all.
 
-## 4. Animations for what changed since you last looked
+## 4. More cues for what changed since you last looked
 
 **Recorded:** 2026-11-15
 
-When something is new since the person last saw it, show a short visual
-cue as it scrolls into view: a change in a grade chart, a new assignment
-due, a new grade.
+Built so far: anything new fades in as it scrolls into view; good news
+(a good new grade, a new record, a class up since last quarter) gets one
+small celebration per view; the rocket flies along the week's bar when
+the done count goes up. All of it plays once, honors "reduce motion",
+and what has been seen is remembered on the device only.
 
-- About half a second, slick, not in the way: stars, rockets, tada,
-  fireworks, or similar.
-- A different cue for each kind of change.
-- The progress bar's rocket could fly along the bar when the week's
-  count goes up.
+Still open:
 
-Things to settle first:
-
-- What counts as "seen": remember, per person, what was on screen last
-  time (on the device only), and mark an item seen once it has scrolled
-  into view.
-- Two kinds of cue (decided by Chris):
-  - Positive things get the fun animation: a good new grade, work turned
-    in, the week's count going up, a class up since last quarter, a new
-    record.
-  - Everything else that is new just fades in, and that is its only
-    animation: a new assignment due, a new Missing item, a lower grade
-    (see the research notes on the features page: no red arrows for
-    drops).
-- Honor the "reduce motion" setting, and never repeat a cue for the
-  same change.
-
-Tone (from Chris): fun, but never corny or overbearing, and not
-distracting. In practice:
-
-- Small and local: the cue happens on the item itself, never across the
-  whole screen.
-- Short: about half a second, plays once, then the item looks normal.
-- Quiet: the app's own colors, no sound, nothing that moves the layout
-  or blocks a tap.
-- Rare: one cue for the most important change in view, not one per item.
+- A cue for a change in a grade chart.
+- Whether the celebrations feel right in real use: fun, but never corny,
+  overbearing or distracting (Chris's bar). Small and local, about half
+  a second, quiet, rare.
+- A lower grade only fades in, by design (see the research notes on the
+  features page: no red arrows for drops). Check that this reads well.

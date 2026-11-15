@@ -228,8 +228,8 @@ describe('classes: this week\'s work', () => {
   it('a marked item stays in its list, struck through, with Undo; the counts go down', () => {
     const html = render({ turnedIn: ['w5'] });
     // Still listed under Missing, marked, with Undo in place of the mark button.
-    expect(html).toMatch(/<div class="missing-card marked" data-aid="w5">[\s\S]*?Old Missing Lab[\s\S]*?data-act="undo" data-reason="turnedIn"[^>]*aria-label="Undo: Old Missing Lab"/);
-    expect(html).toMatch(/<div class="missing-card" data-aid="w3">[\s\S]*?data-act="turned-in"[^>]*aria-label="Mark Osmosis Worksheet as turned in"/);
+    expect(html).toMatch(/<div class="missing-card marked" data-aid="w5"[^>]*>[\s\S]*?Old Missing Lab[\s\S]*?data-act="undo" data-reason="turnedIn"[^>]*aria-label="Undo: Old Missing Lab"/);
+    expect(html).toMatch(/<div class="missing-card" data-aid="w3"[^>]*>[\s\S]*?data-act="turned-in"[^>]*aria-label="Mark Osmosis Worksheet as turned in"/);
     expect(html).toMatch(/Missing · 1</); // one left of the two
     // Not moved to Submitted, not graded yet.
     const waiting = html.slice(html.indexOf('Submitted, not graded yet ·'));
@@ -266,6 +266,12 @@ describe('classes: this week\'s work', () => {
     expect(html).toContain('<span class="wk-rocket" data-done="3" style="--done:0.5000">🚀</span>');
     // Marked turned in, earlier Missing work counts as turned in.
     expect(render({ turnedIn: ['w5'] })).toMatch(/4 of 6 assignments, [^:]+: 1 graded, 3 turned in, 1 missing, 1 remaining/);
+  });
+  it('items that can be new carry a key; good news also names its celebration', () => {
+    const html = render();
+    expect(html).toContain('data-aid="w3" data-new="missing:w3">');
+    // A good grade in Doing well: the star.
+    expect(html).toContain('<div class="row compact" data-new="grade:w1:9" data-cue="star">');
   });
   it('Submitted, not graded yet keeps only earlier work that was never Missing', () => {
     const html = render();
