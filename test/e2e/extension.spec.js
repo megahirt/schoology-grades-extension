@@ -281,7 +281,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // low grades (one Missing alone would be GO). The student's name comes
       // from the home page (data-user-name).
       await expect(popup.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
-      // The same card as parents get (name, Missing chip; the week's ring
+      // The same card as parents get (name, Missing chip; the week's progress bar
       // depends on today's date, so the unit test checks it), without the
       // GO/NO-GO verdict, which is for parents only.
       const card = popup.locator('.card');
@@ -556,7 +556,8 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await opts.getByRole('button', { name: 'Clear data…' }).click();
       await expect.poll(async () => Object.keys(await worker.evaluate(() => chrome.storage.local.get(null))).filter((k) => k !== 'settings')).toEqual([]);
       await expect(opts.locator('#doing-well-percent')).toHaveValue('80');
-      await opts.close();
+      // Close: the button closes the settings tab.
+      await Promise.all([opts.waitForEvent('close'), opts.getByRole('button', { name: 'Close' }).click()]);
     } finally {
       await context.close();
       rmSync(userDataDir, { recursive: true, force: true });

@@ -111,6 +111,7 @@ export function buildShowcase(now = Date.now()) {
       ]),
       course('4003', 'English 10: Section 1', { q2: 89, q1: 90, sem: 89 }, [
         ...graded(['Reading Journal 4', 'Vocabulary Quiz 6', 'Essay Outline', 'Poetry Response', 'Vocabulary Quiz 7'], [90, 85, 92, 88, 90]),
+        at(-10, { title: 'Book Talk Slides', note: PENDING, pending: true }),
         at(-1, { title: 'Argument Essay Draft', note: PENDING, pending: true }),
         at(2, { title: 'Reading Journal 6' }),
       ]),
@@ -159,6 +160,9 @@ export function buildShowcase(now = Date.now()) {
       ]),
       course('5004', '07 Social Studies: Section 1', { q2: 90, q1: 91, sem: 90 }, [
         ...graded(['Ancient Rome Map', 'Chapter 5 Quiz', 'Roman Republic Notes', 'Primary Source', 'Chapter 6 Quiz'], [92, 88, 90, 86, 94]),
+        // Turned in the week before and still waiting for a grade: shows under
+        // "Submitted, not graded yet" (this week's work counts in the week's bar).
+        at(-9, { title: 'Roman Forum Poster', note: PENDING, pending: true }),
         at(-1, { title: 'Aqueduct Model', note: PENDING, pending: true }),
       ]),
       course('5005', '07 Spanish: Section 4', { q2: 92, q1: 93, sem: 92 }, [

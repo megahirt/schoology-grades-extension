@@ -7,7 +7,7 @@
 //   → Missing (grey ✓ "Mark as turned in") → Due soon (grey ✓ "Mark as done")
 //   → Classes (grade bars with the passing line) → Doing well / Not so good
 //   → Records (personal bests, rewards.js) → Submitted, not graded yet (with Undo)
-//   → footer. The card also carries this week's ring (parents).
+//   → footer. The card also carries this week's progress bar (parents).
 // Every verdict is recomputed locally with rules.js, so marks show at once.
 //
 // mountDashboard(container, options) renders into any element (a popup body
@@ -376,7 +376,7 @@ function weekListHtml(wk, uid, settings, showGrades, now) {
 
 // Earlier weeks' work the teacher marked Missing, for one class: still
 // Missing, or submitted / marked turned in since (but not graded yet). It
-// counts as this week's work: in the class's bar and list, and the ring.
+// counts as this week's work: in the class's bar and list, and the progress bar.
 function carriedMissing(summary, course, now) {
   if (!summary) return [];
   const cid = String(course.id ?? course.name);
@@ -434,7 +434,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
         (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
       : '';
     // The bar is this week's work in the class: graded or turned in, out of
-    // everything due Monday to Sunday (the same count as this week's ring).
+    // everything due Monday to Sunday (the same count as this week's progress bar).
     // A low grade shows as the red pill on the grade itself.
     const wk = classWeek(c, marks, now, carriedMissing(summary, c, now));
     // One segment per assignment due this week, filled left to right as
@@ -578,43 +578,31 @@ function renderWaiting(summary, uid, courses = [], now = Date.now()) {
   return section(`Submitted, not graded yet · ${n}`, blocks.join('') + disclaimer, SECTION_EMOJI.waiting);
 }
 
-// This week's ring: graded (dark blue), then turned in and waiting for a
-// grade (light blue), out of everything due Monday to Sunday. No legend:
-// on desktop, hovering a part of the ring says what it is ("3 graded",
-// "2 turned in", "1 remaining"), via invisible, wider hit arcs on top.
-function weekRing(w) {
+// This week's progress bar, along the bottom of the name card: graded (dark
+// blue), then turned in and waiting for a grade (light blue), then Missing
+// work from any week (the Missing orange), out of everything due Monday to
+// Sunday; the rest is still to do. No legend: hovering (or tapping) a part
+// says what it is ("3 graded", "2 turned in", "1 remaining").
+function weekBar(w, span) {
   if (!w.total) return '';
-  const R = 42;
-  const C = 2 * Math.PI * R;
   const missing = w.missing || 0;
   const n = w.graded + w.submitted;
   const left = Math.max(0, w.total - n - missing);
-  const label = `${n} of ${w.total} assignments this week: ${w.graded} graded, ${w.submitted} turned in, ` +
+  const label = `${n} of ${w.total} assignments, ${span}: ${w.graded} graded, ${w.submitted} turned in, ` +
     `${missing ? `${missing} missing, ` : ''}${left} remaining`;
-  const rot = 'transform="rotate(-90 50 50)"';
-  // Clockwise from the top: graded (dark blue), turned in (light blue), then
-  // Missing work from any week (the Missing orange); the rest is to do.
   const parts = [
-    { n: w.graded, color: '#1d4ed8', tip: `${w.graded} graded` },
-    { n: w.submitted, color: '#93b4f5', tip: `${w.submitted} turned in` },
-    { n: missing, color: '#ea580c', tip: `${missing} missing` },
+    { n: w.graded, cls: 'graded', tip: `${w.graded} graded` },
+    { n: w.submitted, cls: 'turned-in', tip: `${w.submitted} turned in` },
+    { n: missing, cls: 'missing', tip: `${missing} missing` },
+    { n: left, cls: 'left', tip: `${left} remaining` },
   ].filter((p) => p.n > 0);
-  const gap = parts.length > 1 ? 3 : 0; // a hairline between parts
-  let start = 0;
-  let arcs = '';
-  let hits = '';
-  for (const p of parts) {
-    const len = (p.n / w.total) * C;
-    arcs += `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${p.color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.max(0.01, len - gap).toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-(start + (start ? gap / 2 : 0))).toFixed(1)}" ${rot}/>`;
-    hits += `<circle class="ring-hit" data-tip="${escapeHtml(p.tip)}" cx="50" cy="50" r="${R}" fill="none" stroke="transparent" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" ${rot}/>`;
-    start += len;
-  }
-  if (left > 0) hits += `<circle class="ring-hit" data-tip="${escapeHtml(`${left} remaining`)}" cx="50" cy="50" r="${R}" fill="none" stroke="transparent" stroke-width="16" stroke-dasharray="${(C - start).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-start).toFixed(2)}" ${rot}/>`;
-  return `<div class="week" role="img" aria-label="${escapeHtml(label)}"><div class="ring">` +
-    `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="10"/>` +
-    arcs + hits + '</svg>' +
-    `<div class="ring-text" aria-hidden="true"><div class="ring-n${String(n).length + String(w.total).length >= 4 ? ' long' : ''}">${n} of ${w.total}</div><div class="ring-l">assignments this week</div></div>` +
-    '<div class="ring-tip" aria-hidden="true" hidden></div></div></div>';
+  const segs = parts.map((p) => `<span class="wk-part ${p.cls}" data-tip="${escapeHtml(p.tip)}" style="flex-grow:${p.n}"></span>`).join('');
+  return `<div class="wk-progress" role="img" aria-label="${escapeHtml(label)}">` +
+    // The rocket rides the bar: at the start with nothing done, at the far
+    // end when everything is.
+    `<div class="wk-bar" aria-hidden="true">${segs}<div class="wk-tip" hidden></div>` +
+    `<span class="wk-rocket" style="--done:${(n / w.total).toFixed(4)}">🚀</span></div>` +
+    `<div class="wk-count" aria-hidden="true"><b>${n} of ${w.total}</b> done · ${escapeHtml(span)}</div></div>`;
 }
 
 function shortDay(iso) {
@@ -651,6 +639,7 @@ function renderRecords(records, showGrades, now) {
 export const FEEDBACK_EMAIL = 'gradesdashboard@hirtfamily.net';
 // The promo site (footer "About" link).
 export const ABOUT_URL = 'https://megahirt.github.io/schoology-grades-extension/';
+export const COFFEE_URL = 'https://buymeacoffee.com/megahirt';
 
 // "Send feedback": the family's own mail app, with the version and browser
 // in the subject. Never any grades or names.
@@ -701,7 +690,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
       `<div class="card-reason">Could not read these grades just now. Press Refresh to try again.</div></div>${isParentView ? verdictPill('UNKNOWN') : ''}</div></div>`;
   } else {
     // The same card for parents and students: picture, name, the Missing and
-    // Due soon chips and this week's ring. Only the GO/NO-GO verdict is for
+    // Due soon chips and this week's progress bar. Only the GO/NO-GO verdict is for
     // parents (when the badge is on).
     const verdictsOn = isParentView && settings.showGoNoGo;
     const verdict = partial ? 'UNKNOWN' : summary.verdict.verdict;
@@ -724,9 +713,9 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
     const reason = partial ? `<div class="card-reason">Only part of the grades loaded${verdictsOn ? ', so no verdict yet' : ''}. Press Refresh.</div>` : '';
-    // The ring counts this week's work plus Missing work from any earlier
+    // The bar counts this week's work plus Missing work from any earlier
     // week (still to do), drawn in the Missing orange.
-    let ring = '';
+    let bar = '';
     if (!partial) {
       // The same items as the class bars: this week's work plus earlier
       // Missing work carried in.
@@ -739,16 +728,18 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
           else if (state === 'missing') w.missing += 1;
         }
       }
-      ring = weekRing(w);
+      bar = weekBar(w, weekSpan(now));
     }
-    html += `<div class="card ${cardTone}${ring ? ' with-ring' : ''}"><div class="card-main">` +
+    // One row: picture, name, then the pills stacked at the right. The
+    // week's progress bar runs along the bottom.
+    html += `<div class="card ${cardTone}">` +
       `<div class="card-head">${showNoGo ? noGoCircle() : avatarHtml(d)}<div class="grow"><div class="card-name">${escapeHtml(d.studentName || 'Student')}</div>` +
-      `${reason}</div>${pill}</div>` +
+      `${reason}</div>${pill}` +
       (stats.length
         ? `<div class="stats">${stats.map((st) => `<div class="stat"><span class="stat-v${st.bad ? ' low' : ''}">${escapeHtml(st.value)}</span>` +
           (st.icon ? `<span class="stat-icon" aria-hidden="true">${st.icon}</span>` : '') +
           `<span class="stat-l">${escapeHtml(st.label)}</span></div>`).join('')}</div>`
-        : '') + `</div>${ring}</div>`;
+        : '') + `</div>${bar}</div>`;
   }
 
   if (Array.isArray(d.parseWarnings) && d.parseWarnings.length) {
@@ -1006,9 +997,16 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
         : `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>`) +
       (current ? `<button class="icon-btn" type="button" data-act="share" aria-label="${SHARE_LABEL}" title="${SHARE_LABEL}">${shareIcon()}</button>` : '') +
       `<button class="icon-btn" type="button" data-act="options" aria-label="Settings" title="Settings">${ICON.cog}</button>` +
-      (onClose ? `<button class="icon-btn ghost" type="button" data-act="close" aria-label="Close dashboard panel" title="Close">${ICON.close}</button>` : '') +
       '</div>';
+    // Close (the panel only) stays on screen while the header scrolls away:
+    // beside the child tabs when there are any, else pinned to the corner.
+    const closeBtn = onClose
+      ? `<button class="icon-btn close" type="button" data-act="close" aria-label="Close dashboard panel" title="Close">${ICON.close}</button>`
+      : '';
 
+    // The child tabs sit under the header in their own bar: the header
+    // scrolls away with the page and only this bar stays at the top.
+    let tabsBar = '';
     if (isParentView && uids.length > 1) {
       const tabs = uids.map((uid) => {
         const d = dashboards[uid];
@@ -1018,9 +1016,10 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
         const sel = uid === pickedUid;
         return `<button class="tab${sel ? ' sel' : ''}" type="button" role="tab" aria-selected="${sel}" data-act="pick" data-uid="${escapeHtml(uid)}">${dot}${escapeHtml(firstName(d.studentName))}</button>`;
       });
-      header += `<div class="tabs" role="tablist" aria-label="Choose a child" style="grid-template-columns:repeat(${uids.length}, minmax(0, 1fr))">${tabs.join('')}</div>`;
+      tabsBar = `<div class="tabs-bar"><div class="tabs" role="tablist" aria-label="Choose a child" style="grid-template-columns:repeat(${uids.length}, minmax(0, 1fr))">${tabs.join('')}</div>${closeBtn}</div>`;
     }
     header += '</header>';
+    const closePin = closeBtn && !tabsBar ? `<div class="close-pin">${closeBtn}</div>` : '';
 
     let body;
     if (!current) {
@@ -1063,13 +1062,16 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
         (buildStamp ? `<span class="dev-build"> · built ${escapeHtml(buildStamp)} UTC</span>` : '') + '</span>' +
         `<button class="btn btn-sm" type="button" data-act="switch-source">${usingMock ? 'Use real Schoology' : 'Use mock server'}</button></div>`
       : '';
-    const footer = '<footer class="foot">' + devSwitch +
+    const footer = '<footer class="foot">' +
       `<div class="status" role="status">${escapeHtml(statusText)}</div>` +
       (showDemo ? '<div class="foot-row"><button class="btn btn-sm" type="button" data-act="demo">Load demo data</button></div>' : '') +
       '</footer>' +
-      `<div class="credit"><span>Made with <span role="img" aria-label="love">❤️</span> for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span>` +
-      `<span aria-hidden="true">·</span><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a>` +
-      `<span class="credit-end"><a class="about-link" href="${ABOUT_URL}" target="_blank" rel="noopener">About</a></span></div>`;
+      `<div class="credit"><span class="credit-made"><span>Made with <span role="img" aria-label="love">❤️</span> for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span></span>` +
+      `<span class="credit-end"><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a>` +
+      `<a class="about-link" href="${ABOUT_URL}" target="_blank" rel="noopener">About</a>` +
+      `<a class="coffee-link" href="${COFFEE_URL}" target="_blank" rel="noopener" aria-label="Buy me a coffee" title="Buy me a coffee">☕</a></span></div>` +
+      // Dev builds: last of all, so a screenshot can crop it off the bottom.
+      (devSwitch ? `<div class="dev-foot">${devSwitch}</div>` : '');
 
     // Re-rendering replaces the whole view; keep where the reader was
     // scrolled (the panel scrolls .body, the popup scrolls the page), so
@@ -1078,7 +1080,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const prevBody = root.querySelector('.body');
     const bodyTop = prevBody ? prevBody.scrollTop : 0;
     const pageTop = win ? win.scrollY : 0;
-    root.innerHTML = header + `<main class="body">${body}</main>` + footer;
+    root.innerHTML = `<main class="body">${closePin}${header}${tabsBar}<div class="content">${body}</div></main>` + footer;
     const nextBody = root.querySelector('.body');
     if (nextBody && bodyTop) nextBody.scrollTop = bodyTop;
     if (win && pageTop && win.scrollY !== pageTop) win.scrollTo(win.scrollX, pageTop);
@@ -1315,19 +1317,24 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   }
   root.addEventListener('click', onClick);
   // Desktop hover on a grade chart: the nearest assignment's date, title and grade.
-  // Desktop hover on this week's ring: what that part of the ring is.
+  // Hover (or tap) on the week's progress bar: what that part is.
   root.addEventListener('pointerover', (e) => {
-    const part = e.target.closest && e.target.closest('.ring-hit');
+    const part = e.target.closest && e.target.closest('.wk-part');
     if (!part) return;
-    const tip = part.closest('.ring').querySelector('.ring-tip');
+    const bar = part.closest('.wk-bar');
+    const tip = bar.querySelector('.wk-tip');
     tip.textContent = part.dataset.tip;
     tip.hidden = false;
+    // Centered over the part, kept inside the bar.
+    const mid = part.offsetLeft + part.offsetWidth / 2;
+    const half = tip.offsetWidth / 2;
+    tip.style.left = `${Math.max(half, Math.min(bar.offsetWidth - half, mid))}px`;
   });
   root.addEventListener('pointerout', (e) => {
-    const part = e.target.closest && e.target.closest('.ring-hit');
+    const part = e.target.closest && e.target.closest('.wk-part');
     if (!part) return;
-    const next = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.ring-hit');
-    if (!next) part.closest('.ring').querySelector('.ring-tip').hidden = true;
+    const next = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.wk-part');
+    if (!next) part.closest('.wk-bar').querySelector('.wk-tip').hidden = true;
   });
   root.addEventListener('pointermove', (e) => {
     const svg = e.target.closest && e.target.closest('svg.gchart');

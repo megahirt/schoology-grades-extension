@@ -65,7 +65,7 @@ FOR PARENTS
 
 FOR STUDENTS
 • What to finish first, then what's due today and tomorrow.
-• This week's progress ring and personal bests that only go up.
+• This week's progress bar and personal bests that only go up.
 • Mark work you've turned in, so the list stays honest.
 
 HOW IT WORKS
