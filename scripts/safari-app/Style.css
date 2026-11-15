@@ -1,0 +1,29 @@
+/* The containing app's one screen (scripts/safari-app/, copied over the
+   packager's template by scripts/build-safari.mjs). */
+* { -webkit-user-drag: none; box-sizing: border-box; }
+:root { color-scheme: light dark; --muted: #5f6b7a; --line: rgba(128, 128, 128, 0.25); --blue: #1d4ed8; --go: #1b7a3e; --off: #9aa4b1; }
+@media (prefers-color-scheme: dark) { :root { --muted: #a4adba; --blue: #7aa5ff; --go: #4cc47a; } }
+html { height: 100%; }
+body { margin: 0; padding: 24px 28px; font: 13px/1.45 -apple-system, system-ui, sans-serif; cursor: default; }
+h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+p { margin: 0; }
+header { display: flex; align-items: center; gap: 16px; }
+header img { border-radius: 16px; flex: 0 0 auto; }
+.tagline, .hint { color: var(--muted); }
+.tagline { margin-top: 4px; }
+section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.status p { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); display: inline-block; }
+.dot.on { background: var(--go); }
+ol { margin: 0; padding-left: 20px; }
+li + li { margin-top: 4px; }
+.hint { margin-top: 8px; }
+button { font-size: 1em; }
+footer { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: center; color: var(--muted); }
+a { color: var(--blue); cursor: pointer; }
+
+body:not(.state-on, .state-off) :is(.state-on, .state-off) { display: none; }
+body.state-on :is(.state-off, .state-unknown) { display: none; }
+body.state-off :is(.state-on, .state-unknown) { display: none; }
