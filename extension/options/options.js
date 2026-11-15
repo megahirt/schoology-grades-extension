@@ -212,6 +212,7 @@ async function init() {
   $('credit-logo').src = npcLogo;
   $('about-icon').src = browser.runtime.getURL('icons/icon128.png');
   $('about-site').href = ABOUT_URL;
+  $('about-name').href = ABOUT_URL;
   $('feedback-link').href = feedbackHref(browser);
   $('version').textContent = `Version ${browser.runtime.getManifest().version}`;
   setupDev();
