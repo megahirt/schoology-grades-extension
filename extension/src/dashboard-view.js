@@ -947,7 +947,9 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const save = () => {
       const win = container.ownerDocument.defaultView;
       win.clearTimeout(seenSave);
-      seenSave = win.setTimeout(() => storageSet('seenItems', seenItems).catch(() => {}), 400);
+      // Straight away (one write for a batch): a popup can close at any moment,
+      // and an unsaved "seen" would replay its cue next time.
+      seenSave = win.setTimeout(() => storageSet('seenItems', seenItems).catch(() => {}), 0);
     };
     if (!Array.isArray(seenItems[uid])) {
       // First look: nothing is news.

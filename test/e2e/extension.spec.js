@@ -399,7 +399,14 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
         expect(await popup.locator('[data-cue]').count()).toBeGreaterThan(0);
         await popup.locator('[data-cue]').first().scrollIntoViewIfNeeded();
         await expect(popup.locator('.new-cue')).toHaveCount(1);
-        // Seen now: nothing is news on the next look.
+        // Seen now (once that's saved): nothing is news on the next look.
+        const shown = await popup.locator('[data-new]').evaluateAll((els) => els.map((el) => el.dataset.new));
+        await popup.locator('[data-new]').last().scrollIntoViewIfNeeded();
+        await expect.poll(() => popup.evaluate(async (keys) => {
+          const all = await chrome.storage.local.get(null);
+          const saved = Object.entries(all).filter(([k]) => k.startsWith('seenItems')).flatMap(([, v]) => Object.values(v).flat());
+          return keys.filter((k) => !saved.includes(k)).length;
+        }, shown)).toBe(0);
         await popup.reload();
         await expect(popup.locator('.card-name')).toBeVisible();
         await expect(popup.locator('.new-in, .new-cue')).toHaveCount(0);
