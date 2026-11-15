@@ -3,17 +3,16 @@
 Things worth doing or looking into, not yet planned or built. Newest at
 the bottom. When one gets built, delete it from here.
 
-## 1. Marking work as done: test whether it confuses students
+## 1. Marking work as done: test it with students
 
 **Recorded:** 2026-11-15
 
-When a student marks something as completed, it disappears from the
-list. That may be confusing.
+A marked item now stays in its list, struck through, with Undo, and a
+notice says that marking doesn't turn anything in. Only students can
+mark.
 
-- Do some user testing with students: do they understand where the item
-  went, and do they trust it?
-- An alternative to try: strike the item through and leave it in the
-  list, instead of removing it.
+- Still to do: user testing with students. Do they understand the
+  strike-through and the notice, and do they trust the counts?
 
 ## 2. Tests and quizzes: a longer look ahead
 

@@ -292,8 +292,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(popup.locator('.missing-card', { hasText: 'Persuasive Essay Draft' })).toBeVisible();
       // Algebra 2 has real nested quarters: GO/NO-GO uses Quarter 2 (68%),
       // with the Semester 1 grade (74%) shown beside it.
-      await expect(popup.locator('.class-cols .col-q')).toHaveText('Quarter 2');
-      await expect(popup.locator('.class-cols .col-o')).toHaveText('Semester');
+      // The column headings are short ("Q2", "Sem") and the grades carry no %.
+      await expect(popup.locator('.class-cols .col-q')).toHaveText('Q2');
+      await expect(popup.locator('.class-cols .col-o')).toHaveText('Sem');
       // The quarter's dates, from the grading-period title on the grades page.
       await expect(popup.getByText('Quarter 2 is from Oct 19 to Dec 15.')).toBeVisible();
       const algebra = popup.locator('.class', { hasText: 'Algebra 2' });
@@ -314,16 +315,16 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
       await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
       await expect(algebra.locator('svg.gchart .gc-tip')).toHaveText(/^[A-Z][a-z]{2} \d{1,2} · Factoring Worksheet · 70%$/);
-      await algebra.locator('.class-row .seg-bar').click(); // anywhere on the row toggles too
+      await algebra.locator('.class-row .week-row').click(); // anywhere on the row toggles too
       await expect(algebra.locator('svg.gchart')).toHaveCount(0);
       // Assignment titles link to Schoology.
       await expect(popup.locator('.missing-card a.item-title', { hasText: 'Persuasive Essay Draft' })).toHaveAttribute('href', /\/assignment\/5101$/);
-      await expect(algebra.locator('.class-grade')).toHaveText('68%');
-      await expect(algebra.locator('.class-overall')).toHaveText('74%');
+      await expect(algebra.locator('.class-grade')).toHaveText('68');
+      await expect(algebra.locator('.class-overall')).toHaveText('74');
       // A class with no quarter grade shows a dash; its semester grade stands.
       const lit = popup.locator('.class', { hasText: 'American Literature' });
       await expect(lit.locator('.class-grade')).toHaveText('—');
-      await expect(lit.locator('.class-overall')).toHaveText('82%');
+      await expect(lit.locator('.class-overall')).toHaveText('82');
       // Each class's bar is this week's work. The mock's work is all from
       // earlier weeks, but Missing work carries into this week: last week's
       // Missing essay is the one thing to do.
@@ -342,20 +343,37 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(journal.getByRole('button', { name: /Undo/ })).toHaveCount(0);
       await expect(journal.locator('.missing-tag')).toHaveCount(0); // submitted, but not marked Missing
 
-      // "Turned in" clears the Missing item: it stays in its class's week,
-      // checked off (not in Submitted, not graded yet); Undo brings it back.
-      await popup.locator('.missing-card').getByRole('button', { name: /as turned in$/ }).click();
-      // With nothing left, the Missing section disappears entirely.
-      await expect(popup.locator('.sec-h', { hasText: 'Missing' })).toHaveCount(0);
+      // Marking the Missing item turned in (students only). A notice explains
+      // it's only a note; "I understand" applies the mark.
+      const essay = popup.locator('.missing-card', { hasText: 'Persuasive Essay Draft' });
+      await essay.getByRole('button', { name: /as turned in$/ }).click();
+      await expect(popup.getByRole('alertdialog')).toContainText("doesn't submit it or turn it in for you");
+      await expect(popup.getByText('Missing · 1')).toBeVisible(); // not marked yet
+      await popup.getByRole('button', { name: 'I understand' }).click();
+      await expect(popup.getByRole('alertdialog')).toHaveCount(0);
+      // It stays where it is, struck through, with Undo; the counts go down.
+      await expect(essay).toHaveClass(/marked/);
+      await expect(popup.getByText('Missing · 0')).toBeVisible();
       await expect(lit.locator('.week-label')).toHaveText('1 of 1');
+      // Not moved to Submitted, not graded yet (only the journal is there).
       await expect(popup.getByText('Submitted, not graded yet · 1')).toBeVisible();
       await expect(popup.locator('.waiting', { hasText: 'Persuasive Essay Draft' })).toHaveCount(0);
-      await lit.locator('.class-row').click();
-      await expect(lit.locator('.wk', { hasText: 'Persuasive Essay Draft' }).getByRole('img', { name: 'Marked turned in, not graded yet' })).toBeVisible();
-      await popup.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
+      // Undo puts it back. The notice shows again on the next mark, until
+      // "Do not show again" is ticked.
+      await essay.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
       await expect(popup.getByText('Missing · 1')).toBeVisible();
       await expect(lit.locator('.week-label')).toHaveText('0 of 1');
-      await lit.locator('.class-row').click();
+      await essay.getByRole('button', { name: /as turned in$/ }).click();
+      await popup.getByRole('checkbox', { name: 'Do not show again' }).check();
+      await popup.getByRole('button', { name: 'I understand' }).click();
+      await expect(popup.getByText('Missing · 0')).toBeVisible();
+      await essay.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
+      await expect(popup.getByText('Missing · 1')).toBeVisible();
+      await essay.getByRole('button', { name: /as turned in$/ }).click();
+      await expect(popup.getByRole('alertdialog')).toHaveCount(0); // no notice now
+      await expect(popup.getByText('Missing · 0')).toBeVisible();
+      await essay.getByRole('button', { name: 'Undo: Persuasive Essay Draft' }).click();
+      await expect(popup.getByText('Missing · 1')).toBeVisible();
       // Each section heading carries its emoji.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('img.missing-icon')).toBeVisible(); // Schoology's icon
       await expect(popup.locator('.sec-h', { hasText: 'Classes' }).locator('.sec-emoji')).toHaveText('🏛️');
@@ -837,6 +855,10 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await chooser.getByRole('button', { name: 'Cancel' }).click();
       await expect(chooser).toHaveCount(0);
       await mail.click();
+      // Schoology is left viewing the other child (as a refresh, or looking
+      // up the teachers, can leave it): the message page would then be
+      // "Private Access Only". Writing the email switches back to Sam first.
+      await context.request.get(`${mockBase}/parent/home?child_uid=2000002`);
       await panel.getByRole('group', { name: 'Email which teacher?' }).getByRole('button', { name: 'Write email' }).click();
       await expect(page).toHaveURL(/\/parent\/messages\/new\/course\/3001\?recipient_uids=9301$/);
       await expect(page.locator('.to')).toHaveText('To: Ms. Park');

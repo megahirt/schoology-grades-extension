@@ -109,6 +109,9 @@ const ICON = {
   mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   // Submitted, not graded yet: an outbox tray (sent, waiting for the teacher).
+  // Mark as done: a page with a check inside it. Undo: a curved arrow back.
+  docCheck: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14.5l2.200 2.200 4-4.400"/></svg>',
+  undo: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.500a5.500 5.500 0 0 1 0 11H11"/></svg>',
   tray: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/><path d="M12 11V3.5"/><path d="M8.5 7L12 3.5 15.5 7"/></svg>',
   spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
   cog: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
@@ -211,8 +214,16 @@ export function quarterDatesLine(courses) {
   return `${m[1].trim()} is from ${fmt(start)} to ${fmt(end)}.`;
 }
 
-function pctText(n) {
-  return typeof n === 'number' ? `${Math.round(n * 10) / 10}%` : '—';
+function pctText(n, sign = '%') {
+  return typeof n === 'number' ? `${Math.round(n * 10) / 10}${sign}` : '—';
+}
+// Column headings, short: "Quarter 2" -> "Q2", "Semester 1" -> "S1", "Semester" -> "Sem".
+function shortHead(label) {
+  const t = String(label || '').trim();
+  const m = t.match(/^(quarter|semester|trimester)\s*(\d+)?$/i);
+  if (!m) return t;
+  const k = m[1][0].toUpperCase();
+  return m[2] ? `${k}${m[2]}` : { Q: 'Qtr', S: 'Sem', T: 'Tri' }[k];
 }
 
 // Section headings carry an emoji; sections with no items are left out.
@@ -242,34 +253,50 @@ function titleLink(a, cls = 'item-title') {
     : `<span class="${cls}">${escapeHtml(a.title)}</span>`;
 }
 
-function renderMissing(summary, uid, isParentView = false) {
-  if (!summary.missingItems.length) return '';
-  const rows = byPointsDesc(summary.missingItems).map((a) => {
+// Marking work done is a student's own note (parents can't). A marked item
+// stays where it is, struck through, with Undo in place of the mark button.
+// `full` is the list as Schoology has it; `marked` the ids marked here.
+function markButton(a, uid, { marked, act, verb }) {
+  const aid = escapeHtml(a.id ?? '');
+  return marked
+    ? `<button class="check-btn undo" type="button" data-act="undo" data-reason="${act === 'done' ? 'done' : 'turnedIn'}" data-uid="${escapeHtml(uid)}" data-aid="${aid}" aria-label="Undo: ${escapeHtml(a.title)}" title="Undo">${ICON.undo}</button>`
+    : `<button class="check-btn" type="button" data-act="${act}" data-uid="${escapeHtml(uid)}" data-aid="${aid}" aria-label="Mark ${escapeHtml(a.title)} as ${verb}" title="Mark as ${verb}">${ICON.docCheck}</button>`;
+}
+
+function renderMissing(full, uid, { isParentView = false, marked = new Set() } = {}) {
+  if (!full.missingItems.length) return '';
+  let left = 0;
+  const rows = byPointsDesc(full.missingItems).map((a) => {
+    const isMarked = !isParentView && marked.has(String(a.id));
+    if (!isMarked) left += 1;
     const sub = [a.courseName, dueLabel(a), ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const note = a.submitted ? '<span class="note">Submitted, not graded yet</span>' : '';
-    // Emailing the teacher is for parents only.
+    // Emailing the teacher is for parents only; marking is for students only.
     const mail = isParentView
       ? `<button class="check-btn mail-btn" type="button" data-act="email-teacher" data-uid="${escapeHtml(uid)}" data-cid="${escapeHtml(a.courseId ?? '')}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Message the ${escapeHtml(a.courseName || 'class')} teacher about ${escapeHtml(a.title)}" title="Message the teacher">${ICON.mail}</button>`
       : '';
-    return `<div class="missing-card" data-aid="${escapeHtml(a.id ?? '')}"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
-      mail +
-      `<button class="check-btn" type="button" data-act="turned-in" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as turned in" title="Mark as turned in">${ICON.check}</button></div>`;
+    return `<div class="missing-card${isMarked ? ' marked' : ''}" data-aid="${escapeHtml(a.id ?? '')}"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
+      mail + (isParentView ? '' : markButton(a, uid, { marked: isMarked, act: 'turned-in', verb: 'turned in' })) + '</div>';
   });
-  return section(`Missing · ${summary.missingItems.length}`, rows.join(''), SECTION_EMOJI.missing);
+  return section(`Missing · ${left}`, rows.join(''), SECTION_EMOJI.missing);
 }
 
-function renderDue(summary, uid) {
+function renderDue(full, uid, { isParentView = false, marked = new Set() } = {}) {
   const items = [
     // Within a day, largest point value first.
-    ...byPointsDesc(summary.dueToday).map((a) => ({ a, when: 'Today', cls: 'today' })),
-    ...byPointsDesc(summary.dueTomorrow).map((a) => ({ a, when: 'Tomorrow', cls: 'tomorrow' })),
+    ...byPointsDesc(full.dueToday).map((a) => ({ a, when: 'Today', cls: 'today' })),
+    ...byPointsDesc(full.dueTomorrow).map((a) => ({ a, when: 'Tomorrow', cls: 'tomorrow' })),
   ];
   if (!items.length) return '';
-  const rows = items.map(({ a, when, cls }) =>
-    `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
-    `<span class="chip ${cls}">${when}</span>` +
-    `<button class="check-btn" type="button" data-act="done" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Mark ${escapeHtml(a.title)} as done" title="Mark as done">${ICON.check}</button></div>`);
-  return section(`Due soon · ${items.length}`, rows.join(''), SECTION_EMOJI.due);
+  let left = 0;
+  const rows = items.map(({ a, when, cls }) => {
+    const isMarked = !isParentView && marked.has(String(a.id));
+    if (!isMarked) left += 1;
+    return `<div class="row${isMarked ? ' marked' : ''}"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
+      `<span class="chip ${cls}">${when}</span>` +
+      (isParentView ? '' : markButton(a, uid, { marked: isMarked, act: 'done', verb: 'done' })) + '</div>';
+  });
+  return section(`Due soon · ${left}`, rows.join(''), SECTION_EMOJI.due);
 }
 
 // Classes: only real classes, i.e. ones with grade data. Sections with no
@@ -336,27 +363,28 @@ function weekSpan(now) {
   const m = (d) => d.toLocaleDateString(undefined, { month: 'short' });
   return a.getMonth() === b.getMonth() ? `${m(a)} ${a.getDate()} to ${b.getDate()}` : `${m(a)} ${a.getDate()} to ${m(b)} ${b.getDate()}`;
 }
-function weekListHtml(wk, uid, settings, showGrades, now) {
+function weekListHtml(wk, uid, settings, showGrades, now, canMark = true) {
   const items = wk.items;
   if (!items.length) return '<div class="week-list"><p class="empty">Nothing due in this class this week.</p></div>';
   const rows = items.map(({ a, state }) => {
     const done = WEEK_DONE.has(state);
     const hasId = a.id !== undefined && a.id !== null;
     const marked = state === 'turnedIn' || state === 'done';
-    const locked = !hasId || state === 'graded' || state === 'submitted' || state === 'assumed';
+    // Only students mark work; for a parent every row just shows its state.
+    const locked = !canMark || !hasId || state === 'graded' || state === 'submitted' || state === 'assumed';
     const title = a.title || 'Assignment';
     let btn;
     if (locked) {
-      const why = state === 'graded' ? 'graded' : state === 'submitted' ? 'submitted in Schoology' : done ? 'counted as turned in' : 'cannot be marked';
+      const why = state === 'graded' ? 'graded' : state === 'submitted' ? 'submitted in Schoology' : done ? 'counted as turned in' : 'not done yet';
       btn = `<button class="wk-check${done ? ' on' : ''}" type="button" disabled aria-label="${escapeHtml(`${title}: ${why}`)}">${ICON.check}</button>`;
     } else if (marked) {
-      btn = `<button class="wk-check on" type="button" data-act="undo" data-reason="${state}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="true" aria-label="${escapeHtml(`Undo: ${title}`)}" title="Undo">${ICON.check}</button>`;
+      btn = `<button class="wk-check undo" type="button" data-act="undo" data-reason="${state}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="true" aria-label="${escapeHtml(`Undo: ${title}`)}" title="Undo">${ICON.undo}</button>`;
     } else {
       // Missing work is marked turned in (as in the Missing section), other
       // work done (as in Due soon).
       const act = state === 'missing' ? 'turned-in' : 'done';
       const verb = state === 'missing' ? 'turned in' : 'done';
-      btn = `<button class="wk-check" type="button" data-act="${act}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="false" aria-label="${escapeHtml(`Mark ${title} as ${verb}`)}" title="Mark as ${verb}">${ICON.check}</button>`;
+      btn = `<button class="wk-check" type="button" data-act="${act}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="false" aria-label="${escapeHtml(`Mark ${title} as ${verb}`)}" title="Mark as ${verb}">${ICON.docCheck}</button>`;
     }
     // The Missing icon stays until the work is graded (the teacher's mark is
     // still on it), beside the Submitted icon once it's in.
@@ -387,7 +415,7 @@ function isCarried(a) {
   return a.status === 'missing' || a.status === 'incomplete';
 }
 
-function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, now = Date.now() } = {}) {
+function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, now = Date.now(), canMark = true } = {}) {
   const list = visibleCourses(courses);
   if (!list.length) return '';
   const t = settings.gradeThreshold;
@@ -398,7 +426,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
   const weekHead = `<span class="col-h col-w">${escapeHtml(weekSpan(now))}</span>`;
   const head = `<div class="class-cols">${sectionHeading('Classes', SECTION_EMOJI.classes)}${weekHead}` +
     (showGrades
-      ? `<span class="col-h col-q">${escapeHtml(qHead)}</span>` + (oHead ? `<span class="col-h col-o">${escapeHtml(oHead)}</span>` : '')
+      ? `<span class="col-h col-q" title="${escapeHtml(qHead)}">${escapeHtml(shortHead(qHead))}</span>` + (oHead ? `<span class="col-h col-o" title="${escapeHtml(oHead)}">${escapeHtml(shortHead(oHead))}</span>` : '')
       : '') + '</div>';
   const rows = list.map((c) => {
     const grade = typeof c.grade === 'number' ? c.grade : null;
@@ -430,29 +458,28 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
       // "▲ 6% vs Q1" sits just left of the quarter grade, so the grades
       // stay lined up in their columns.
       // The up pill sits left of the trend line, so the trend lines line up.
-      ? `${(cols.quarter && upPill(c)) || ''}${trend}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first)}</span>` +
-        (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade)}</span>` : '')
+      ? `${(cols.quarter && upPill(c)) || ''}${trend}<span class="class-grade col-q${firstLow ? ' low' : ''}">${pctText(first, '')}</span>` +
+        (oHead ? `<span class="class-overall col-o${overallLow ? ' low' : ''}">${pctText(c.overallGrade, '')}</span>` : '')
       : '';
     // The bar is this week's work in the class: graded or turned in, out of
     // everything due Monday to Sunday (the same count as this week's progress bar).
     // A low grade shows as the red pill on the grade itself.
     const wk = classWeek(c, marks, now, carriedMissing(summary, c, now));
     // One segment per assignment due this week, filled left to right as
-    // work is done; nothing due is one solid green bar, with no count.
+    // work is done. Nothing due: one grey bar and "No HW".
     const weekLabel = wk.total ? `${wk.done} of ${wk.total}` : '';
-    const ariaWeek = wk.total ? `${wk.done} of ${wk.total} done this week` : 'nothing due this week';
     // The Missing count: work the teacher marked Missing, still marked so
     // until it's graded, even once submitted or marked turned in or done.
     const missingN = wk.items.filter((i) => isCarried(i.a) && i.state !== 'graded').length;
-    // Nothing due but Missing work outstanding: the solid bar stays grey.
-    const segs = wk.total
-      ? Array.from({ length: wk.total }, (_, i) => `<i class="seg${i < wk.done ? ' on' : ''}"></i>`).join('')
-      : `<i class="seg${missingN ? '' : ' on'}"></i>`;
     const missingTag = missingN
       ? `<span class="class-missing" role="img" aria-label="${missingN} missing" title="${missingN} missing">${MISSING_IMG}${missingN}</span>`
       : '';
-    const bar = `<div class="week-row"><div class="seg-bar" role="img" aria-label="${escapeHtml(`${c.name}: ${ariaWeek}`)}">${segs}</div>` +
-      `${missingTag}${weekLabel ? `<span class="week-label">${escapeHtml(weekLabel)}</span>` : ''}</div>`;
+    const bar = wk.total
+      ? `<div class="week-row"><div class="seg-bar" role="img" aria-label="${escapeHtml(`${c.name}: ${wk.done} of ${wk.total} done this week`)}">` +
+        Array.from({ length: wk.total }, (_, i) => `<i class="seg${i < wk.done ? ' on' : ''}"></i>`).join('') + '</div>' +
+        `${missingTag}<span class="week-label">${escapeHtml(weekLabel)}</span></div>`
+      : `<div class="week-row none"><div class="seg-bar" role="img" aria-label="${escapeHtml(`${c.name}: nothing due this week`)}"><i class="seg"></i></div>` +
+        `${missingTag}<span class="week-label">No HW</span></div>`;
     const name = toggle(`<span class="chev${open ? ' open' : ''}">${CHEVRON}</span><span class="class-name">${escapeHtml(c.name)}</span>`, 'class-toggle');
 
     let chart = '';
@@ -470,7 +497,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // class name stays the keyboard and screen-reader control.
     const row = `<div class="class-head"><span class="grow">${name}</span>${grades}</div>${bar}`;
     // The opened list: this week's work, with earlier Missing work carried in.
-    const week = open ? weekListHtml(wk, uid, settings, showGrades, now) : '';
+    const week = open ? weekListHtml(wk, uid, settings, showGrades, now, canMark) : '';
     return `<div class="class${open ? ' open' : ''}">` +
       `<div class="class-row" data-act="toggle-chart" data-key="${escapeHtml(key)}">${row}</div>` +
       `${week}${chart}</div>`;
@@ -543,7 +570,8 @@ function renderWaiting(summary, uid, courses = [], now = Date.now()) {
   // doesn't show.
   // Earlier Missing work that's since been submitted shows checked off in
   // its class instead.
-  const waiting = summary.waiting.filter((a) => !dueThisWeek(a, now) && !isCarried(a));
+  // Work marked done here is not listed: it stays where it was, struck through.
+  const waiting = summary.waiting.filter((a) => !dueThisWeek(a, now) && !isCarried(a) && a.waitingReason !== 'turnedIn' && a.waitingReason !== 'done');
   const n = waiting.length;
   if (!n) return '';
   const order = { submitted: 0, turnedIn: 1, done: 2 };
@@ -573,9 +601,7 @@ function renderWaiting(summary, uid, courses = [], now = Date.now()) {
     });
     return `<div class="wait-class"><h3 class="wait-h">${escapeHtml(name)} · ${items.length}</h3>${rows.join('')}</div>`;
   });
-  const manual = waiting.some((a) => a.waitingReason === 'turnedIn' || a.waitingReason === 'done');
-  const disclaimer = manual ? '<p class="fineprint">Marking something done or turned in is for your own use — nobody is notified.</p>' : '';
-  return section(`Submitted, not graded yet · ${n}`, blocks.join('') + disclaimer, SECTION_EMOJI.waiting);
+  return section(`Submitted, not graded yet · ${n}`, blocks.join(''), SECTION_EMOJI.waiting);
 }
 
 // This week's progress bar, along the bottom of the name card: graded (dark
@@ -677,7 +703,13 @@ function avatarHtml(d) {
 export function renderStudentBody(d, uid, settings, marks, { isParentView, openClass = null, records = null, now = Date.now() }) {
   // Tidy class names ("07 English" -> "English") for everything below.
   const courses = cleanCourseNames(d.courses || []);
-  const summary = summarizeStudent(courses, settings, marks.turnedIn, marks.done);
+  // Marks are a student's own: a parent's view never uses or offers them.
+  const canMark = !isParentView;
+  const own = canMark ? { turnedIn: marks.turnedIn || [], done: marks.done || [] } : { turnedIn: [], done: [] };
+  const summary = summarizeStudent(courses, settings, own.turnedIn, own.done);
+  // The lists as Schoology has them: a marked item stays in its place.
+  const full = canMark ? summarizeStudent(courses, settings, [], []) : summary;
+  const marked = new Set([...own.turnedIn, ...own.done].map(String));
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
     || (settings.gradeVisibility === 'student' && !isParentView);
@@ -721,7 +753,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
       // Missing work carried in.
       const w = { total: 0, graded: 0, submitted: 0, missing: 0 };
       for (const c of courses) {
-        for (const { state } of classWeek(c, marks, now, carriedMissing(summary, c, now)).items) {
+        for (const { state } of classWeek(c, own, now, carriedMissing(summary, c, now)).items) {
           w.total += 1;
           if (state === 'graded') w.graded += 1;
           else if (WEEK_DONE.has(state)) w.submitted += 1;
@@ -746,9 +778,9 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     html += `<p class="warn">${d.parseWarnings.map(escapeHtml).join('<br>')}</p>`;
   }
   if (!failed) {
-    html += renderMissing(summary, uid, isParentView);
-    html += renderDue(summary, uid);
-    html += renderClasses(courses, settings, showGrades, uid, openClass, { marks, summary, now });
+    html += renderMissing(full, uid, { isParentView, marked });
+    html += renderDue(full, uid, { isParentView, marked });
+    html += renderClasses(courses, settings, showGrades, uid, openClass, { marks: own, summary, now, canMark });
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderDoingWell(summary.doingWell, settings, showGrades);
     html += renderRecords(records, showGrades, now);
@@ -870,6 +902,22 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   let openClass = null; // "<uid>:<courseId>" whose grade chart is open
   let statusText = '';
   let viewIsParent = false;
+  // Each time something is marked done (until "Do not show again"): a small notice to confirm,
+  // { act, uid, aid, y } while it is showing (y: where to draw it).
+  let pendingMark = null;
+  function markNoticeHtml() {
+    if (!pendingMark) return '';
+    return '<div class="mark-notice" data-act="mark-cancel">' +
+      `<div class="mark-box" role="alertdialog" aria-modal="true" aria-labelledby="sgd-mark-h" aria-describedby="sgd-mark-p" style="top:${Math.round(pendingMark.y)}px">` +
+      '<div class="mark-h" id="sgd-mark-h">This is just a note for you</div>' +
+      '<p id="sgd-mark-p">Marking something done doesn\'t submit it or turn it in for you. That\'s still your job.</p>' +
+      '<div class="mark-foot"><label class="mark-skip"><input type="checkbox" id="sgd-mark-skip"> Do not show again</label>' +
+      '<button class="btn primary" type="button" data-act="mark-ok">I understand</button></div></div></div>';
+  }
+  async function applyMark(act, uid, aid) {
+    if (act === 'turned-in') await toggleMark(getTurnedIn, setTurnedIn, uid, aid, true);
+    else await toggleMark(getMarkedDone, setMarkedDone, uid, aid, true);
+  }
 
   // Message the teacher about a Missing item (parents only): Schoology's
   // compose form for the class, with the subject and message filled in by
@@ -909,7 +957,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (first) first.focus();
   }
 
-  async function openCompose({ courseId, result, course, a, d }, teacherUid) {
+  async function openCompose({ uid, courseId, result, course, a, d }, teacherUid) {
     const [tidy] = cleanCourseNames([course]);
     const msg = composeMessage({ studentName: d.studentName, parentName: result.parentName || '', title: a.title, courseName: tidy.name, dueText: a.due ? shortDate(a.due) : a.dueText || '' });
     const url = (teacherUid ? composeUrlFor(result.url, teacherUid) : result.url) + composeHash(msg);
@@ -919,6 +967,11 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       await storageSet('classTeacher', all).catch(() => {});
     }
     chooser = null;
+    // Schoology only opens the message while it is viewing this child (any
+    // other child gets "Private Access Only"), and looking up the teachers
+    // or a refresh may have left another child selected: switch back first.
+    setStatus('Opening a message to the teacher…');
+    await browser.runtime.sendMessage({ type: 'view-child', uid, site: getSite() }).catch(() => {});
     setStatus('');
     if (openLinksInActiveTab) {
       await browser.tabs.update({ url });
@@ -1010,7 +1063,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (isParentView && uids.length > 1) {
       const tabs = uids.map((uid) => {
         const d = dashboards[uid];
-        const s = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
+        const s = summarizeStudent(d.courses || [], settings, [], []); // a parent's view: no marks
         const v = d.error || isPartial(d) ? 'unknown' : s.verdict.verdict === 'GO' ? 'go' : 'nogo';
         const dot = settings.showGoNoGo ? `<span class="dot ${v}" aria-hidden="true"></span>` : '';
         const sel = uid === pickedUid;
@@ -1067,7 +1120,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       (showDemo ? '<div class="foot-row"><button class="btn btn-sm" type="button" data-act="demo">Load demo data</button></div>' : '') +
       '</footer>' +
       `<div class="credit"><span class="credit-made"><span>Made with <span role="img" aria-label="love">❤️</span> for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span></span>` +
-      `<span class="credit-end"><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}">Send feedback</a>` +
+      `<span class="credit-end"><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}" aria-label="Send feedback">Feedback</a>` +
       `<a class="about-link" href="${ABOUT_URL}" target="_blank" rel="noopener">About</a>` +
       `<a class="coffee-link" href="${COFFEE_URL}" target="_blank" rel="noopener" aria-label="Buy me a coffee" title="Buy me a coffee">☕</a></span></div>` +
       // Dev builds: last of all, so a screenshot can crop it off the bottom.
@@ -1080,7 +1133,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const prevBody = root.querySelector('.body');
     const bodyTop = prevBody ? prevBody.scrollTop : 0;
     const pageTop = win ? win.scrollY : 0;
-    root.innerHTML = `<main class="body">${closePin}${header}${tabsBar}<div class="content">${body}</div></main>` + footer;
+    root.innerHTML = `<main class="body">${closePin}${header}${tabsBar}<div class="content">${body}</div></main>` + footer + markNoticeHtml();
     const nextBody = root.querySelector('.body');
     if (nextBody && bodyTop) nextBody.scrollTop = bodyTop;
     if (win && pageTop && win.scrollY !== pageTop) win.scrollTo(win.scrollX, pageTop);
@@ -1266,10 +1319,28 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       pickedUid = uid;
       await render();
       await storageSet('dashboardChild', uid).catch(() => {});
-    } else if (act === 'turned-in' && uid && aid) {
-      await toggleMark(getTurnedIn, setTurnedIn, uid, aid, true);
-    } else if (act === 'done' && uid && aid) {
-      await toggleMark(getMarkedDone, setMarkedDone, uid, aid, true);
+    } else if ((act === 'turned-in' || act === 'done') && uid && aid) {
+      if (await storageGet('markNoticeSeen', false).catch(() => false)) {
+        await applyMark(act, uid, aid);
+      } else {
+        // Drawn near the button that was pressed, kept inside the view.
+        const r = root.getBoundingClientRect();
+        const b = btn.getBoundingClientRect();
+        const y = Math.max(12, Math.min(b.top - r.top - 60, Math.max(12, r.height - 200)));
+        pendingMark = { act, uid, aid, y };
+        await render();
+        root.querySelector('.mark-box .btn')?.focus();
+      }
+    } else if (act === 'mark-ok' && pendingMark) {
+      const m = pendingMark;
+      pendingMark = null;
+      // The notice shows on every mark until "Do not show again" is ticked.
+      if (root.querySelector('#sgd-mark-skip')?.checked) await storageSet('markNoticeSeen', true).catch(() => {});
+      await applyMark(m.act, m.uid, m.aid);
+      await render();
+    } else if (act === 'mark-cancel') {
+      // Only a press on the dimmed area itself, not inside the box.
+      if (e.target === btn) { pendingMark = null; await render(); }
     } else if (act === 'undo' && uid && aid) {
       if (btn.dataset.reason === 'done') await toggleMark(getMarkedDone, setMarkedDone, uid, aid, false);
       else await toggleMark(getTurnedIn, setTurnedIn, uid, aid, false);
