@@ -120,14 +120,17 @@ git push origin v1.4.0
 [`release.yml`](.github/workflows/release.yml) then:
 
 1. Checks the tag is `vX.Y.Z` and on `main`.
-2. Builds Chrome/Edge, Firefox and Safari ZIPs with that version.
+2. Builds Chrome/Edge, Firefox and Safari ZIPs with that version, plus a
+   ZIP of the source.
 3. Creates the GitHub Release (generated notes, ZIPs, checksums).
 4. Redeploys the site so it shows the new version.
 5. Runs the store uploads behind the `release` environment's approval gate.
    They skip until their secrets and upload steps exist. Chrome is
    submitted for review; Edge gets a draft
    ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)). Each waits
-   for the owner's Publish click in its store.
+   for the owner's Publish click in its store. Firefox has no such click:
+   approving its job sends the version live once Mozilla approves it
+   ([docs/firefox-amo-setup.md](docs/firefox-amo-setup.md)).
 
 Local builds use the newest `vX.Y.Z` tag, or `0.0.0` if there is none. Set
 `RELEASE_VERSION=1.4.0` to override. The full plan, including stores,
@@ -172,6 +175,8 @@ Safari, and student accounts. Details:
   Web Store setup
 - [docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md): Edge Add-ons
   setup
+- [docs/firefox-amo-setup.md](docs/firefox-amo-setup.md): Firefox Add-ons
+  (AMO) setup
 - [docs/release-plan.md](docs/release-plan.md): releases and store
   publishing
 - [docs/promo-site-plan.md](docs/promo-site-plan.md): the website
