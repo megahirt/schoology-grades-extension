@@ -41,15 +41,29 @@ and your Schoology password is never stored.
 
 ## Get it
 
-Store listings for Safari, Chrome, Edge and Firefox are on the way. To try
-it now on a computer, see the
-[install page](https://megahirt.github.io/schoology-grades-extension/install.html).
+It's on the
+[Chrome Web Store](https://chromewebstore.google.com/detail/grades-dashboard-for-scho/nglbmnaepjadllenolmliglnonjkdhjp),
+which works for Chrome and Edge. Safari and Firefox listings are on the
+way. The [website](https://megahirt.github.io/schoology-grades-extension/#get-it)
+always has the current links.
 
 ## For developers
 
 Building, testing and releasing: [DEVELOPER.md](DEVELOPER.md).
 
----
+## About
+
+[Visit the website](https://megahirt.github.io/schoology-grades-extension/) ·
+[Send feedback](mailto:gradesdashboard@hirtfamily.net?subject=Homework%20Dashboard%20feedback)
 
 Made with ❤️ for North Point Christian families by Chris Hirt.
+
+**Has Grades Dashboard helped your family?** It's free. If you'd like to
+say thanks, you can support my family's mission work, or buy me a coffee.
+
+[Support our mission work](https://www.wycliffe.org/partner/hirt5) ·
+[☕ Buy me a coffee](https://buymeacoffee.com/megahirt)
+
+---
+
 Not affiliated with Schoology or PowerSchool. [MIT License](LICENSE).
