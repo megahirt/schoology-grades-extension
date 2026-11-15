@@ -15,7 +15,7 @@
 #                builds stamped with the version, zipped, with SHA256SUMS.
 #   3. release — GitHub Release for the tag (generated notes + the zips),
 #                then redeploys the site (pages.yml) to show the version.
-#   4. chrome / safari — store jobs. They run in the `release` environment
+#   4. chrome / edge / safari — store jobs. They run in the `release` environment
 #                (owner approval gate + store secrets) and skip gracefully
 #                until their secrets and real upload steps exist; see
 #                docs/release-plan.md. The `release` environment must allow
@@ -216,6 +216,63 @@ jobs:
         if: steps.cws.outputs.configured != 'true'
         run: |
           echo "SKIPPED: Chrome Web Store upload. Set the CWS_SERVICE_ACCOUNT_JSON_B64 secret and the CWS_EXTENSION_ID and CWS_PUBLISHER_ID variables (docs/chrome-web-store-setup.md); not a failure."
+
+  edge:
+    # Microsoft Edge Add-ons (Update REST API v1.1, scripts/publish-edge.mjs):
+    # uploads the release's Chrome ZIP (Edge takes it as is) into the
+    # product's DRAFT. It never publishes: the owner clicks Publish in
+    # Partner Center, which sends the draft to certification. Runs in the
+    # `release` environment (owner approval). Skips, without failing, until
+    # the API key and IDs are set (docs/edge-add-ons-setup.md §3).
+    runs-on: ubuntu-latest
+    needs: [verify, release]
+    environment: release
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - name: Check Edge Add-ons settings
+        id: edge
+        # Secrets go in through env, never pasted into the script itself.
+        env:
+          EDGE_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT: ${{ vars.EDGE_CLIENT_ID }}
+        run: |
+          if [ -n "$EDGE_KEY" ] && [ -n "$EDGE_PRODUCT" ] && [ -n "$EDGE_CLIENT" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out
+        if: steps.edge.outputs.configured == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up Node 24
+        if: steps.edge.outputs.configured == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Download release files
+        if: steps.edge.outputs.configured == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: release-files
+          path: out
+
+      - name: Upload to the Edge Add-ons draft
+        if: steps.edge.outputs.configured == 'true'
+        env:
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ vars.EDGE_CLIENT_ID }}
+        run: node scripts/publish-edge.mjs "out/schoology-grades-extension-${VERSION}-chrome.zip"
+
+      - name: Skip (not set up yet)
+        if: steps.edge.outputs.configured != 'true'
+        run: |
+          echo "SKIPPED: Edge Add-ons upload. Set the EDGE_API_KEY secret and the EDGE_PRODUCT_ID and EDGE_CLIENT_ID variables (docs/edge-add-ons-setup.md); not a failure."
 
   safari:
     # App Store Connect. Scaffold: the Xcode project, archive and TestFlight

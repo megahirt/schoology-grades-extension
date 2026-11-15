@@ -8,6 +8,9 @@
 //                              transparent padding (Chrome's icon guidelines)
 //   promo-small-440x280.png    small promo tile (required)
 //   promo-marquee-1400x560.png marquee tile (optional)
+// and, in store/edge/ (Microsoft Edge Add-ons reuses the screenshots and
+// tiles above):
+//   logo-300.png               extension logo: 300×300, the logo at 268×268
 // Colors follow the site brand (site/style.css --brand).
 // Never use real student data: the repo is public and these images are
 // committed.
@@ -20,7 +23,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMG = path.join(ROOT, 'site/img');
 const OUT = path.join(ROOT, 'store/chrome');
+const EDGE = path.join(ROOT, 'store/edge');
 mkdirSync(OUT, { recursive: true });
+mkdirSync(EDGE, { recursive: true });
 
 const SHOTS = ['desktop-hero', 'parent-jamie', 'student-sam', 'grade-chart', 'records'];
 const dataUrl = (file) => `data:image/png;base64,${readFileSync(path.join(IMG, file)).toString('base64')}`;
@@ -34,13 +39,13 @@ const browser = await chromium.launch({ channel: 'chromium' });
 
 // A fresh page at the exact size for each image (resizing one page between
 // captures can leave stale paint in the shot).
-async function render(name, w, h, html, { transparent = false } = {}) {
+async function render(name, w, h, html, { transparent = false, dir = OUT } = {}) {
   const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
   await page.setContent(html);
   await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
-  await page.screenshot({ path: path.join(OUT, name), omitBackground: transparent });
+  await page.screenshot({ path: path.join(dir, name), omitBackground: transparent });
   await page.close();
-  console.log(`store/chrome/${name}`);
+  console.log(path.relative(ROOT, path.join(dir, name)));
 }
 
 // Screenshots: the 16:10 site shots, scaled down to exactly 1280×800.
@@ -53,6 +58,11 @@ for (const [i, name] of SHOTS.entries()) {
 await render('store-icon-128.png', 128, 128, page0(128, 128,
   `<div style="padding:16px">${icon.replace('<svg ', '<svg width="96" height="96" style="display:block" ')}</div>`,
   'body { background: transparent; }'), { transparent: true });
+
+// Edge extension logo: the logo at 268×268, centred, on a transparent 300×300.
+await render('logo-300.png', 300, 300, page0(300, 300,
+  `<div style="padding:16px">${icon.replace('<svg ', '<svg width="268" height="268" style="display:block" ')}</div>`,
+  'body { background: transparent; }'), { transparent: true, dir: EDGE });
 
 // Small promo tile: icon, name, one line.
 await render('promo-small-440x280.png', 440, 280, page0(440, 280, `
