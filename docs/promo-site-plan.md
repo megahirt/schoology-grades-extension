@@ -67,7 +67,7 @@ to the citation list below.
 | **GO / NO-GO** (parents only, optional) | One verdict per student from family rules: below the passing grade, or at the Missing limit, is NO-GO, and the reason is stated | Weekly alerts to parents about missing work and low grades cut course failures by 27% [1]. Parents underestimate missing work [1]. Rule-setting is the parent involvement that helps most [3] | Surveillance and control backfire. Parents mostly know what teens choose to tell them [6], and controlling involvement hurts [4, 5, 7]. So students never see a verdict, there are no alerts or pings, and the student sees the same information the parent sees |
 | **Missing work first**, with "turned in" and "done" marks | Teacher-marked Missing items first, biggest first. The family can mark paper work turned in or done | Specific missing-work information is the active ingredient in [1]. Feedback works when it's about the task [9, 10] | A plain zero is never called Missing, and marks never notify anyone. That avoids false alarms and shaming |
 | **Due today / tomorrow** | What's due in the next two days | Near goals beat distant ones [12]. Planning when and where to act helps people follow through [13] | No countdown timers and no nagging |
-| **This week's ring** | Fills as this week's work is graded or turned in. Fresh every Monday | Watching progress toward a goal helps people reach it, more so when it's recorded [11]. Near goals build self-efficacy [12] | A weekly reset is a fresh goal, not a streak to lose. Broken streaks make people give up [15] |
+| **This week's progress bar** | Fills as this week's work is graded or turned in. Fresh every Monday | Watching progress toward a goal helps people reach it, more so when it's recorded [11]. Near goals build self-efficacy [12] | A weekly reset is a fresh goal, not a streak to lose. Broken streaks make people give up [15] |
 | **Up since last quarter** ("▲ 6% vs Q1") | Shows only when a class went up | Comparing with your own past builds engagement [16]. Feedback about progress on the task works [9] | Drops show nothing. Feedback that turns attention to the self ("your grade dropped") often makes performance worse [10] |
 | **Records** (personal bests) | Highest score, best week, longest run with nothing missing, highest class grade. They only go up | Personal-best goals predict engagement [16]. Praise effort and process, not ability [17] | No resets to zero, no rankings, no comparing siblings [15, 18]. No points, coins or badges to collect, because rewards for doing a task can crowd out motivation [8, 14] |
 | **Doing well** | Recent good grades, so there's something specific to praise | Specific, task-focused praise [9, 17]. | No generic "great job!" and no praise for being smart [17] |
@@ -140,7 +140,7 @@ current.
   - Parent persona: two children with **8 classes each**. **Sam Rivera** is
     doing well (GO, one Missing, a class up since Q1, lots of "Doing well").
     **Jamie Rivera** is NO-GO (3 Missing, one class below the line). Both have
-    work due today and tomorrow, and a half-full ring.
+    work due today and tomorrow, and a half-full progress bar.
   - Student persona: **Sam Rivera**, with the same data the parent sees.
     That shows the student sees what the parent sees.
   - Teachers: Ms. Park, Mr. Ortiz, Mr. Chen, Mrs. Hall, Mr. Young and Ms.

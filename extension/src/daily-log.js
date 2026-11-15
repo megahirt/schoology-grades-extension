@@ -21,7 +21,7 @@
 //   waiting: { submitted, turnedIn, done },
 //   notSoGood, doingWell: counts in their windows,
 //   lowClasses: classes below the passing grade,
-//   week: { total, graded, submitted } (this week's ring),
+//   week: { total, graded, submitted } (this week's progress bar),
 //   classes: [{ id, name, quarter, overall, grade, label }]
 // }
 

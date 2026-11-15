@@ -26,14 +26,6 @@ function buildCopy(root) {
   const doc = root.ownerDocument;
   const copy = doc.createElement('div');
   copy.className = 'sgd sgd-shot';
-  const head = root.querySelector('.head');
-  if (head) {
-    const h = head.cloneNode(true);
-    // No buttons, child tabs or site switch (Parent | student): its pills
-    // are buttons, and the empty row would leave a blank band at the top.
-    for (const el of h.querySelectorAll('button, .tabs, .sites')) el.remove();
-    copy.append(h);
-  }
   const body = root.querySelector('.body');
   if (body) {
     const b = body.cloneNode(true);
@@ -41,13 +33,17 @@ function buildCopy(root) {
     b.style.height = 'auto';
     b.style.maxHeight = 'none';
     b.style.flex = 'none';
-    for (const el of b.querySelectorAll('button.check-btn, .teacher-chooser, .refreshing, .stale, .gc-hover, .gc-hit, .ring-tip, .chart-link')) el.remove();
+    // The header is inside .body. No buttons, child tabs or site switch
+    // (Parent | student): its pills are buttons, and the empty row would
+    // leave a blank band at the top.
+    for (const el of b.querySelectorAll('.head button, .tabs-bar, .close-pin, .sites')) el.remove();
+    for (const el of b.querySelectorAll('button.check-btn, .teacher-chooser, .refreshing, .stale, .gc-hover, .gc-hit, .wk-tip, .chart-link')) el.remove();
     copy.append(b);
   }
   const credit = root.querySelector('.credit');
   if (credit) {
     const c = credit.cloneNode(true);
-    for (const el of c.querySelectorAll('.feedback-link')) el.remove();
+    for (const el of c.querySelectorAll('.feedback-link, .coffee-link')) el.remove();
     // Drop the "·" left before the removed feedback link.
     const last = c.lastElementChild;
     if (last && last.textContent.trim() === '·') last.remove();

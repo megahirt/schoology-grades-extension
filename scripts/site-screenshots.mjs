@@ -18,7 +18,7 @@
 // 4. Does the same as the student (Sam), in a fresh profile.
 //
 // Pinned date: everything (the showcase data, the extension's clock and the
-// daily log) uses SHOWCASE_NOW, so "Due today", this week's ring and Records
+// daily log) uses SHOWCASE_NOW, so "Due today", this week's progress bar and Records
 // look the same on every run. It's a Sunday afternoon, so the week is nearly
 // done. Override with SHOWCASE_NOW=2026-11-08T16:42:00 (local time).
 //
@@ -70,7 +70,10 @@ const BACKDROP = '<!doctype html><html><head><meta name="viewport" content="widt
 
 const DESKTOP = { width: 1280, height: 800 };
 const HERO = { width: 1440, height: 900 }; // the home page's big picture
-const PHONE = { width: 390, height: 844 };
+// The dashboard fills a phone's screen, so the frame draws a status bar
+// (54 px) above it to keep the header clear of the camera island.
+const PHONE_STATUS = 54;
+const PHONE = { width: 390, height: 844 - PHONE_STATUS };
 const saved = [];
 
 const mock = await startServer(0, { dataset: 'showcase', now: NOW });
@@ -236,7 +239,7 @@ async function scrollTo(locator) {
 // settings page's Developer section): the site shows the real product.
 // Also hide the parent's "Message the teacher" envelope on Missing items:
 // that feature is deliberately not promoted on the site.
-const HIDE_DEV = '.dev-row, .dev-only, a.dev-only, [data-act="email-teacher"] { display: none !important; }';
+const HIDE_DEV = '.dev-foot, .dev-row, .dev-only, a.dev-only, [data-act="email-teacher"] { display: none !important; }';
 async function hideDev(page) {
   await page.evaluate((css) => {
     const add = (root) => {
@@ -268,7 +271,8 @@ async function frame(file, name) {
   await page.setContent(`<!doctype html><html><body style="margin:0;background:transparent">
     <div id="phone" style="display:inline-block;padding:28px;border-radius:118px;background:#1b1d22;box-shadow:inset 0 0 0 4px #3a3d44">
       <div style="position:relative;border-radius:92px;overflow:hidden;width:780px;height:1688px;background:#fff">
-        <img src="${src}" style="display:block;width:780px;height:1688px">
+        <div style="height:${PHONE_STATUS * 2}px;background:#fff;font:600 30px -apple-system,system-ui,sans-serif;color:#111;display:flex;align-items:center;padding:14px 0 0 96px;box-sizing:border-box">4:42</div>
+        <img src="${src}" style="display:block;width:780px;height:${1688 - PHONE_STATUS * 2}px">
         <div style="position:absolute;top:22px;left:50%;transform:translateX(-50%);width:250px;height:72px;border-radius:40px;background:#000"></div>
       </div>
     </div></body></html>`);
@@ -361,19 +365,21 @@ try {
       await page.waitForTimeout(300);
       await save(page, 'parent-jamie');
 
-      // Turned-in mark: tick one Missing item, then show Submitted, not graded yet.
-      await sheet.getByRole('button', { name: 'Mark Field Notes as turned in' }).click();
-      await sheet.getByText(/Submitted, not graded yet/).first().waitFor();
-      // The panel redraws once more after the mark is saved, which resets
-      // the scroll; wait for that, then scroll and check it held.
-      await page.waitForTimeout(1000);
-      for (let i = 0; i < 5; i++) {
-        await scrollTo(sheet.locator('h2', { hasText: 'Submitted, not graded yet' }));
-        await page.waitForTimeout(400);
-        if (await body.evaluate((el) => el.scrollTop > 0)) break;
+      // Submitted, not graded yet: earlier work that was turned in and is
+      // waiting for a grade. (Work marked turned in this week counts in the
+      // week's bar instead, so nothing is ticked here.) Without that section
+      // in the showcase data this shot is skipped and the old image stays.
+      const waitingH = sheet.locator('h2', { hasText: 'Submitted, not graded yet' });
+      if (await waitingH.count()) {
+        for (let i = 0; i < 5; i++) {
+          await scrollTo(waitingH);
+          await page.waitForTimeout(400);
+          if (await body.evaluate((el) => el.scrollTop > 0)) break;
+        }
+        await save(page, 'waiting-on-teacher');
+      } else {
+        console.warn('  ! skipped waiting-on-teacher.png: no "Submitted, not graded yet" section in the showcase data');
       }
-      await save(page, 'waiting-on-teacher');
-      await sheet.getByRole('button', { name: 'Undo: Field Notes' }).click();
 
       // Closed: just the tab at the page's edge, with each child's counts.
       await sheet.getByRole('button', { name: 'Close dashboard panel' }).click();

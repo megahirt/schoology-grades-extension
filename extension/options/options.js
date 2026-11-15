@@ -211,6 +211,7 @@ async function init() {
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
   $('about-icon').src = browser.runtime.getURL('icons/icon128.png');
+  $('close-btn').addEventListener('click', closeSettings);
   $('about-site').href = ABOUT_URL;
   $('about-name').href = ABOUT_URL;
   $('feedback-link').href = feedbackHref(browser);
@@ -231,3 +232,19 @@ async function init() {
 }
 
 init();
+
+// Close: go back to Schoology and close this tab. If a Schoology tab is
+// open in this window, bring the one used last to the front first; the
+// browser picks the tab to show otherwise.
+async function closeSettings() {
+  try {
+    const me = await browser.tabs.getCurrent();
+    const tabs = await browser.tabs.query({ currentWindow: true });
+    const isSchoology = (t) => { try { return /schoology/i.test(new URL(t.url).hostname); } catch { return false; } };
+    const back = tabs.filter((t) => (!me || t.id !== me.id) && isSchoology(t))
+      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+    if (back) await browser.tabs.update(back.id, { active: true });
+    if (me) { await browser.tabs.remove(me.id); return; }
+  } catch { /* fall through */ }
+  window.close();
+}

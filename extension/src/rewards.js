@@ -2,7 +2,7 @@
 // APIs):
 //   - quarterChange: "▲ 6% vs Q1" when a class's quarter grade is up on the
 //     previous quarter (ups only; a drop shows nothing).
-//   - weekProgress: this week's ring: of everything due Monday to Sunday,
+//   - weekProgress: this week's progress bar: of everything due Monday to Sunday,
 //     how much is graded and how much is turned in waiting for a grade.
 //   - classHighScore: a class's highest-scoring assignment so far (shown
 //     under that class's grade chart).

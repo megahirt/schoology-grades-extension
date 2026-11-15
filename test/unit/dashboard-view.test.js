@@ -114,13 +114,14 @@ describe('the student view looks like the parent view', () => {
     { turnedIn: [], done: [] },
     { isParentView },
   ).html;
-  it('same card: picture, name, Missing and Due soon chips, this week\'s ring', () => {
+  it('same card: picture, name, Missing and Due soon chips, this week\'s progress bar', () => {
     const student = render(false);
     expect(student).toContain('<div class="card-name">Sam Rivera</div>');
     expect(student).toMatch(/class="avatar"/);
     expect(student).toMatch(/<span class="stat-l">Missing<\/span>/);
     expect(student).toMatch(/<span class="stat-l">Due soon<\/span>/);
-    expect(student).toContain('class="week"');
+    expect(student).toContain('class="wk-progress"');
+    expect(student).not.toContain('<svg viewBox="0 0 100 100"'); // no ring
   });
   it('without the parent-only parts: no GO/NO-GO and no message-the-teacher button', () => {
     const student = render(false);
@@ -233,13 +234,17 @@ describe('classes: this week\'s work', () => {
       { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;
     expect(missing).toContain('aria-label="Art: 0 of 1 done this week"><i class="seg"></i></div>');
   });
-  it('the ring counts the same items, Missing in orange', () => {
+  it('the progress bar counts the same items, Missing in orange', () => {
     const html = render();
-    expect(html).toContain('aria-label="3 of 6 assignments this week: 1 graded, 2 turned in, 2 missing, 1 remaining"');
-    expect(html).toContain('stroke="#ea580c"');
-    expect(html).toContain('data-tip="2 missing"');
+    // "3 of 6 assignments, Nov 9 to 15: …" (the dates are this week's).
+    expect(html).toMatch(/aria-label="3 of 6 assignments, [A-Z][a-z]{2} \d{1,2} to (?:[A-Z][a-z]{2} )?\d{1,2}: 1 graded, 2 turned in, 2 missing, 1 remaining"/);
+    expect(html).toMatch(/<b>3 of 6<\/b> done · [A-Z][a-z]{2} \d{1,2} to /);
+    expect(html).toContain('<span class="wk-part missing" data-tip="2 missing" style="flex-grow:2"></span>');
+    expect(html).toContain('data-tip="1 remaining"');
+    // The rocket sits where the done work ends: 3 of 6.
+    expect(html).toContain('<span class="wk-rocket" style="--done:0.5000">🚀</span>');
     // Marked turned in, earlier Missing work counts as turned in.
-    expect(render({ turnedIn: ['w5'] })).toContain('4 of 6 assignments this week: 1 graded, 3 turned in, 1 missing, 1 remaining');
+    expect(render({ turnedIn: ['w5'] })).toMatch(/4 of 6 assignments, [^:]+: 1 graded, 3 turned in, 1 missing, 1 remaining/);
   });
   it('Submitted, not graded yet keeps only earlier work that was never Missing', () => {
     const html = render();
