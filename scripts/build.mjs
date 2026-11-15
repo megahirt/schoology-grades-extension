@@ -31,6 +31,7 @@ import { build } from 'esbuild';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { forFirefox } from './manifest-firefox.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -56,7 +57,6 @@ const FAKE_NOW_BANNER = fakeNow === null ? '' : `(() => {
   globalThis.Date = FakeDate;
 })();`;
 const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : 'dist');
-const FIREFOX_ID = 'grades-dashboard@hirtfamily.net';
 
 // Adding a school's own Schoology address (schoology.yourschool.org) needs
 // the optional "https://*/*" host permission, plus "scripting" and
@@ -121,7 +121,7 @@ async function main() {
   }
 
   // Manifest (transformed for --dev).
-  const manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
+  let manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
   manifest.version = releaseVersion();
   if (isDev) {
     manifest.name = 'Grades Dashboard (Dev)';
@@ -133,16 +133,7 @@ async function main() {
     // Run the content script (grades scrape + panel) on the mock server too.
     for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost:*/*'];
   }
-  if (isFirefox) {
-    manifest.background = { scripts: ['background.js'] };
-    manifest.options_ui = { page: manifest.options_page, open_in_tab: true };
-    delete manifest.options_page;
-    manifest.browser_specific_settings = { gecko: { id: FIREFOX_ID, strict_min_version: '128.0' } };
-    // Firefox match patterns can't name a port; without one they match any.
-    const noPort = (list) => (list || []).map((m) => m.replace('localhost:*', 'localhost'));
-    manifest.host_permissions = noPort(manifest.host_permissions);
-    for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);
-  }
+  if (isFirefox) manifest = forFirefox(manifest);
   if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;
   if (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES) {
     manifest.permissions = manifest.permissions.filter((p) => p !== 'scripting' && p !== 'activeTab');
