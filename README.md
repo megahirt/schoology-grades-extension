@@ -17,7 +17,7 @@
 ![Firefox](https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white)
 [![Privacy: no data collected](https://img.shields.io/badge/privacy-no%20data%20collected-2e7d4f)](https://megahirt.github.io/schoology-grades-extension/privacy.html)
 
-<img src="site/img/phone-parent-sam.png" width="320" alt="The dashboard on an iPhone: Sam has 1 missing assignment, 4 due soon, and 13 of 16 assignments done this week.">
+<img src="site/img/desktop-hero.png" width="820" alt="Schoology's grades page for a Biology class, with the Grades Dashboard panel on the right: Sam has 1 missing assignment, 4 due soon, and 13 of 16 assignments done this week.">
 
 </div>
 
