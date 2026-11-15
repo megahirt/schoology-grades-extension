@@ -103,29 +103,6 @@
       <p id="clear-status" class="muted" role="status"></p>
     </section>
 
-    <section id="developer" class="card dev dev-only" hidden>
-      <div class="dev-h">
-        <span class="dev-tag">DEV</span>
-        <h2>Developer</h2>
-        <span id="dev-build" class="muted"></span>
-      </div>
-      <div class="row">
-        <div class="grow">
-          <div class="strong" id="src-label">Data source</div>
-          <div class="muted">The mock server runs on localhost:8123 (npm run mock-server).</div>
-        </div>
-        <div class="seg dev-seg" role="radiogroup" aria-labelledby="src-label" id="source-seg">
-          <button type="button" role="radio" data-value="real">Real Schoology</button>
-          <button type="button" role="radio" data-value="mock">Mock server</button>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="live-test-btn" type="button" class="btn dev-btn">Run live connection test</button>
-        <button id="demo-btn" type="button" class="btn dev-btn">Load demo data</button>
-      </div>
-      <pre id="dev-result" class="result" hidden></pre>
-    </section>
-
     <section id="about" class="card">
       <div class="card-h"><h2>About</h2></div>
       <div class="about-top">
@@ -156,6 +133,29 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section id="developer" class="card dev dev-only" hidden>
+      <div class="dev-h">
+        <span class="dev-tag">DEV</span>
+        <h2>Developer</h2>
+        <span id="dev-build" class="muted"></span>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <div class="strong" id="src-label">Data source</div>
+          <div class="muted">The mock server runs on localhost:8123 (npm run mock-server).</div>
+        </div>
+        <div class="seg dev-seg" role="radiogroup" aria-labelledby="src-label" id="source-seg">
+          <button type="button" role="radio" data-value="real">Real Schoology</button>
+          <button type="button" role="radio" data-value="mock">Mock server</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="live-test-btn" type="button" class="btn dev-btn">Run live connection test</button>
+        <button id="demo-btn" type="button" class="btn dev-btn">Load demo data</button>
+      </div>
+      <pre id="dev-result" class="result" hidden></pre>
     </section>
   </main>
 </div>
