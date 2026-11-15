@@ -23,7 +23,7 @@
 
 ## What it is
 
-A free browser extension that puts one calm page on top of Schoology. It
+A free browser extension that puts one dashboard on top of Schoology. It
 shows what's missing, what's due soon, and how each class is going.
 
 ## Who it's for

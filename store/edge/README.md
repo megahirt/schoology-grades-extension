@@ -95,7 +95,7 @@ transfer user data.
 **Description** (250 to 10,000 characters; paste as is):
 
 ```text
-Grades Dashboard puts one calm page on top of Schoology. It shows what's missing, what's due soon, and how each class is going, for parents and students.
+Grades Dashboard puts one dashboard on top of Schoology. It shows what's missing, what's due soon, and how each class is going, for parents and students.
 
 FOR PARENTS
 • See missing work and low grades at a glance, for each of your children.
