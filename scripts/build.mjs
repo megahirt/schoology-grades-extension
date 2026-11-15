@@ -56,7 +56,7 @@ const FAKE_NOW_BANNER = fakeNow === null ? '' : `(() => {
   globalThis.Date = FakeDate;
 })();`;
 const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : 'dist');
-const FIREFOX_ID = 'schoology-dashboard@schoologydashboard';
+const FIREFOX_ID = 'grades-dashboard@hirtfamily.net';
 
 // Adding a school's own Schoology address (schoology.yourschool.org) needs
 // the optional "https://*/*" host permission, plus "scripting" and

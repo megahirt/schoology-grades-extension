@@ -72,6 +72,12 @@ describe('firstTabSender', () => {
     expect(asked).toEqual([1, 2, 3, 3]);
   });
 
+  it('passes over a tab that never answers', async () => {
+    const sendToTab = (tabId) => (tabId === 1 ? new Promise(() => {}) : Promise.resolve({ status: 200, tab: tabId }));
+    expect(await firstTabSender([1, 2], sendToTab, 20)({})).toEqual({ status: 200, tab: 2 });
+    await expect(firstTabSender([1], sendToTab, 20)({})).rejects.toThrow('took too long');
+  });
+
   it('throws when no tab answers', async () => {
     await expect(firstTabSender([], async () => ({}))({})).rejects.toThrow('No Schoology page is open');
     await expect(firstTabSender([1], async () => { throw new Error('gone'); })({})).rejects.toThrow('gone');

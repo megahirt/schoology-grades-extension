@@ -113,4 +113,4 @@ Schoology or PowerSchool. "Schoology" is a trademark of its owner.
 
 Questions or concerns:
 [open an issue on GitHub](https://github.com/megahirt/schoology-grades-extension/issues)
-or email [schoologydashboard@gmail.com](mailto:schoologydashboard@gmail.com).
+or email [gradesdashboard@hirtfamily.net](mailto:gradesdashboard@hirtfamily.net).

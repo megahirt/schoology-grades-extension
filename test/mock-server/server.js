@@ -204,6 +204,7 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
   const adminsOf = showcase ? showcase.admins : courseAdmins;
   const adminNames = showcase ? SHOWCASE_ADMINS : ADMIN_NAMES;
   let pageOnly = false; // see /__mock/page-only below
+  let pageOnlyFails = false;
   return http.createServer(async (req, res) => {
     if (delayMs > 0 && /\/(grades|parent\/home|course\/)/.test(req.url || '')) {
       await new Promise((r) => setTimeout(r, delayMs));
@@ -238,12 +239,19 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
       // as signed in. GET /__mock/page-only?on=1|0
       // Told apart by the Sec-Fetch headers Chromium sends (Firefox sends its
       // background requests as same-origin, so this only works in Chromium).
+      // &how=fail: such a request fails outright instead (a school whose
+      // sign-in is on another site: the worker may not follow it there).
       if (pathname === '/__mock/page-only') {
         pageOnly = reqUrl.searchParams.get('on') === '1';
-        sendJson(res, 200, { pageOnly });
+        pageOnlyFails = pageOnly && reqUrl.searchParams.get('how') === 'fail';
+        sendJson(res, 200, { pageOnly, pageOnlyFails });
         return;
       }
       const fromPage = req.headers['sec-fetch-mode'] === 'navigate' || req.headers['sec-fetch-site'] === 'same-origin';
+      if (pageOnly && !fromPage && pageOnlyFails) {
+        req.socket.destroy();
+        return;
+      }
       if (cookies['mock-session'] !== '1' || (pageOnly && !fromPage)) {
         redirect(res, '/login');
         return;

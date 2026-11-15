@@ -444,7 +444,10 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
   // worker is answered with the sign-in page, and only a request from one of
   // the site's own pages is signed in. The extension must then read through
   // the open Schoology page (extension/src/page-fetch.js).
-  test('background requests signed out (as in Safari): reads through the open Schoology page', async () => {
+  // how 'fail': the worker's request fails outright, as when a school sends
+  // signed-out requests on to its own sign-in on another site (seen live:
+  // a school using Microsoft sign-in showed "Couldn't reach Schoology").
+  for (const how of ['login', 'fail']) test(`background requests ${how === 'fail' ? 'fail' : 'signed out'} (as in Safari): reads through the open Schoology page`, async () => {
     // Chromium only: the mock tells the worker's requests from a page's by
     // their Sec-Fetch headers, and Firefox sends its background requests
     // with the same ones as a page's (same-origin). The code under test has
@@ -456,9 +459,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     try {
       await loginAs(context, 'parent');
       await configureExtension(context, extensionId, worker);
-      await fetch(`${mock.url}/__mock/page-only?on=1`);
+      await fetch(`${mock.url}/__mock/page-only?on=1&how=${how}`);
       // The worker itself really is turned away.
-      expect(await worker.evaluate(async (u) => (await fetch(u, { credentials: 'include' })).url, `${site}/iapi/parent/info`)).toBe(`${site}/login`);
+      expect(await worker.evaluate(async (u) => fetch(u, { credentials: 'include' }).then((r) => r.url, () => 'failed'), `${site}/iapi/parent/info`)).toBe(how === 'fail' ? 'failed' : `${site}/login`);
 
       // A Schoology page loads: the refresh it starts reads through that page.
       const page = await context.newPage();

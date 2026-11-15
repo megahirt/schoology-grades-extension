@@ -105,11 +105,14 @@ async function refreshGrades(site, progress = () => {}) {
   let client = createClient({ baseUrl: site });
   const started = JSON.stringify((await getUser(site)) || null);
   let account = await client.detectAccount();
-  if (account.type === 'loggedOut') {
-    // Schoology answered this worker with its sign-in page. In some browsers
-    // (Safari) that only means the worker's requests go out without the
-    // sign-in: ask an open Schoology page of this site, where the sign-in
-    // applies. Only an answer that finds someone signed in replaces ours.
+  if (account.type === 'loggedOut' || account.type === 'unknown') {
+    // Schoology answered this worker with its sign-in page, or the request
+    // failed. In some browsers (Safari) that only means the worker's requests
+    // go out without the sign-in: Schoology then sends them to its sign-in
+    // page, or on to the school's own sign-in on another site (Microsoft,
+    // Google), which the worker may not read, so the request fails. Ask an
+    // open Schoology page of this site, where the sign-in applies. Only an
+    // answer that finds someone signed in replaces ours.
     const pageFetch = await pageFetchFor(site);
     if (pageFetch) {
       const viaPage = createClient({ baseUrl: site, fetchImpl: pageFetch });

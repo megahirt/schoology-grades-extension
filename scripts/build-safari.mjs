@@ -47,9 +47,10 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { fixSafariProject } from './safari-project.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dev = process.argv.includes('--dev');
@@ -194,7 +195,10 @@ if (packager) {
     BUNDLE_ID,
     '--swift',
     '--macos-only',
-    '--no-open'
+    '--no-open',
+    // Regenerate over the last run's project without stopping to ask.
+    '--no-prompt',
+    '--force'
   ];
   const result = run('xcrun', args);
   if (result.status !== 0) {
@@ -202,6 +206,27 @@ if (packager) {
     console.error('Check the converter output above; verify bundle IDs and manifest keys, then re-run.');
     process.exit(result.status ?? 1);
   }
+  // The packager's project is not ready to ship: fix the app's bundle ID,
+  // the version, the oldest macOS it runs on and the App Store category
+  // (scripts/safari-project.mjs). BUILD_NUMBER (CFBundleVersion) must be
+  // new for every upload to Apple; it defaults to 1. APPLE_TEAM_ID (the
+  // Apple developer team, e.g. APPLE_TEAM_ID=ABCDE12345) signs both targets;
+  // without it, pick the Team on EACH target in Xcode after every run.
+  const projectDir = path.join(SAFARI_DIR, APP_NAME, `${APP_NAME}.xcodeproj`);
+  const projectFile = ['project.xcproj', 'project.pbxproj'].map((f) => path.join(projectDir, f)).find((f) => existsSync(f));
+  if (!projectFile) {
+    console.error(`ERROR: no project file found in ${projectDir}.`);
+    process.exit(1);
+  }
+  const version = JSON.parse(readFileSync(path.join(inputDir, 'manifest.json'), 'utf8')).version;
+  const build = process.env.BUILD_NUMBER || '1';
+  const teamId = (process.env.APPLE_TEAM_ID || '').trim();
+  if (teamId && !/^[A-Z0-9]{10}$/.test(teamId)) {
+    console.error(`ERROR: APPLE_TEAM_ID "${teamId}" is not a 10-character Apple team ID.`);
+    process.exit(1);
+  }
+  writeFileSync(projectFile, fixSafariProject(readFileSync(projectFile, 'utf8'), { bundleId: BUNDLE_ID, version, build, teamId }), 'utf8');
+  console.log(`Fixed the project: bundle ID ${BUNDLE_ID}, version ${version} (build ${build}), ${teamId ? `team ${teamId} on both targets` : 'no team (set APPLE_TEAM_ID, or pick the Team on each target in Xcode)'}.`);
   console.log(`\nSafari Xcode project generated in ${SAFARI_DIR}`);
   console.log('Next: open the .xcodeproj, set the Team on every target, verify bundle IDs — see docs/safari.md.');
 } else {
