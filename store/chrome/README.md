@@ -15,7 +15,7 @@ GitHub Release, not a local build.
 | Field | Value |
 |---|---|
 | Name | Grades Dashboard for Schoology (from the manifest) |
-| Summary | See missing work, what's due and how grades are going in Schoology, on one calm page. Everything stays on your device. (manifest `description`, 118 of 132 characters) |
+| Summary | See missing work, what's due and how grades are going in Schoology, on one calm page. Data stays on your device. (manifest `description`, 112 characters: Chrome allows 132, Safari 112) |
 
 ## Store listing tab
 
