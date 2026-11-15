@@ -153,7 +153,9 @@ async function refreshGrades(site, progress = () => {}) {
     const byUid = {};
     for (const d of dashboards) {
       // Re-summarize with the family's settings (fetch layer used defaults).
-      let summary = summarizeStudent(d.courses, settings, turnedIn[d.studentUid], markedDone[d.studentUid]);
+      // Marks are a student's own: a parent's view never uses them.
+      const own = d.studentUid === 'self';
+      let summary = summarizeStudent(d.courses, settings, own ? turnedIn.self : [], own ? markedDone.self : []);
       if (d.error) {
         // Keep the UNKNOWN verdict — empty courses would recompute to a false GO.
         summary = { ...summary, verdict: { verdict: 'UNKNOWN', reasons: ['Could not read this child’s grades.'] } };
@@ -501,8 +503,8 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 // { uids, at } }), kept a month, for guessing which admin teaches a class.
 const ADMINS_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
-async function fetchCoursePage(base, isParent, uid, courseId) {
-  const url = base + coursePagePath({ isParent, childUid: uid, courseId });
+// A Schoology page's HTML as the signed-in user.
+async function fetchSchoologyPage(base, url) {
   let res = await fetch(url, { credentials: 'include' });
   let html = res.ok ? await res.text() : '';
   if (res.ok && isLoginPage(html, res.url)) {
@@ -516,6 +518,27 @@ async function fetchCoursePage(base, isParent, uid, courseId) {
   }
   if (!res.ok) throw new Error(`Schoology answered ${res.status}`);
   return html;
+}
+
+function fetchCoursePage(base, isParent, uid, courseId) {
+  return fetchSchoologyPage(base, base + coursePagePath({ isParent, childUid: uid, courseId }));
+}
+
+// Make `uid` the child a parent's Schoology session is viewing (the same as
+// picking the child in Schoology's menu). A message to a class's teacher only
+// opens while Schoology is viewing the child who is in that class; any other
+// child gets "Private Access Only". Reading other children's class pages
+// (adminClassCounts) or a refresh can leave another child selected.
+async function viewChild({ uid, site }) {
+  try {
+    const base = await siteOf(site);
+    const account = (await getAccount(base)) || {};
+    if (account.type !== 'parent' || !uid || uid === 'self') return { ok: true, switched: false };
+    await fetchSchoologyPage(base, `${base}/parent/home?child_uid=${encodeURIComponent(uid)}`);
+    return { ok: true, switched: true };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message ? e.message : e) };
+  }
 }
 
 // How many of the family's classes list each admin: { [adminUid]: n }.
@@ -620,6 +643,9 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     }
     case 'teacher-compose-url': {
       return teacherComposeUrl(message);
+    }
+    case 'view-child': {
+      return viewChild(message);
     }
     case 'refresh-via-hidden-tab': {
       if (!message.url) return { ok: false, error: 'No Grades URL supplied' };

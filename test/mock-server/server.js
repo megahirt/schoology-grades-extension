@@ -302,10 +302,21 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
         const admins = adminsOf(coursePage[1]);
         const compose = `${persona === 'parent' ? '/parent' : ''}/messages/new/course/${coursePage[1]}?recipient_uids=${admins.map((a) => a.uid).join('%2C')}`;
         const pictures = admins.map((a) => `<div class="picture"><a href="/user/${a.uid}" title="${a.name}"><img alt="${a.name}"></a></div>`).join('');
-        sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">${admins.length} Admin${admins.length > 1 ? 's' : ''}</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3><div class='picture_block clearfix'>${pictures}</div>`));
+        // As on Schoology: a parent's preview link also switches the viewed child.
+        const previewUid = (coursePage[2].match(/^preview\/(\d+)\/parent$/) || [])[1];
+        const previewChild = persona === 'parent' && previewUid && PARENT_DATA.children.find((c) => c.uid === previewUid);
+        const courseHeaders = previewChild ? { 'set-cookie': `mock-view-child=${previewChild.uid}; Path=/` } : {};
+        sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">${admins.length} Admin${admins.length > 1 ? 's' : ''}</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3><div class='picture_block clearfix'>${pictures}</div>`), courseHeaders);
         return;
       }
       if (/^\/(parent\/)?messages\/new\/course\/\d+$/.test(pathname)) {
+        // As on Schoology: a parent can only message a class's teachers while
+        // viewing the child who is in that class.
+        const composeCourse = pathname.match(/(\d+)$/)[1];
+        if (persona === 'parent' && !viewChild(cookies, PARENT_DATA).courses.some((c) => String(c.id) === composeCourse)) {
+          sendHtml(res, 200, renderPage('Private Access Only', '<h2>Private Access Only</h2><p>The privacy settings on the page you are trying to visit do not allow you to view it.</p>'));
+          return;
+        }
         const to = String(reqUrl.searchParams.get('recipient_uids') || '').split(',').map((uid) => adminNames[uid] || uid);
         sendHtml(res, 200, renderPage('Compose Message', `<form id="s-messaging-compose-enrollment-form" method="post"><div class="to">To: ${to.join(', ')}</div>` +
           '<input type="text" name="subject" value=""><textarea name="body"></textarea><input type="submit" name="op" value="Send"></form>'));

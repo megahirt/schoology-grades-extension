@@ -54,9 +54,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .btn { height: 36px; padding: 0 14px; border: 1px solid #d3d7dc; border-radius: 8px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; }
 .btn:hover { background: #f6f7f9; }
 .btn:disabled { opacity: 0.55; cursor: default; }
-/* Close: dark, like the dashboard's close button. */
-.btn.close-btn { display: inline-flex; align-items: center; gap: 6px; border-color: #1f2933; background: #1f2933; color: #fff; }
-.btn.close-btn:hover { background: #111827; }
+/* Close: solid grey, like the dashboard's close button. */
+.btn.close-btn { display: inline-flex; align-items: center; gap: 6px; border-color: #6b7785; background: #6b7785; color: #fff; }
+.btn.close-btn:hover { border-color: #4b5563; background: #4b5563; }
 .btn.danger { border-color: #f1c4bd; background: #fdf6f5; color: var(--nogo); }
 
 .status-box { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px; background: #f6f7f9; border-radius: 10px; }

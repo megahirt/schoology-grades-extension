@@ -176,8 +176,9 @@ describe('classes: this week\'s work', () => {
       { id: 'w6', title: 'Old Report', status: 'pending', submitted: true, due: at(-4) },
     ],
   };
-  const render = (marks = {}, openClass = null) => renderStudentBody({ studentName: 'Sam Rivera', courses: [course] }, 'u1', { ...DEFAULT_SETTINGS },
-    { turnedIn: marks.turnedIn || [], done: marks.done || [] }, { isParentView: true, openClass, now: NOW }).html;
+  // Marking is a student's own, so the default view here is the student's.
+  const render = (marks = {}, openClass = null, isParentView = false) => renderStudentBody({ studentName: 'Sam Rivera', courses: [course] }, 'u1', { ...DEFAULT_SETTINGS },
+    { turnedIn: marks.turnedIn || [], done: marks.done || [] }, { isParentView, openClass, now: NOW }).html;
 
   it('the bar has a segment per assignment (earlier Missing work included), filled as work is done; a low grade is a pill', () => {
     const html = render();
@@ -215,7 +216,27 @@ describe('classes: this week\'s work', () => {
     // The chart comes after the list.
     expect(html.indexOf('class="week-list"')).toBeLessThan(html.indexOf('class="chart-box"'));
   });
-  it('a family mark crosses it out and can be undone; earlier Missing work stays checked in its class', () => {
+  it('marking is for students only: a parent sees no mark buttons, and marks do not count', () => {
+    const parent = render({ turnedIn: ['w5'], done: ['w4'] }, 'u1:c9', true);
+    expect(parent).not.toContain('data-act="turned-in"');
+    expect(parent).not.toContain('data-act="done"');
+    expect(parent).not.toContain('data-act="undo"');
+    expect(parent).toContain('<span class="week-label">3 of 6</span>'); // marks ignored
+    expect(parent).toMatch(/Missing · 2</);
+    expect(parent).toContain('data-act="email-teacher"');
+  });
+  it('a marked item stays in its list, struck through, with Undo; the counts go down', () => {
+    const html = render({ turnedIn: ['w5'] });
+    // Still listed under Missing, marked, with Undo in place of the mark button.
+    expect(html).toMatch(/<div class="missing-card marked" data-aid="w5">[\s\S]*?Old Missing Lab[\s\S]*?data-act="undo" data-reason="turnedIn"[^>]*aria-label="Undo: Old Missing Lab"/);
+    expect(html).toMatch(/<div class="missing-card" data-aid="w3">[\s\S]*?data-act="turned-in"[^>]*aria-label="Mark Osmosis Worksheet as turned in"/);
+    expect(html).toMatch(/Missing · 1</); // one left of the two
+    // Not moved to Submitted, not graded yet.
+    const waiting = html.slice(html.indexOf('Submitted, not graded yet ·'));
+    expect(waiting).not.toContain('Old Missing Lab');
+    expect(html).not.toContain('nobody is notified');
+  });
+  it('a mark crosses it out in its class and can be undone; earlier Missing work stays checked in its class', () => {
     const list = render({ done: ['w4'] }, 'u1:c9');
     expect(list).toContain('<span class="week-label">4 of 6</span>');
     expect(list).toMatch(/data-act="undo" data-reason="done"[^>]*aria-label="Undo: Photosynthesis Diagram"/);
@@ -224,11 +245,11 @@ describe('classes: this week\'s work', () => {
     expect(old).toMatch(/data-act="undo" data-reason="turnedIn"[^>]*aria-label="Undo: Old Missing Lab"/);
     expect(old).toContain('<span class="week-label">4 of 6</span>');
   });
-  it('nothing due this week: one solid green bar, no count', () => {
+  it('nothing due this week: one grey bar and "No HW"', () => {
     const html = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'q', name: 'Art', grade: 95, assignments: [{ id: 'z', title: 'Old', status: 'graded', score: 1, maxPoints: 1, due: at(-9) }] }] }, 'u1',
       { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;
-    expect(html).toContain('aria-label="Art: nothing due this week"><i class="seg on"></i></div>');
-    expect(html).not.toContain('class="week-label"');
+    expect(html).toContain('aria-label="Art: nothing due this week"><i class="seg"></i></div>');
+    expect(html).toContain('<span class="week-label">No HW</span>');
     // Earlier Missing work is this week's work: one grey segment to do.
     const missing = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'q', name: 'Art', grade: 95, assignments: [{ id: 'z', title: 'Old', status: 'missing', due: at(-9) }] }] }, 'u1',
       { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true, now: NOW }).html;

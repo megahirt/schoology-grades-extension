@@ -178,7 +178,8 @@ export async function tabSummaries() {
   const turnedIn = (await getTurnedIn()) || {};
   const done = (await getMarkedDone()) || {};
   return Object.entries(dashboards).map(([uid, d]) => {
-    const sum = summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid]);
+    // Marks are a student's own: a parent's view never uses them.
+    const sum = summarizeStudent(d.courses || [], settings, isStudent ? turnedIn[uid] : [], isStudent ? done[uid] : []);
     const unknown = Boolean(d.error || isPartial(d));
     return {
       name: d.studentName || 'Student',
