@@ -263,7 +263,7 @@ describe('classes: this week\'s work', () => {
     expect(html).toContain('<span class="wk-part missing" data-tip="2 missing" style="flex-grow:2"></span>');
     expect(html).toContain('data-tip="1 remaining"');
     // The rocket sits where the done work ends: 3 of 6.
-    expect(html).toContain('<span class="wk-rocket" style="--done:0.5000">🚀</span>');
+    expect(html).toContain('<span class="wk-rocket" data-done="3" style="--done:0.5000">🚀</span>');
     // Marked turned in, earlier Missing work counts as turned in.
     expect(render({ turnedIn: ['w5'] })).toMatch(/4 of 6 assignments, [^:]+: 1 graded, 3 turned in, 1 missing, 1 remaining/);
   });

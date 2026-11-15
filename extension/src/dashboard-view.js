@@ -627,7 +627,7 @@ function weekBar(w, span) {
     // The rocket rides the bar: at the start with nothing done, at the far
     // end when everything is.
     `<div class="wk-bar" aria-hidden="true">${segs}<div class="wk-tip" hidden></div>` +
-    `<span class="wk-rocket" style="--done:${(n / w.total).toFixed(4)}">🚀</span></div>` +
+    `<span class="wk-rocket" data-done="${n}" style="--done:${(n / w.total).toFixed(4)}">🚀</span></div>` +
     `<div class="wk-count" aria-hidden="true"><b>${n} of ${w.total}</b> done · ${escapeHtml(span)}</div></div>`;
 }
 
@@ -914,6 +914,42 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       '<div class="mark-foot"><label class="mark-skip"><input type="checkbox" id="sgd-mark-skip"> Do not show again</label>' +
       '<button class="btn primary" type="button" data-act="mark-ok">I understand</button></div></div></div>';
   }
+  // The rocket flies along the week's bar when the done count has gone up
+  // since this person last saw it: just now (something was marked done) or
+  // since the dashboard was last open (new grades came in). What was last
+  // seen is kept on this device: weekSeen = { [uid]: { week, n, frac } }.
+  let weekSeen = null;
+  let flying = null; // { uid, n, from, start } while a flight is playing
+  const FLY_MS = 1050; // the animation's delay plus its length (dashboard.css)
+  async function flyRocket(uid) {
+    const rocket = root.querySelector('.wk-rocket');
+    if (!rocket || !uid) return;
+    const n = Number(rocket.dataset.done);
+    const frac = Number(rocket.style.getPropertyValue('--done'));
+    if (!Number.isFinite(n) || !Number.isFinite(frac)) return;
+    const week = weekRange(Date.now()).from;
+    if (!weekSeen) weekSeen = (await storageGet('weekSeen', null).catch(() => null)) || {};
+    const prev = weekSeen[uid];
+    if (prev && prev.week === week && prev.n === n && prev.frac === frac) {
+      // Redrawn in the middle of a flight (the view redraws when storage
+      // changes): carry on from where the flight had got to.
+      const elapsed = flying && flying.uid === uid && flying.n === n ? Date.now() - flying.start : FLY_MS;
+      if (elapsed < FLY_MS && rocket.isConnected) {
+        rocket.style.setProperty('--from', String(flying.from));
+        rocket.style.animationDelay = `${(150 - elapsed) / 1000}s`;
+        rocket.classList.add('fly');
+      }
+      return;
+    }
+    weekSeen[uid] = { week, n, frac };
+    storageSet('weekSeen', weekSeen).catch(() => {});
+    // Only forward, within the same week, and only if it's still on screen.
+    if (!prev || prev.week !== week || !(n > prev.n) || !(frac > prev.frac) || !rocket.isConnected) return;
+    rocket.style.setProperty('--from', String(prev.frac));
+    rocket.classList.add('fly');
+    flying = { uid, n, from: prev.frac, start: Date.now() };
+  }
+
   async function applyMark(act, uid, aid) {
     if (act === 'turned-in') await toggleMark(getTurnedIn, setTurnedIn, uid, aid, true);
     else await toggleMark(getMarkedDone, setMarkedDone, uid, aid, true);
@@ -1139,6 +1175,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (win && pageTop && win.scrollY !== pageTop) win.scrollTo(win.scrollX, pageTop);
     // A profile picture that fails to load falls back to the initials.
     drawChooser();
+    flyRocket(pickedUid).catch(() => {});
     for (const img of root.querySelectorAll('img.avatar')) {
       img.addEventListener('error', () => {
         const span = root.ownerDocument.createElement('span');
