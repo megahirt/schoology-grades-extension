@@ -124,7 +124,10 @@ git push origin v1.4.0
 3. Creates the GitHub Release (generated notes, ZIPs, checksums).
 4. Redeploys the site so it shows the new version.
 5. Runs the store uploads behind the `release` environment's approval gate.
-   They skip until their secrets and upload steps exist.
+   They skip until their secrets and upload steps exist. Chrome is
+   submitted for review; Edge gets a draft
+   ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)). Each waits
+   for the owner's Publish click in its store.
 
 Local builds use the newest `vX.Y.Z` tag, or `0.0.0` if there is none. Set
 `RELEASE_VERSION=1.4.0` to override. The full plan, including stores,
@@ -167,6 +170,8 @@ Safari, and student accounts. Details:
   submission
 - [docs/chrome-web-store-setup.md](docs/chrome-web-store-setup.md): Chrome
   Web Store setup
+- [docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md): Edge Add-ons
+  setup
 - [docs/release-plan.md](docs/release-plan.md): releases and store
   publishing
 - [docs/promo-site-plan.md](docs/promo-site-plan.md): the website
