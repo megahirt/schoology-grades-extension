@@ -502,9 +502,15 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await opts.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}`);
       await expect(opts.getByRole('heading', { name: 'Grades Dashboard settings' })).toBeVisible();
       await expect(opts.locator('#account-title')).toHaveText('Connected as a student');
-      for (const name of ['Account', 'Display', 'Privacy & data']) {
+      for (const name of ['Account', 'Display', 'Privacy & data', 'About']) {
         await expect(opts.getByRole('heading', { name, exact: true })).toBeVisible();
       }
+      // The School address section is gone; About links the website and two ways to say thanks.
+      await expect(opts.getByRole('heading', { name: 'School address', exact: true })).toHaveCount(0);
+      await expect(opts.getByRole('link', { name: 'Visit the website' })).toHaveAttribute('href', 'https://megahirt.github.io/schoology-grades-extension/');
+      await expect(opts.getByRole('link', { name: 'Support our mission work' })).toHaveAttribute('href', 'https://www.wycliffe.org/partner/hirt5');
+      await expect(opts.getByRole('link', { name: 'Buy me a coffee' })).toHaveAttribute('href', 'https://buymeacoffee.com/megahirt');
+      await expect(opts.locator('#version')).toHaveText(/^Version \d+\.\d+\.\d+/);
       // Family rules are for parents only; removed choices are gone.
       await expect(opts.getByRole('heading', { name: 'Family rules', exact: true })).toBeHidden();
       for (const gone of ['Who sees grades', 'Not so good', 'Show the GO/NO-GO badge', 'Dashboard panel on Schoology pages']) {
