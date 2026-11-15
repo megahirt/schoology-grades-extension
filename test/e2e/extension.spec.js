@@ -351,6 +351,8 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(popup.getByText('Missing · 1')).toBeVisible(); // not marked yet
       await popup.getByRole('button', { name: 'I understand' }).click();
       await expect(popup.getByRole('alertdialog')).toHaveCount(0);
+      // The week's done count went up, so the rocket flies along the bar.
+      await expect(popup.locator('.wk-rocket')).toHaveClass(/fly/);
       // It stays where it is, struck through, with Undo; the counts go down.
       await expect(essay).toHaveClass(/marked/);
       await expect(popup.getByText('Missing · 0')).toBeVisible();

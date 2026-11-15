@@ -291,6 +291,15 @@
 .sgd .wk-tip[hidden] { display: none; }
 /* The emoji points up and to the right; turned 45° it flies along the bar. */
 .sgd .wk-rocket { position: absolute; top: 50%; left: calc((100% - 28px) * var(--done, 0)); width: 28px; height: 28px; margin-top: -14px; display: flex; align-items: center; justify-content: center; font-size: 24px; line-height: 1; transform: rotate(45deg); pointer-events: none; z-index: 1; }
+/* The done count went up: the rocket flies from where it was to where it
+   is now, with a small hop on landing. Plays once. */
+.sgd .wk-rocket.fly { animation: sgd-rocket-fly 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both; }
+@keyframes sgd-rocket-fly {
+  0% { left: calc((100% - 28px) * var(--from, 0)); transform: rotate(45deg) scale(1); }
+  70% { left: calc((100% - 28px) * var(--done, 0)); transform: rotate(45deg) scale(1.35); }
+  100% { left: calc((100% - 28px) * var(--done, 0)); transform: rotate(45deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .sgd .wk-rocket.fly { animation: none; } }
 .sgd .wk-count { flex: 0 0 auto; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
 .sgd .wk-count b { font-size: 13px; font-weight: 700; color: var(--ink); }
 .sgd .up-pill { flex: 0 0 auto; align-self: center; padding: 1px 7px; border-radius: 999px; background: var(--go-bg); color: var(--go); font-size: 11px; font-weight: 700; white-space: nowrap; }
