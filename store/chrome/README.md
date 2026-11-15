@@ -15,14 +15,14 @@ GitHub Release, not a local build.
 | Field | Value |
 |---|---|
 | Name | Grades Dashboard for Schoology (from the manifest) |
-| Summary | See missing work, what's due and how grades are going in Schoology, on one calm page. Data stays on your device. (manifest `description`, 112 characters: Chrome allows 132, Safari 112) |
+| Summary | See missing work, what's due and how grades are going in Schoology, on one dashboard. Data stays on your device. (manifest `description`, 112 characters: Chrome allows 132, Safari 112) |
 
 ## Store listing tab
 
 **Description** (plain text; paste as is):
 
 ```text
-Grades Dashboard puts one calm page on top of Schoology. It shows what's missing, what's due soon, and how each class is going, for parents and students.
+Grades Dashboard puts one dashboard on top of Schoology. It shows what's missing, what's due soon, and how each class is going, for parents and students.
 
 FOR PARENTS
 • See missing work and low grades at a glance, for each of your children.
