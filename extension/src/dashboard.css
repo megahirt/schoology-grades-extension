@@ -323,3 +323,28 @@
 .sgd .icon-btn.done { color: var(--go); border-color: #b9dcc5; background: var(--go-bg); }
 /* The copy drawn for a screenshot: no scrolling, full height. */
 .sgd.sgd-shot { height: auto; max-height: none; overflow: visible; }
+
+/* New since you last looked (dashboard-view.js showNew). Anything new fades
+   in once as it scrolls into view. Good news gets one small celebration: a
+   soft green flash and an emoji that pops beside it (star: a good new grade,
+   tada: a new record, rocket: a class up on last quarter). */
+.sgd .new-in { animation: sgd-new-in 0.6s ease-out; }
+@keyframes sgd-new-in { from { opacity: 0.1; } }
+.sgd .new-cue { position: relative; animation: sgd-new-flash 0.9s ease-out; }
+@keyframes sgd-new-flash {
+  0% { opacity: 0.1; box-shadow: 0 0 0 0 rgba(27, 122, 62, 0); }
+  35% { box-shadow: 0 0 0 6px rgba(27, 122, 62, 0.16); background-color: var(--go-bg); }
+  100% { box-shadow: 0 0 0 0 rgba(27, 122, 62, 0); }
+}
+.sgd .new-cue::after { content: '⭐'; position: absolute; right: 6px; top: 50%; margin-top: -12px; font-size: 20px; line-height: 24px; pointer-events: none; opacity: 0; animation: sgd-new-pop 0.9s ease-out both; animation-delay: inherit; }
+.sgd .new-cue.cue-tada::after { content: '🎉'; }
+.sgd .new-cue.cue-rocket::after { content: '🚀'; right: -4px; top: -6px; margin-top: 0; font-size: 16px; }
+@keyframes sgd-new-pop {
+  0% { opacity: 0; transform: translateY(6px) scale(0.4) rotate(-20deg); }
+  35% { opacity: 1; transform: translateY(-6px) scale(1.25) rotate(8deg); }
+  70% { opacity: 1; transform: translateY(-10px) scale(1) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sgd .new-in, .sgd .new-cue, .sgd .new-cue::after { animation: none; }
+}

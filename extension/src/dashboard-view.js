@@ -247,6 +247,14 @@ function section(title, inner, emoji) {
   return `<section class="sec">${sectionHeading(title, emoji)}${inner}</section>`;
 }
 
+// "New since you last looked" (see mountDashboard's showNew): an item that
+// can be new carries data-new="<kind>:<id…>", and good news also carries
+// data-cue (which small celebration plays): star, tada or rocket.
+function newAttr(kind, parts, cue = '') {
+  const key = [kind, ...parts].map((p) => String(p ?? '')).join(':');
+  return ` data-new="${escapeHtml(key)}"${cue ? ` data-cue="${cue}"` : ''}`;
+}
+
 function titleLink(a, cls = 'item-title') {
   return a.url
     ? `<a class="${cls}" href="${escapeHtml(a.url)}">${escapeHtml(a.title)}</a>`
@@ -275,7 +283,7 @@ function renderMissing(full, uid, { isParentView = false, marked = new Set() } =
     const mail = isParentView
       ? `<button class="check-btn mail-btn" type="button" data-act="email-teacher" data-uid="${escapeHtml(uid)}" data-cid="${escapeHtml(a.courseId ?? '')}" data-aid="${escapeHtml(a.id ?? '')}" aria-label="Message the ${escapeHtml(a.courseName || 'class')} teacher about ${escapeHtml(a.title)}" title="Message the teacher">${ICON.mail}</button>`
       : '';
-    return `<div class="missing-card${isMarked ? ' marked' : ''}" data-aid="${escapeHtml(a.id ?? '')}"><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
+    return `<div class="missing-card${isMarked ? ' marked' : ''}" data-aid="${escapeHtml(a.id ?? '')}"${newAttr('missing', [a.id ?? a.title])}><div class="grow">${titleLink(a)}<div class="sub">${sub}</div>${note}</div>` +
       mail + (isParentView ? '' : markButton(a, uid, { marked: isMarked, act: 'turned-in', verb: 'turned in' })) + '</div>';
   });
   return section(`Missing · ${left}`, rows.join(''), SECTION_EMOJI.missing);
@@ -292,7 +300,7 @@ function renderDue(full, uid, { isParentView = false, marked = new Set() } = {})
   const rows = items.map(({ a, when, cls }) => {
     const isMarked = !isParentView && marked.has(String(a.id));
     if (!isMarked) left += 1;
-    return `<div class="row${isMarked ? ' marked' : ''}"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
+    return `<div class="row${isMarked ? ' marked' : ''}"${newAttr('due', [a.id ?? a.title])}><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
       `<span class="chip ${cls}">${when}</span>` +
       (isParentView ? '' : markButton(a, uid, { marked: isMarked, act: 'done', verb: 'done' })) + '</div>';
   });
@@ -315,7 +323,7 @@ function upPill(course) {
   const ch = quarterChange(course);
   if (!ch) return '';
   const title = `Up ${ch.delta}% from ${ch.prevTitle} (${pctText(ch.prevGrade)})`;
-  return `<span class="up-pill" title="${escapeHtml(title)}"><span aria-hidden="true">▲ ${ch.delta}% vs ${escapeHtml(ch.prevShort)}</span><span class="sr-only">${escapeHtml(title)}</span></span>`;
+  return `<span class="up-pill"${newAttr('up', [course.id ?? course.name, ch.prevShort, ch.delta], 'rocket')} title="${escapeHtml(title)}"><span aria-hidden="true">▲ ${ch.delta}% vs ${escapeHtml(ch.prevShort)}</span><span class="sr-only">${escapeHtml(title)}</span></span>`;
 }
 
 // A class's trend line: the same running grade as the grade chart, since
@@ -513,7 +521,7 @@ function renderGradedList(title, items, settings, showGrades, emoji) {
     const g = showGrades ? gradeText(a, settings) : '';
     const pct = assignmentPercent(a);
     const low = pct !== null && pct < settings.gradeThreshold;
-    return `<div class="row"><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
+    return `<div class="row"${newAttr('grade', [a.id ?? a.title, a.score])}><div class="grow">${titleLink(a, 'row-title')}<div class="sub">${[a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>` +
       (g ? `<span class="row-grade${low ? ' low' : ''}">${escapeHtml(g)}</span>` : '') + '</div>';
   });
   return section(`${title} · ${items.length}`, rows.join(''), emoji);
@@ -546,7 +554,7 @@ function renderDoingWell(items, settings, showGrades) {
     const meta = [a.courseName, ptsText(a)].filter(Boolean).map(escapeHtml).join(' · ');
     const course = meta ? ` <span class="compact-course">(${meta})</span>` : '';
     const rocket = isBonus(a) ? '<span class="bonus" title="Extra credit" aria-label="Extra credit">🚀</span>' : '';
-    return `<div class="row compact"><div class="grow compact-line">${titleLink(a, 'row-title')}${course}</div>` +
+    return `<div class="row compact"${newAttr('grade', [a.id ?? a.title, a.score], 'star')}><div class="grow compact-line">${titleLink(a, 'row-title')}${course}</div>` +
       rocket + (g ? `<span class="row-grade">${escapeHtml(g)}</span>` : '') + '</div>';
   });
   return section('Doing well', rows.join(''), SECTION_EMOJI.doingWell);
@@ -640,7 +648,7 @@ function renderRecords(records, showGrades, now) {
   if (!records) return '';
   const rows = [];
   const add = (icon, title, detail, value, rec) => rows.push(
-    `<div class="record"><span class="record-icon" aria-hidden="true">${icon}</span>` +
+    `<div class="record"${newAttr('record', [title, value], 'tada')}><span class="record-icon" aria-hidden="true">${icon}</span>` +
     `<div class="grow"><div class="record-title">${escapeHtml(title)}${isNewRecord(rec, now) ? '<span class="new-tag">NEW</span>' : ''}</div>` +
     `<div class="sub record-detail">${escapeHtml(detail)}</div></div><span class="record-value">${escapeHtml(value)}</span></div>`);
   // Highest score is shown per class, under each class's grade chart.
@@ -914,6 +922,81 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       '<div class="mark-foot"><label class="mark-skip"><input type="checkbox" id="sgd-mark-skip"> Do not show again</label>' +
       '<button class="btn primary" type="button" data-act="mark-ok">I understand</button></div></div></div>';
   }
+  // New since this person last looked: an item not seen before fades in as
+  // it scrolls into view, and counts as seen from then on. Good news (a good
+  // new grade, a new record, a class up on last quarter) gets a small
+  // celebration instead, at most one per view so it stays rare. Never
+  // repeated, nothing under "reduce motion", and the first time a person's
+  // dashboard is shown everything counts as already seen.
+  // Kept on this device: seenItems = { [uid]: [keys] }.
+  const CUE_MS = 900;
+  const CUE_RANK = { tada: 0, star: 1, rocket: 2 };
+  let seenItems = null;
+  let seenSave = 0;
+  let newWatcher = null;
+  let celebrated = false; // one celebration per view (reset when the child changes)
+  let lastNewUid = null;
+  const recentCues = new Map(); // key -> { cls, start } while its animation plays
+  async function showNew(uid) {
+    if (newWatcher) { newWatcher.disconnect(); newWatcher = null; }
+    if (!uid) return;
+    const els = [...root.querySelectorAll('[data-new]')];
+    if (!seenItems) seenItems = (await storageGet('seenItems', null).catch(() => null)) || {};
+    if (uid !== lastNewUid) { lastNewUid = uid; celebrated = false; }
+    const keys = els.map((el) => el.dataset.new);
+    const save = () => {
+      const win = container.ownerDocument.defaultView;
+      win.clearTimeout(seenSave);
+      // Straight away (one write for a batch): a popup can close at any moment,
+      // and an unsaved "seen" would replay its cue next time.
+      seenSave = win.setTimeout(() => storageSet('seenItems', seenItems).catch(() => {}), 0);
+    };
+    if (!Array.isArray(seenItems[uid])) {
+      // First look: nothing is news.
+      seenItems[uid] = keys;
+      save();
+      return;
+    }
+    const seen = new Set(seenItems[uid]);
+    // Forget what's no longer shown, so the list never grows without end.
+    const shown = new Set(keys);
+    const kept = seenItems[uid].filter((k) => shown.has(k));
+    if (kept.length !== seenItems[uid].length) { seenItems[uid] = kept; save(); }
+    const play = (el, cls, elapsed = 0) => {
+      el.classList.add(...cls.split(' '));
+      if (elapsed) el.style.animationDelay = `${-elapsed / 1000}s`;
+    };
+    const fresh = [];
+    for (const el of els) {
+      const key = el.dataset.new;
+      const recent = recentCues.get(key);
+      // Redrawn mid-animation (the view redraws when storage changes): carry on.
+      if (recent && Date.now() - recent.start < CUE_MS) play(el, recent.cls, Date.now() - recent.start);
+      else if (!seen.has(key)) fresh.push(el);
+    }
+    if (!fresh.length) return;
+    const onSeen = (el) => {
+      const key = el.dataset.new;
+      if (!seenItems[uid].includes(key)) { seenItems[uid].push(key); save(); }
+      let cls = 'new-in';
+      if (el.dataset.cue && !celebrated) {
+        celebrated = true;
+        cls = `new-cue cue-${el.dataset.cue}`;
+      }
+      recentCues.set(key, { cls, start: Date.now() });
+      play(el, cls);
+    };
+    const Watcher = container.ownerDocument.defaultView.IntersectionObserver;
+    if (!Watcher) { for (const el of fresh) onSeen(el); return; }
+    newWatcher = new Watcher((entries) => {
+      // The most important good news in view first, so it gets the celebration.
+      const inView = entries.filter((e) => e.isIntersecting).map((e) => e.target)
+        .sort((a, b) => (CUE_RANK[a.dataset.cue] ?? 9) - (CUE_RANK[b.dataset.cue] ?? 9));
+      for (const el of inView) { newWatcher.unobserve(el); onSeen(el); }
+    }, { threshold: 0.6 });
+    for (const el of fresh) newWatcher.observe(el);
+  }
+
   // The rocket flies along the week's bar when the done count has gone up
   // since this person last saw it: just now (something was marked done) or
   // since the dashboard was last open (new grades came in). What was last
@@ -1176,6 +1259,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     // A profile picture that fails to load falls back to the initials.
     drawChooser();
     flyRocket(pickedUid).catch(() => {});
+    showNew(pickedUid).catch(() => {});
     for (const img of root.querySelectorAll('img.avatar')) {
       img.addEventListener('error', () => {
         const span = root.ownerDocument.createElement('span');
