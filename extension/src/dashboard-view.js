@@ -929,12 +929,13 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   // repeated, nothing under "reduce motion", and the first time a person's
   // dashboard is shown everything counts as already seen.
   // Kept on this device: seenItems = { [uid]: [keys] }.
-  const CUE_MS = 900;
+  const CUE_MS = 2000; // the longest cue animation (dashboard.css)
   const CUE_RANK = { tada: 0, star: 1, rocket: 2 };
   let seenItems = null;
   let seenSave = 0;
   let newWatcher = null;
   let celebrated = false; // one celebration per view (reset when the child changes)
+  let replayAll = false; // dev "Replay animations": every piece of good news celebrates
   let lastNewUid = null;
   const recentCues = new Map(); // key -> { cls, start } while its animation plays
   async function showNew(uid) {
@@ -942,7 +943,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     if (!uid) return;
     const els = [...root.querySelectorAll('[data-new]')];
     if (!seenItems) seenItems = (await storageGet('seenItems', null).catch(() => null)) || {};
-    if (uid !== lastNewUid) { lastNewUid = uid; celebrated = false; }
+    if (uid !== lastNewUid) { lastNewUid = uid; celebrated = false; replayAll = false; }
     const keys = els.map((el) => el.dataset.new);
     const save = () => {
       const win = container.ownerDocument.defaultView;
@@ -979,7 +980,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       const key = el.dataset.new;
       if (!seenItems[uid].includes(key)) { seenItems[uid].push(key); save(); }
       let cls = 'new-in';
-      if (el.dataset.cue && !celebrated) {
+      if (el.dataset.cue && (!celebrated || replayAll)) {
         celebrated = true;
         cls = `new-cue cue-${el.dataset.cue}`;
       }
@@ -1003,7 +1004,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   // seen is kept on this device: weekSeen = { [uid]: { week, n, frac } }.
   let weekSeen = null;
   let flying = null; // { uid, n, from, start } while a flight is playing
-  const FLY_MS = 1050; // the animation's delay plus its length (dashboard.css)
+  const FLY_MS = 2150; // the animation's delay plus its length (dashboard.css)
   async function flyRocket(uid) {
     const rocket = root.querySelector('.wk-rocket');
     if (!rocket || !uid) return;
@@ -1232,6 +1233,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       ? '<div class="dev-row"><span class="dev-tag">DEV</span><span class="grow">Data: ' +
         `<b>${usingMock ? 'Mock server (localhost:8123)' : escapeHtml((() => { try { return new URL(settings.schoologyBase).host; } catch { return 'Real Schoology'; } })())}</b>` +
         (buildStamp ? `<span class="dev-build"> · built ${escapeHtml(buildStamp)} UTC</span>` : '') + '</span>' +
+        '<button class="btn btn-sm" type="button" data-act="replay-cues" title="Play the new-item and rocket animations again">Replay animations</button>' +
         `<button class="btn btn-sm" type="button" data-act="switch-source">${usingMock ? 'Use real Schoology' : 'Use mock server'}</button></div>`
       : '';
     const footer = '<footer class="foot">' +
@@ -1486,6 +1488,24 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     } else if (act === 'options') {
       if (openOptions) openOptions();
       else browser.runtime.openOptionsPage();
+    } else if (act === 'replay-cues' && IS_DEV) {
+      // Dev only: forget what this person has seen, so every animation plays
+      // again: items fade in (and every piece of good news celebrates, not
+      // just one) as they scroll into view, and the rocket flies from the
+      // start of the bar.
+      const who = pickedUid;
+      if (!seenItems) seenItems = (await storageGet('seenItems', null).catch(() => null)) || {};
+      seenItems[who] = [];
+      recentCues.clear();
+      replayAll = true;
+      celebrated = false;
+      if (!weekSeen) weekSeen = (await storageGet('weekSeen', null).catch(() => null)) || {};
+      weekSeen[who] = { week: weekRange(Date.now()).from, n: -1, frac: 0 };
+      flying = null;
+      const body = root.querySelector('.body');
+      if (body) body.scrollTop = 0;
+      container.ownerDocument.defaultView.scrollTo(0, 0);
+      await render();
     } else if (act === 'switch-source' && IS_DEV) {
       // Swap the data source and refresh. Each source keeps its own data
       // (per site), so this view just shows the other site.

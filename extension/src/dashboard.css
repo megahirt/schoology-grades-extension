@@ -241,7 +241,7 @@
 .sgd .warn { margin: 0; background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 8px 10px; color: #5d4037; font-size: 12px; }
 
 /* Dev builds only: real/mock data source switch. */
-.sgd .dev-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); background: #f3f0ff; border: 1px dashed #b9a8f0; border-radius: 8px; padding: 6px 8px; }
+.sgd .dev-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--ink-2); background: #f3f0ff; border: 1px dashed #b9a8f0; border-radius: 8px; padding: 6px 8px; }
 .sgd .dev-build { color: var(--muted); }
 .sgd .dev-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: #fff; background: #5b3fd1; border-radius: 4px; padding: 2px 5px; }
 
@@ -293,7 +293,7 @@
 .sgd .wk-rocket { position: absolute; top: 50%; left: calc((100% - 28px) * var(--done, 0)); width: 28px; height: 28px; margin-top: -14px; display: flex; align-items: center; justify-content: center; font-size: 24px; line-height: 1; transform: rotate(45deg); pointer-events: none; z-index: 1; }
 /* The done count went up: the rocket flies from where it was to where it
    is now, with a small hop on landing. Plays once. */
-.sgd .wk-rocket.fly { animation: sgd-rocket-fly 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both; }
+.sgd .wk-rocket.fly { animation: sgd-rocket-fly 2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both; }
 @keyframes sgd-rocket-fly {
   0% { left: calc((100% - 28px) * var(--from, 0)); transform: rotate(45deg) scale(1); }
   70% { left: calc((100% - 28px) * var(--done, 0)); transform: rotate(45deg) scale(1.35); }
@@ -328,15 +328,17 @@
    in once as it scrolls into view. Good news gets one small celebration: a
    soft green flash and an emoji that pops beside it (star: a good new grade,
    tada: a new record, rocket: a class up on last quarter). */
-.sgd .new-in { animation: sgd-new-in 0.6s ease-out; }
+.sgd .new-in { animation: sgd-new-in 2s ease-out; }
 @keyframes sgd-new-in { from { opacity: 0.1; } }
-.sgd .new-cue { position: relative; animation: sgd-new-flash 0.9s ease-out; }
+/* Good news: the item itself fades in quickly (0.5 s) while its celebration
+   (the flash and the emoji) runs the full 2 s. */
+.sgd .new-cue { position: relative; animation: sgd-new-in 0.5s ease-out, sgd-new-flash 2s ease-out; }
 @keyframes sgd-new-flash {
-  0% { opacity: 0.1; box-shadow: 0 0 0 0 rgba(27, 122, 62, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(27, 122, 62, 0); }
   35% { box-shadow: 0 0 0 6px rgba(27, 122, 62, 0.16); background-color: var(--go-bg); }
   100% { box-shadow: 0 0 0 0 rgba(27, 122, 62, 0); }
 }
-.sgd .new-cue::after { content: '⭐'; position: absolute; right: 6px; top: 50%; margin-top: -12px; font-size: 20px; line-height: 24px; pointer-events: none; opacity: 0; animation: sgd-new-pop 0.9s ease-out both; animation-delay: inherit; }
+.sgd .new-cue::after { content: '⭐'; position: absolute; right: 6px; top: 50%; margin-top: -12px; font-size: 20px; line-height: 24px; pointer-events: none; opacity: 0; animation: sgd-new-pop 2s ease-out both; animation-delay: inherit; }
 .sgd .new-cue.cue-tada::after { content: '🎉'; }
 .sgd .new-cue.cue-rocket::after { content: '🚀'; right: -4px; top: -6px; margin-top: 0; font-size: 16px; }
 @keyframes sgd-new-pop {
