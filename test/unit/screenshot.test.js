@@ -16,3 +16,22 @@ describe('Share icon platform', () => {
     expect(isApplePlatform(null)).toBe(false);
   });
 });
+
+describe('saveImage', () => {
+  it('asks the browser to save the picture under its file name', async () => {
+    const { saveImage } = await import('../../extension/src/screenshot.js');
+    const clicked = [];
+    const made = [];
+    const win = {
+      URL: { createObjectURL: () => 'blob:picture', revokeObjectURL: () => {} },
+      setTimeout: () => 0,
+      document: {
+        body: { append: (el) => made.push(el) },
+        createElement: () => ({ style: {}, click() { clicked.push({ href: this.href, download: this.download }); }, remove() {} }),
+      },
+    };
+    expect(saveImage({}, win, 'grades-dashboard-sam.png')).toBe(true);
+    expect(clicked).toEqual([{ href: 'blob:picture', download: 'grades-dashboard-sam.png' }]);
+    expect(made).toHaveLength(1);
+  });
+});
