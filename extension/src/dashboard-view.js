@@ -38,7 +38,7 @@ import { gradeHistory } from './grade-history.js';
 import { renderGradeChart, chartHover, chartUnhover, smoothPath, linePoints } from './grade-chart.js';
 import { quarterChange, isNewRecord, classHighScore, classWeek, weekRange, dueThisWeek, WEEK_DONE } from './rewards.js';
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
-import { captureDashboard, copyImage, shareImage, isApplePlatform } from './screenshot.js';
+import { captureDashboard, copyImage, shareImage, saveImage, isApplePlatform } from './screenshot.js';
 import css from './dashboard.css';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -1340,7 +1340,16 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     } else if (copied && result !== 'cancelled') {
       showShared(btn, 'Picture copied. Paste it into a message or note.');
     } else if (!copied && result !== 'cancelled') {
-      setStatus('Couldn’t copy or share the picture in this browser.');
+      // Neither copying an image nor sharing a file works here (Firefox for
+      // Android): save the picture as a file instead.
+      let saved = false;
+      try {
+        saved = saveImage(blob, win, names.fileName);
+      } catch {
+        saved = false;
+      }
+      if (saved) showShared(btn, 'Picture saved to your downloads.');
+      else setStatus('Couldn’t copy, share or save the picture in this browser.');
     }
   }
 

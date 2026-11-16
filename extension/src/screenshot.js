@@ -63,7 +63,10 @@ function buildCopy(root) {
 // captureDashboard(root, css) -> Promise<Blob> (image/png).
 export async function captureDashboard(root, css) {
   const doc = root.ownerDocument;
-  const width = Math.round(root.getBoundingClientRect().width) || 437;
+  // Layout sizes (offsetWidth/Height), not on-screen ones: on a phone the
+  // panel is drawn scaled up (panel.js), and getBoundingClientRect would
+  // give a picture about 2.4 times too wide and too tall.
+  const width = root.offsetWidth || Math.round(root.getBoundingClientRect().width) || 437;
   const copy = buildCopy(root);
   // Lay it out off screen, next to the real view so the same styles apply.
   const holder = doc.createElement('div');
@@ -74,7 +77,7 @@ export async function captureDashboard(root, css) {
   let height;
   let xhtml;
   try {
-    height = Math.ceil(copy.getBoundingClientRect().height);
+    height = copy.offsetHeight || Math.ceil(copy.getBoundingClientRect().height);
     xhtml = new XMLSerializer().serializeToString(copy);
   } finally {
     holder.remove();
@@ -137,6 +140,24 @@ export async function shareImage(blob, win, { fileName = 'grades-dashboard.png',
     if (err && err.name === 'NotAllowedError') return 'needs-click';
     throw err;
   }
+}
+
+// saveImage(blob, win, fileName) -> true once the browser has been asked to
+// save the picture as a file (its Downloads). The last resort where a
+// browser can neither copy an image nor share a file, as in Firefox for
+// Android: from Downloads the picture can be shared like any other photo.
+export function saveImage(blob, win, fileName = 'grades-dashboard.png') {
+  const doc = win.document;
+  const url = win.URL.createObjectURL(blob);
+  const a = doc.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  (doc.body || doc.documentElement).append(a);
+  a.click();
+  a.remove();
+  win.setTimeout(() => win.URL.revokeObjectURL(url), 60000);
+  return true;
 }
 
 // isApplePlatform(navigator) -> true on a Mac, iPhone or iPad, whose Share
