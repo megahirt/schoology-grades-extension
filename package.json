@@ -27,7 +27,8 @@
     "build:firefox": "node scripts/build.mjs --dev --firefox",
     "site:screenshots": "node scripts/site-screenshots.mjs",
     "school-hosts": "node scripts/find-schoology-hosts.mjs",
-    "store:assets": "node scripts/store-assets.mjs"
+    "store:assets": "node scripts/store-assets.mjs",
+    "appstore:assets": "node scripts/appstore-assets.mjs"
   },
   "type": "module",
   "version": "0.0.0"
