@@ -270,8 +270,11 @@ describe('classes: this week\'s work', () => {
   it('items that can be new carry a key; good news also names its celebration', () => {
     const html = render();
     expect(html).toContain('data-aid="w3" data-new="missing:w3">');
-    // A good grade in Doing well: the star.
-    expect(html).toContain('<div class="row compact" data-new="grade:w1:9" data-cue="star">');
+    // A good grade in Doing well: the star. (Its own item, due two days
+    // before now, so the test doesn't depend on the day or time zone it runs in.)
+    const good = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'g', name: 'Art', grade: 95, assignments: [{ id: 'g1', title: 'Sketch', status: 'graded', score: 10, maxPoints: 10, due: new Date(Date.now() - 2 * DAY).toISOString() }] }] }, 'u1',
+      { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: false, now: NOW }).html;
+    expect(good).toContain('<div class="row compact" data-new="grade:g1:10" data-cue="star">');
   });
   it('Submitted, not graded yet keeps only earlier work that was never Missing', () => {
     const html = render();
