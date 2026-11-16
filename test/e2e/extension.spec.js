@@ -411,6 +411,12 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
         await expect(popup.locator('.card-name')).toBeVisible();
         await expect(popup.locator('.new-in, .new-cue')).toHaveCount(0);
         await popup.evaluate(() => window.scrollTo(0, 0));
+        // Dev builds: "Replay animations" plays them all again on request.
+        await popup.getByRole('button', { name: 'Replay animations' }).click();
+        await expect(popup.locator('.missing-card.new-in')).toHaveCount(1);
+        await popup.locator('[data-cue]').first().scrollIntoViewIfNeeded();
+        await expect(popup.locator('.new-cue').first()).toBeVisible();
+        await popup.evaluate(() => window.scrollTo(0, 0));
       }
       // Each section heading carries its emoji.
       await expect(popup.locator('.sec-h', { hasText: 'Missing' }).locator('img.missing-icon')).toBeVisible(); // Schoology's icon
