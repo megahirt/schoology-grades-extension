@@ -1,7 +1,9 @@
 // The containing app's screen. ViewController.swift calls show() once it
 // knows whether the extension is on, and answers the messages posted here.
 
-function show(enabled, useSettingsInsteadOfPreferences) {
+// platform is "mac" or "ios": the page shows that platform's steps.
+function show(platform, enabled, useSettingsInsteadOfPreferences) {
+    document.body.classList.add(`platform-${platform}`);
     if (useSettingsInsteadOfPreferences) {
         document.querySelector("button.open-preferences").innerText = "Quit and Open Safari Settings…";
     }

@@ -18,8 +18,10 @@
  *   2. Converts it to an Xcode project with Apple's packager:
  *        xcrun safari-web-extension-packager   (new name, WWDC26 — try first)
  *        xcrun safari-web-extension-converter  (older Xcode name — fallback)
- *      The packager generates an Xcode project with a native macOS app
- *      wrapper + the extension embedded as a .appex.
+ *      The packager generates one Xcode project with two apps, one for
+ *      macOS and one for iOS (iPhone and iPad), each with the extension
+ *      embedded as a .appex. All four targets share one bundle ID pair, so
+ *      the App Store treats the two apps as one purchase.
  *   3. On a machine without Xcode (e.g. this Linux VM, or Linux CI) the
  *      converter is unavailable — that is EXPECTED, not a failure. The
  *      script then writes safari/convert.sh with the exact command to run
@@ -49,6 +51,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { chromium } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { fixSafariProject } from './safari-project.mjs';
@@ -80,7 +83,7 @@ function convertCommand(tool, inputDir) {
     `  --project-location "${SAFARI_DIR}" \\\n` +
     `  --app-name "${APP_NAME}" \\\n` +
     `  --bundle-identifier ${BUNDLE_ID} \\\n` +
-    `  --swift --macos-only --no-open`
+    `  --swift --no-open`
   );
 }
 
@@ -118,7 +121,7 @@ xcrun "$TOOL" --copy-resources "$INPUT" \\
   --project-location "./safari" \\
   --app-name "${APP_NAME}" \\
   --bundle-identifier ${BUNDLE_ID} \\
-  --swift --macos-only --no-open
+  --swift --no-open
 echo ""
 echo "Done. Next steps (see docs/safari.md):"
 echo "  - Open safari/*.xcodeproj, set the Team on EVERY target (app + extension)."
@@ -196,7 +199,6 @@ if (packager) {
     '--bundle-identifier',
     BUNDLE_ID,
     '--swift',
-    '--macos-only',
     '--no-open',
     // Regenerate over the last run's project without stopping to ask.
     '--no-prompt',
@@ -212,7 +214,7 @@ if (packager) {
   // the version, the oldest macOS it runs on and the App Store category
   // (scripts/safari-project.mjs). BUILD_NUMBER (CFBundleVersion) must be
   // new for every upload to Apple; it defaults to 1. APPLE_TEAM_ID (the
-  // Apple developer team, e.g. APPLE_TEAM_ID=ABCDE12345) signs both targets;
+  // Apple developer team, e.g. APPLE_TEAM_ID=ABCDE12345) signs all four targets;
   // without it, pick the Team on EACH target in Xcode after every run.
   const projectDir = path.join(SAFARI_DIR, APP_NAME, `${APP_NAME}.xcodeproj`);
   const projectFile = ['project.xcproj', 'project.pbxproj'].map((f) => path.join(projectDir, f)).find((f) => existsSync(f));
@@ -228,11 +230,25 @@ if (packager) {
     process.exit(1);
   }
   writeFileSync(projectFile, fixSafariProject(readFileSync(projectFile, 'utf8'), { bundleId: BUNDLE_ID, version, build, teamId }), 'utf8');
-  console.log(`Fixed the project: bundle ID ${BUNDLE_ID}, version ${version} (build ${build}), ${teamId ? `team ${teamId} on both targets` : 'no team (set APPLE_TEAM_ID, or pick the Team on each target in Xcode)'}.`);
+  console.log(`Fixed the project: bundle ID ${BUNDLE_ID}, version ${version} (build ${build}), ${teamId ? `team ${teamId} on all four targets` : 'no team (set APPLE_TEAM_ID, or pick the Team on each target in Xcode)'}.`);
   // The containing app: our screen in place of the packager's template, and
-  // a privacy manifest in both targets (scripts/safari-app.mjs).
+  // a privacy manifest in all four targets (scripts/safari-app.mjs).
   const problems = applySafariApp(path.join(SAFARI_DIR, APP_NAME), APP_NAME);
   console.log('Replaced the template app screen and added the privacy manifest.');
+  // The iOS app icon: the packager enlarges the 128 px toolbar icon, which
+  // is blurry and has transparent corners (Apple refuses an iOS icon with
+  // transparency). Draw it from the logo at 1024 px, square and opaque.
+  try {
+    const svg = readFileSync(path.join(repoRoot, 'site/img/icon.svg'), 'utf8').replace(/ rx="[^"]*"/, '');
+    const browser = await chromium.launch({ channel: 'chromium' });
+    const page = await browser.newPage({ viewport: { width: 1024, height: 1024 }, deviceScaleFactor: 1 });
+    await page.setContent(`<body style="margin:0">${svg.replace('<svg ', '<svg width="1024" height="1024" style="display:block" ')}</body>`);
+    await page.screenshot({ path: path.join(SAFARI_DIR, APP_NAME, 'Shared (App)', 'Assets.xcassets', 'AppIcon.appiconset', 'universal-icon-1024@1x.png') });
+    await browser.close();
+    console.log('Drew the iOS app icon at 1024 px.');
+  } catch (err) {
+    problems.push(`The iOS app icon was not redrawn (${err.message}); the packager's enlarged icon is still there.`);
+  }
   for (const problem of problems) console.warn(`WARNING: ${problem}`);
   console.log(`\nSafari Xcode project generated in ${SAFARI_DIR}`);
   console.log(`Next: open the .xcodeproj${teamId ? '' : ', set the Team on every target'} and archive — see docs/safari.md.`);

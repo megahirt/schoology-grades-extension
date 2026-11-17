@@ -3,26 +3,63 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resizeWindow, openLinksFromScreen, addPrivacyManifest, WINDOW, PRIVACY_MANIFEST } from '../../scripts/safari-app.mjs';
+import { resizeWindow, openLinksFromScreen, letPhoneScroll, addPrivacyManifest, WINDOW, PRIVACY_MANIFEST } from '../../scripts/safari-app.mjs';
 
 const read = (name) => readFileSync(new URL(`../../scripts/safari-app/${name}`, import.meta.url), 'utf8');
 
-const SWIFT = `    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+// The packager's shared view controller (cut down).
+const SWIFT = `#if os(iOS)
+        self.webView.scrollView.isScrollEnabled = false
+#endif
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+#if os(macOS)
         if (message.body as! String != "open-preferences") {
-            return;
+            return
         }
 
         SFSafariApplication.showPreferencesForExtension(withIdentifier: extensionBundleIdentifier) { error in
         }
+#endif
     }`;
 
-const PROJECT = `      "children": [
-        { "path": "Assets.xcassets", "target-membership": [ "My App/resources" ] },
+const PROJECT = `    {
+      "kind": "group",
+      "path": "Shared (App)",
+      "children": [
         { "path": "Info.plist" },
       ],
     }, {
+      "kind": "group",
+      "path": "iOS (App)",
       "children": [
-        { "path": "Handler.swift", "target-membership": [ "My App Extension/compile-sources" ] },
+        { "path": "AppDelegate.swift", "target-membership": [ "My App (iOS)/compile-sources" ] },
+        {
+          "kind": "variant-group",
+          "name": "Main.storyboard",
+          "children": [
+            {
+              "path": "Base.lproj/Main.storyboard",
+            },
+          ],
+        },
+        { "path": "Info.plist" },
+      ],
+    }, {
+      "kind": "group",
+      "path": "macOS (App)",
+      "children": [
+        { "path": "Info.plist" },
+      ],
+    }, {
+      "kind": "group",
+      "path": "iOS (Extension)",
+      "children": [
+        { "path": "Info.plist" },
+      ],
+    }, {
+      "kind": "group",
+      "path": "macOS (Extension)",
+      "children": [
         { "path": "Info.plist" },
       ],`;
 
@@ -33,20 +70,33 @@ describe('the containing app', () => {
     expect(out).not.toContain('425');
   });
 
-  it('opens web and mail links outside the app, and nothing else', () => {
+  it('opens web and mail links outside the app on both platforms, and nothing else', () => {
     const out = openLinksFromScreen(SWIFT);
     expect(out).toContain('body.hasPrefix("open:")');
     expect(out).toContain('["https", "mailto"].contains(url.scheme ?? "")');
+    expect(out).toContain('UIApplication.shared.open(url)');
+    expect(out).toContain('NSWorkspace.shared.open(url)');
     expect(out).toContain('if (body != "open-preferences")');
     expect(out).not.toContain('as! String');
+    // Every #if still has its #endif.
+    expect(out.match(/^#if /gm)).toHaveLength(out.match(/^#endif/gm).length);
     expect(openLinksFromScreen(out)).toBe(out);
     expect(() => openLinksFromScreen('class ViewController {}')).toThrow(/not the template/);
   });
 
-  it('lists the privacy manifest in both targets, once', () => {
+  it('lets the iPhone screen scroll', () => {
+    const out = letPhoneScroll(SWIFT);
+    expect(out).not.toContain('isScrollEnabled');
+    expect(out).toContain('#if os(iOS)\n#endif');
+    expect(letPhoneScroll(out)).toBe(out);
+  });
+
+  it('lists the privacy manifest in all four targets, once each', () => {
     const out = addPrivacyManifest(PROJECT, 'My App');
-    expect(out).toContain(`        { "path": "Info.plist" },\n        { "path": "${PRIVACY_MANIFEST}", "target-membership": [ "My App/resources" ] },`);
-    expect(out).toContain(`{ "path": "${PRIVACY_MANIFEST}", "target-membership": [ "My App Extension/resources" ] },`);
+    for (const target of ['My App (iOS)', 'My App (macOS)', 'My App Extension (iOS)', 'My App Extension (macOS)']) {
+      expect(out).toContain(`        { "path": "Info.plist" },\n        { "path": "${PRIVACY_MANIFEST}", "target-membership": [ "${target}/resources" ] },`);
+    }
+    expect(out.split(PRIVACY_MANIFEST)).toHaveLength(5);
     expect(addPrivacyManifest(out, 'My App')).toBe(out);
   });
 
@@ -58,7 +108,10 @@ describe('the containing app', () => {
     for (const cls of ['state-unknown', 'state-on', 'state-off', 'open-preferences']) expect(html).toContain(cls);
     expect(html).not.toMatch(/(src|href)="https?:[^"]*"(?! data-open)/);
     const script = read('Script.js');
-    expect(script).toContain('function show(enabled, useSettingsInsteadOfPreferences)');
+    expect(script).toContain('function show(platform, enabled, useSettingsInsteadOfPreferences)');
+    // The Mac and the iPhone each get their own steps.
+    for (const cls of ['platform-mac', 'platform-ios']) expect(html).toContain(cls);
+    expect(html).toContain('Settings</strong>, then <strong>Apps</strong>');
     expect(script).toContain('post("open-preferences")');
   });
 
