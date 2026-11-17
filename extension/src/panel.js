@@ -135,18 +135,24 @@ ${SHEET_RULES('')}
    out. A media query sees 980 px, and anything drawn at page scale is tiny.
    The dashboard fills the screen (the × closes it) and the tab is sized in
    device pixels; both are placed on the part of the page the screen shows
-   and scaled up by --s to match. */
+   and enlarged by --s to match. They are enlarged with zoom, not a scale
+   transform: Safari on iPhone draws a scaled layer at its small size and
+   stretches it, which made the whole dashboard blurry. The boxes that are
+   positioned on the page (.wrap, .tab-pos) are in page pixels and carry no
+   zoom; only what's inside them is zoomed. */
 .phone.wrap {
   left: var(--vx); top: var(--vy); right: auto; bottom: auto;
-  width: var(--vw); height: var(--vh);
-  transform-origin: 0 0; transform: scale(var(--s)) translateY(100%);
+  width: calc(var(--vw) * var(--s)); height: calc(var(--vh) * var(--s));
+  transform: translateY(100%);
   pointer-events: none;
 }
-.phone.wrap.open { transform: scale(var(--s)); }
-.phone.wrap .sheet { height: 100%; pointer-events: auto; border-left: none; border-radius: 0; box-shadow: none; }
+.phone.wrap.open { transform: none; }
+.phone.wrap .sheet { zoom: var(--s); height: 100%; pointer-events: auto; border-left: none; border-radius: 0; box-shadow: none; }
 .phone.wrap .grip, .phone.backdrop { display: none; }
+.tab-pos { display: contents; }
+.phone.tab-pos { display: block; position: fixed; right: var(--vr); top: calc(var(--vy) + 96px * var(--s)); z-index: 2147483647; }
+.phone.edge-tab { position: static; zoom: var(--s); }
 .phone.edge-tab.open { display: none; }
-.phone.edge-tab { right: var(--vr); top: calc(var(--vy) + 96px * var(--s)); transform-origin: 100% 0; transform: scale(var(--s)); }
 @media (prefers-reduced-motion: reduce) { .wrap, .edge-tab, .backdrop { transition: none; } }
 .notice {
   position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2147483647;
@@ -161,9 +167,9 @@ ${SHEET_RULES('')}
 .notice .dismiss { border: none; background: transparent; color: #cbd2d9; padding: 4px 6px; font-size: 18px; line-height: 1; }
 `;
 
-const CHEVRON_LEFT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
-const SPINNER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>';
-const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const CHEVRON_LEFT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2"><path d="M15 6l-6 6 6 6"/></g></svg>';
+const SPINNER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><g stroke-width="2.25"><path d="M12 3a9 9 0 1 0 9 9"/></g></svg>';
+const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2"><path d="M9 6l6 6-6 6"/></g></svg>';
 
 // Per-child summary for the closed tab:
 //   [{ name, pictureUrl, missing, due, nogo, unknown }]
@@ -218,7 +224,7 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
   shadow.innerHTML =
     `<style>${PANEL_CSS}\n${DASHBOARD_CSS}</style>` +
     '<button class="backdrop" type="button" tabindex="-1" aria-label="Close dashboard panel"></button>' +
-    '<button class="edge-tab" type="button" aria-expanded="false"></button>' +
+    '<div class="tab-pos"><button class="edge-tab" type="button" aria-expanded="false"></button></div>' +
     '<div class="notice" role="status" hidden><span class="notice-text">This page loaded while the dashboard was switching between your children, so it may show the wrong child.</span>' +
     '<button class="reload" type="button">Reload page</button><button class="dismiss" type="button" aria-label="Dismiss">×</button></div>' +
     '<div class="wrap"><aside class="sheet" aria-label="Grades dashboard">' +
@@ -350,7 +356,7 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
   function applyPhone() {
     phoneFrame = 0;
     const m = phoneMetrics(win);
-    for (const el of [wrap, tab, backdrop]) el.classList.toggle('phone', Boolean(m));
+    for (const el of [wrap, tab, tab.parentElement, backdrop]) el.classList.toggle('phone', Boolean(m));
     if (!m) return;
     const px = (n) => `${Math.round(n * 100) / 100}px`;
     host.style.setProperty('--s', String(Math.round(m.s * 1000) / 1000));
