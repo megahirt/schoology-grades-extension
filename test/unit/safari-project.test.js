@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { fixSafariProject, MIN_MACOS, APP_CATEGORY } from '../../scripts/safari-project.mjs';
+import { fixSafariProject, MIN_MACOS, MIN_IOS, APP_CATEGORY } from '../../scripts/safari-project.mjs';
 
 const OPTIONS = { bundleId: 'net.hirtfamily.schoology-dashboard', version: '1.4.0', build: '57' };
 
@@ -48,6 +48,11 @@ const PBXPROJ = `
 `;
 
 describe('fixSafariProject', () => {
+  it('gives the iOS app and its extension one oldest iOS version', () => {
+    const out = fixSafariProject('"IPHONEOS_DEPLOYMENT_TARGET": "17.0",\n"IPHONEOS_DEPLOYMENT_TARGET": "15.0",', OPTIONS);
+    expect(out.match(/"IPHONEOS_DEPLOYMENT_TARGET": "[^"]*"/g)).toEqual([`"IPHONEOS_DEPLOYMENT_TARGET": "${MIN_IOS}"`, `"IPHONEOS_DEPLOYMENT_TARGET": "${MIN_IOS}"`]);
+  });
+
   it('fixes Xcode 27’s project.xcproj', () => {
     const out = fixSafariProject(XCPROJ, OPTIONS);
     expect(out.match(/"PRODUCT_BUNDLE_IDENTIFIER": "[^"]*"/g)).toEqual([

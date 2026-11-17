@@ -1,4 +1,4 @@
-# Mac App Store listing kit (Safari)
+# App Store listing kit (Safari on Mac, iPhone and iPad)
 
 Everything to paste into [App Store Connect](https://appstoreconnect.apple.com)
 for **Grades Dashboard for Schoology** (bundle ID
@@ -76,6 +76,34 @@ Mac screenshots must be 1280×800, 1440×900, 2560×1600 or 2880×1800. Upload
 the five in `store/chrome/` (`screenshot-1.png` … `screenshot-5.png`, in that
 order). They are 1280×800, show no browser window frame, and use made-up
 students only.
+
+## iPhone and iPad
+
+The same app record holds the iOS app (iPhone and iPad). It is added when the
+first iOS build is uploaded (see `docs/safari.md`, "iOS and iPadOS"). App
+Store Connect keeps the version information per platform, so paste the text
+above into the iOS version too, with these changes:
+
+- "your Mac" becomes "your device" (promotional text and description).
+- In HOW IT WORKS, the first sentence becomes: "Turn the extension on in
+  Settings, under Apps, Safari, Extensions, and allow it on your Schoology
+  site."
+- **What's New** (first version): "First release for iPhone and iPad."
+- In the review notes, the way to turn it on is: Settings > Apps > Safari >
+  Extensions.
+
+**Screenshots** (made by `npm run appstore:assets`, made-up students only, no
+alpha channel):
+
+| Slot in App Store Connect | Files | Size |
+|---|---|---|
+| iPhone 6.3" display | `iphone/screenshot-1.png` … `-3.png` | 1179×2556 |
+| iPad 13" display | `ipad/screenshot-1.png` … `-3.png` | 2732×2048 |
+| Header (creative asset) | `iphone/header-1.png` … `-3.png` | 3840×1646 |
+| Search Results (creative asset) | `iphone/search-results-1.png` … `-3.png` | 3840×2560 |
+
+If App Store Connect asks for another size, it says which when you upload;
+the sizes are set at the top of each block in `scripts/appstore-assets.mjs`.
 
 ## App Privacy
 

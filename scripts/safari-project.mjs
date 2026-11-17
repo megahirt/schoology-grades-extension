@@ -7,13 +7,17 @@
 //     was given, while the extension gets <given ID>.Extension. The prefixes
 //     then don't match and the ID is not the one registered with Apple.
 //   - The version is always 1.0 (build 1), not the extension's.
-//   - The app only runs on the macOS version of the Mac that built it.
+//   - The app only runs on the macOS version of the Mac that built it, and
+//     the iOS app and its extension ask for different iOS versions.
 //   - The app has no App Store category (required to upload).
 //
 // Works on both project file formats as text: project.pbxproj (`KEY = value;`)
 // and Xcode 27's project.xcproj (`"KEY": "value",`).
 
 export const MIN_MACOS = '12.0';
+// The oldest iOS/iPadOS the app and its extension run on (the build targets
+// Safari 16; the packager's own choices differ between the two targets).
+export const MIN_IOS = '16.0';
 export const APP_CATEGORY = 'public.app-category.education';
 
 // Replace every `KEY = value;` / `"KEY": "value",` with what change(old) returns.
@@ -38,6 +42,7 @@ export function fixSafariProject(text, { bundleId, version, build = '1', teamId 
   out = setAll(out, 'MARKETING_VERSION', () => version);
   out = setAll(out, 'CURRENT_PROJECT_VERSION', () => String(build));
   out = setAll(out, 'MACOSX_DEPLOYMENT_TARGET', () => MIN_MACOS);
+  out = setAll(out, 'IPHONEOS_DEPLOYMENT_TARGET', () => MIN_IOS);
   if (!out.includes('INFOPLIST_KEY_LSApplicationCategoryType')) {
     // Next to each target's display name (an extra key on the extension is harmless).
     out = out.replace(

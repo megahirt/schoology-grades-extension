@@ -56,7 +56,7 @@ xcrun safari-web-extension-packager --copy-resources ./dist \
   --project-location ./safari \
   --app-name "Grades Dashboard for Schoology" \
   --bundle-identifier net.hirtfamily.schoology-dashboard \
-  --swift --macos-only --no-open
+  --swift --no-open
 # If the packager name is not found (older Xcode), use
 # safari-web-extension-converter instead — same flags.
 ```
@@ -92,7 +92,7 @@ The generated app's default view is a starting point, not a shippable
 app. A blank window that just says "open Safari" is a rejection risk.
 `npm run build:safari` replaces it after every conversion
 (`scripts/safari-app.mjs`, screen files in `scripts/safari-app/`) and adds
-`PrivacyInfo.xcprivacy` to both targets. The screen covers:
+`PrivacyInfo.xcprivacy` to all four targets. The screen covers:
 
 1. What the extension does.
 2. How to enable it (Safari → Settings → Extensions → tick it on,
@@ -236,16 +236,30 @@ produces the extension ZIP + converter script so the manual path stays
 open. Xcode Cloud is the alternative: 25 compute hours/month included
 with the $99 membership, signing managed by Apple.
 
-## iOS differences (if you get there)
+## iOS and iPadOS
 
-Same web code can ship to both from one converter run
-(`--rebuild-project` to add iOS), but iOS has no `downloads` (use
-share sheet), no `contextMenus`, no keyboard `commands`; the popup
-appears as a sheet from the toolbar's Extensions button; enabling is
-in Settings → Apps → Safari → Extensions (iOS 18+); background must
-be non-persistent. iOS needs its own screenshots and goes through its
-own App Store review as part of the same app record. iOS has no
-outside-store route at all.
+`npm run build:safari` makes one Xcode project with two apps: **Grades
+Dashboard for Schoology (macOS)** and **(iOS)**, which covers iPhone and
+iPad. Each embeds the same extension. Both apps use the same bundle ID
+(`net.hirtfamily.schoology-dashboard`), so they are one app record in App
+Store Connect and one purchase.
+
+- **Archive each platform separately** in Xcode: pick the (macOS) scheme and
+  **Any Mac**, Product → Archive, upload; then the (iOS) scheme and **Any
+  iOS Device**, Product → Archive, upload. The first iOS upload adds the
+  iOS platform to the app record.
+- The oldest iOS is 16.0 (`MIN_IOS` in `scripts/safari-project.mjs`).
+- The app screen has its own steps for iPhone (Settings → Apps → Safari →
+  Extensions) and scrolls on small phones.
+- The iOS app icon is drawn from `site/img/icon.svg` at 1024 px, square and
+  opaque (Apple refuses an iOS icon with transparency).
+- iPad is included (`TARGETED_DEVICE_FAMILY` 1,2), so App Store Connect asks
+  for iPad screenshots (`store/safari/ipad/`) as well as iPhone ones
+  (`store/safari/iphone/`). `npm run appstore:assets` makes both.
+- iOS has no `downloads`, `contextMenus` or keyboard `commands`; the popup
+  appears as a sheet from the Extensions button; the background must be
+  non-persistent (ours is). iOS has no outside-store route at all.
+- iOS goes through its own App Store review within the same app record.
 
 ## Gotchas checklist
 

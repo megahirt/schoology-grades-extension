@@ -12,3 +12,6 @@ test-results/
 docs/schoology-extension-plan.md
 test/screenshots/out/
 dist-safari/
+
+# The Xcode project that npm run build:safari generates (made again on every run)
+safari/Grades Dashboard for Schoology/
