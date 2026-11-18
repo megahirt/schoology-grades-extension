@@ -86,6 +86,7 @@ matters most. Chrome (Web Store, $5 one-time, Unlisted) is second.
 Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
 - `gradeThreshold: 75` (75 passes, below 75 is NO-GO)
 - `missingThreshold: 2` (NO-GO if missingCount >= 2; one Missing alone is GO)
+- `overdueThreshold: 4` (NO-GO if 4 or more Overdue items; slider 2-8)
 - Badge states the reason: "NO-GO — Missing work", "NO-GO — Low grades",
   "NO-GO — Missing work + Low grades", otherwise "GO".
 - "Missing" = ONLY items explicitly marked Missing on the Schoology Grades page.
@@ -112,7 +113,8 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   Often it's paper or in-class work Schoology never shows as submitted, so a
   parent OR the student can mark it turned in (a parent's marks count on
   Overdue items only); a marked item stays in place, struck through, with
-  Undo. Overdue never counts toward GO/NO-GO. Past-due work from an earlier
+  Undo. Overdue counts toward GO/NO-GO only at its own Family rules limit
+  (overdueThreshold, default 4, slider 2-8). Past-due work from an earlier
   period disappears. The card and the closed panel tab show Missing and
   Overdue counts (no Due soon count). This week's progress bar counts this
   week's work plus this quarter's earlier Missing and Overdue work; an opened
@@ -186,7 +188,7 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   (`src/dashboard-view.js`). `settings.showPanel` turns the panel off.
 
 `extension/src/rules.js` (pure JS, no chrome APIs, importable by node tests):
-- `DEFAULT_SETTINGS` — object: `{ gradeThreshold: 75, missingThreshold: 2,
+- `DEFAULT_SETTINGS` — object: `{ gradeThreshold: 75, missingThreshold: 2, overdueThreshold: 4,
   notSoGoodDays: 7, showGoNoGo: true, gradeVisibility: 'both',
   gradeDisplay: 'percent', showPanel: true }`
 - `computeVerdict({ missingCount, lowestClassGrade, settings })` ->

@@ -41,6 +41,7 @@ import { quarterChange, isNewRecord, classHighScore, classWeek, weekRange, dueTh
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
 import { captureDashboard, copyImage, shareImage, saveImage, isApplePlatform } from './screenshot.js';
 import css from './dashboard.css';
+import { holidayFor, ICON_SCALE } from './holidays.js';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
 import npcLogo from '../icons/npc_icon_tiny.png';
@@ -295,8 +296,9 @@ function renderMissing(full, uid, { isParentView = false, marked = new Set() } =
 // (rules.js overdueItems). Often it's paper or in-class work Schoology never
 // shows as submitted, so a parent or the student can mark it turned in; a
 // marked item stays here struck through, with Undo. One tight line each:
-// the title (cut short with … when the panel is narrow) and how many days
-// late it is ("5 days"), which always shows.
+// the title, the class in small muted text, and how many days late it is
+// ("5 days"). When the panel is narrow the class is cut short with … first,
+// then the title; the days always show.
 function overdueAge(a, now) {
   const due = new Date(a.due);
   if (Number.isNaN(due.getTime())) return '';
@@ -315,7 +317,9 @@ function renderOverdue(full, uid, { marked = new Set(), now = Date.now() } = {})
     const age = overdueAge(a, now);
     const when = dueLabel(a);
     return `<div class="overdue-row${isMarked ? ' marked' : ''}" data-aid="${escapeHtml(a.id ?? '')}"${newAttr('overdue', [a.id ?? a.title])}>` +
-      `<div class="grow overdue-line">${titleLink(a, 'item-title overdue-title')}${age ? `<span class="overdue-age"${when ? ` title="${escapeHtml(when)}"` : ''}>${escapeHtml(age)}</span>` : ''}</div>` +
+      `<div class="grow overdue-line">${titleLink(a, 'item-title overdue-title')}` +
+      (a.courseName ? `<span class="overdue-class">${escapeHtml(a.courseName)}</span>` : '') +
+      `${age ? `<span class="overdue-age"${when ? ` title="${escapeHtml(when)}"` : ''}>${escapeHtml(age)}</span>` : ''}</div>` +
       markButton(a, uid, { marked: isMarked, act: 'turned-in', verb: 'turned in' }) + '</div>';
   });
   return section(`Overdue · ${left}`, `<div class="overdue-list">${rows.join('')}</div>`, SECTION_EMOJI.overdue);
@@ -797,7 +801,7 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
       stats.push({ value: String(summary.missingCount), icon: MISSING_IMG, label: 'Missing', bad: summary.missingCount >= settings.missingThreshold });
     }
     const overdueCount = summary.overdueItems.length;
-    if (overdueCount > 0) stats.push({ value: String(overdueCount), icon: `<span class="stat-hg">${SECTION_EMOJI.overdue}</span>`, label: 'Overdue', bad: false });
+    if (overdueCount > 0) stats.push({ value: String(overdueCount), icon: `<span class="stat-hg">${SECTION_EMOJI.overdue}</span>`, label: 'Overdue', bad: overdueCount >= settings.overdueThreshold });
     const cardTone = !verdictsOn ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
@@ -846,6 +850,34 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     html += renderWaiting(summary, uid, visibleCourses(courses), now);
   }
   return { html, summary };
+}
+
+// The header logo: the plain icon, or on and just before a holiday its
+// holiday picture (holidays.js), drawn taller so the tile stays the same
+// size and the hat rises above it. Hovering it names the day.
+const LOGO_PX = 36;
+export function headLogoHtml(holiday, src) {
+  if (!holiday || !src) return `<img class="head-logo" src="${appLogo}" alt="" width="${LOGO_PX}" height="${LOGO_PX}">`;
+  return `<img class="head-logo holiday" src="${escapeHtml(src)}" alt="${escapeHtml(holiday.name)}" title="${escapeHtml(holiday.label)}" height="${Math.round(LOGO_PX * ICON_SCALE)}">`;
+}
+// Where a holiday picture comes from: an extension page (popup, settings)
+// loads the file itself; the in-page panel asks the background for it.
+const holidaySrcs = new Map();
+async function holidayIconSrc(browser, slug) {
+  if (holidaySrcs.has(slug)) return holidaySrcs.get(slug);
+  let src = null;
+  try {
+    if (/-extension:$/.test(globalThis.location?.protocol || '')) {
+      src = browser.runtime.getURL(`icons/holidays/${slug}.png`);
+    } else {
+      const res = await browser.runtime.sendMessage({ type: 'holiday-icon', slug });
+      src = (res && res.src) || null;
+    }
+  } catch {
+    src = null;
+  }
+  holidaySrcs.set(slug, src);
+  return src;
 }
 
 // Demo data with due dates shifted so "today"/"tomorrow" line up with the
@@ -1214,7 +1246,9 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       ? '<h1 class="title">Grades Dashboard</h1>'
       : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
 
-    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row"><img class="head-logo" src="${appLogo}" alt="" width="36" height="36"><div class="grow">${heading}` +
+    const holiday = holidayFor(Date.now());
+    const holidaySrc = holiday ? await holidayIconSrc(browser, holiday.slug) : null;
+    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row">${headLogoHtml(holiday, holidaySrc)}<div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`

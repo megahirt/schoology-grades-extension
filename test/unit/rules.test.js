@@ -452,7 +452,20 @@ describe('Overdue (past due, not graded, not turned in, not marked Missing)', ()
     expect(titles(s.dueToday)).toEqual(['Due Tonight']);
   });
 
-  it('does not count toward Missing or the GO/NO-GO verdict', () => {
+  it('counts toward GO/NO-GO only at its own limit (4 by default, 2-8)', () => {
+    const items = (n) => course(Array.from({ length: n }, (_, i) => ({ id: String(i), title: `Item ${i}`, status: 'overdue', score: null, due: at(i + 1) })));
+    expect(summarizeStudent(items(3), settings).verdict.verdict).toBe('GO');
+    const four = summarizeStudent(items(4), settings);
+    expect(four.verdict.verdict).toBe('NO-GO');
+    expect(four.verdict.reasons).toEqual(['NO-GO — Overdue work']);
+    expect(four.missingCount).toBe(0);
+    // Marking one turned in brings it back under the limit.
+    expect(summarizeStudent(items(4), settings, ['0']).verdict.verdict).toBe('GO');
+    // A family's own limit.
+    expect(summarizeStudent(items(2), { ...settings, overdueThreshold: 2 }).verdict.verdict).toBe('NO-GO');
+  });
+
+  it('does not count toward Missing, and stays GO under the limit', () => {
     const s = summarizeStudent(course([
       { id: '1', title: 'One', status: 'overdue', score: null, due: at(1) },
       { id: '2', title: 'Two', status: 'overdue', score: null, due: at(2) },
@@ -482,5 +495,22 @@ describe('Overdue (past due, not graded, not turned in, not marked Missing)', ()
       { id: '3', title: 'This Week', status: 'overdue', score: null, due: at(1) },
     ], periods), settings);
     expect(titles(s.overdueItems)).toEqual(['Start Of Quarter', 'This Week']);
+  });
+});
+
+describe('Overdue limit setting', () => {
+  it('defaults to 4 and is held to 2-8, like the slider', async () => {
+    const { effectiveSettings } = await import('../../extension/src/rules.js');
+    expect(DEFAULT_SETTINGS.overdueThreshold).toBe(4);
+    expect(effectiveSettings({ overdueThreshold: 1 }).overdueThreshold).toBe(2);
+    expect(effectiveSettings({ overdueThreshold: 12 }).overdueThreshold).toBe(8);
+    expect(effectiveSettings({ overdueThreshold: 6 }).overdueThreshold).toBe(6);
+    // A family rule: a student's own dashboard uses the default.
+    expect(effectiveSettings({ overdueThreshold: 6 }, { isStudent: true }).overdueThreshold).toBe(4);
+  });
+
+  it('names every reason when several apply', () => {
+    expect(computeVerdict({ missingCount: 2, overdueCount: 4, lowestClassGrade: 60, settings: DEFAULT_SETTINGS }).reasons)
+      .toEqual(['NO-GO — Missing work + Overdue work + Low grades']);
   });
 });

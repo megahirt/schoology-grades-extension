@@ -5,6 +5,7 @@
 export const DEFAULT_SETTINGS = {
   gradeThreshold: 75,
   missingThreshold: 2,
+  overdueThreshold: 4, // NO-GO at this many Overdue items (past due, nothing turned in)
   notSoGoodDays: 7,
   showGoNoGo: true,
   gradeVisibility: 'both',
@@ -18,10 +19,10 @@ export const DEFAULT_SETTINGS = {
 // the GO/NO-GO badge).
 const FIXED_SETTINGS = ['gradeVisibility', 'notSoGoodDays', 'doingWellDays', 'showGoNoGo'];
 // Family rules are set by parents; a student's dashboard uses the defaults.
-const PARENT_ONLY_SETTINGS = ['gradeThreshold', 'missingThreshold'];
+const PARENT_ONLY_SETTINGS = ['gradeThreshold', 'missingThreshold', 'overdueThreshold'];
 // The settings sliders' ranges; a value saved outside one (older versions
 // allowed 0-100, or up to 20 Missing items) is held to the nearest end, matching what the slider shows.
-export const SETTING_RANGES = { gradeThreshold: [60, 80], missingThreshold: [1, 6], doingWellPercent: [75, 90] };
+export const SETTING_RANGES = { gradeThreshold: [60, 80], missingThreshold: [1, 6], overdueThreshold: [2, 8], doingWellPercent: [75, 90] };
 
 // effectiveSettings(stored, { isStudent }) -> the settings to use.
 export function effectiveSettings(stored, { isStudent = false } = {}) {
@@ -111,24 +112,20 @@ export function hasGradeData(course) {
   );
 }
 
-export function computeVerdict({ missingCount = 0, lowestClassGrade = null, settings } = {}) {
+export function computeVerdict({ missingCount = 0, overdueCount = 0, lowestClassGrade = null, settings } = {}) {
   const s = mergeSettings(settings);
   const hasMissing = missingCount >= s.missingThreshold;
+  // Overdue work (past due, nothing turned in, not marked Missing) counts too,
+  // but with its own, higher limit: much of it is paper or in-class work
+  // Schoology never shows as submitted, until someone marks it turned in.
+  const hasOverdue = overdueCount >= s.overdueThreshold;
   const hasLow =
     lowestClassGrade !== null &&
     lowestClassGrade !== undefined &&
     !Number.isNaN(lowestClassGrade) &&
     lowestClassGrade < s.gradeThreshold; // the threshold itself passes
-  if (hasMissing && hasLow) {
-    return { verdict: 'NO-GO', reasons: ['NO-GO — Missing work + Low grades'] };
-  }
-  if (hasMissing) {
-    return { verdict: 'NO-GO', reasons: ['NO-GO — Missing work'] };
-  }
-  if (hasLow) {
-    return { verdict: 'NO-GO', reasons: ['NO-GO — Low grades'] };
-  }
-  return { verdict: 'GO', reasons: [] };
+  const why = [hasMissing && 'Missing work', hasOverdue && 'Overdue work', hasLow && 'Low grades'].filter(Boolean);
+  return why.length ? { verdict: 'NO-GO', reasons: [`NO-GO — ${why.join(' + ')}`] } : { verdict: 'GO', reasons: [] };
 }
 
 // When the current grading period began: the latest quarter (a period
@@ -280,8 +277,8 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       // Due soon = outstanding items due today / tomorrow.
       // Overdue = past its due date AND time, no grade, nothing turned in
       // and not marked Missing, due in the current grading period (quarter).
-      // It never counts toward the verdict (only the teacher's Missing mark
-      // does). Past-due work from an earlier period disappears.
+      // It counts toward the verdict only at its own limit (overdueThreshold).
+      // Past-due work from an earlier period disappears.
       if (!dueValid) continue;
       const dueEnd = a.due && /T/.test(String(a.due)) ? due : endOfDay(due);
       if (dueEnd < now) {
@@ -295,7 +292,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
   }
 
   const missingCount = missingItems.length;
-  const verdict = computeVerdict({ missingCount, lowestClassGrade, settings: s });
+  const verdict = computeVerdict({ missingCount, overdueCount: overdueItems.length, lowestClassGrade, settings: s });
   return {
     missingCount,
     missingItems,
