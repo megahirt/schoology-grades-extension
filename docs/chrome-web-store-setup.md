@@ -84,9 +84,11 @@ owner's approval. It runs `scripts/publish-chrome.mjs`, which:
 
 1. signs in as a Google **service account**;
 2. uploads the release's `…-chrome.zip` (Chrome Web Store API v2);
-3. submits it for review as **`STAGED_PUBLISH`**: once review passes, the
-   update waits for the owner's **Publish** click in the Developer
-   Dashboard. Nothing goes live on its own.
+3. submits it for review as **`DEFAULT_PUBLISH`**: once review passes, the
+   update goes live by itself. Approving the `chrome` job is the go-live
+   decision. (Set `CWS_PUBLISH_TYPE: STAGED_PUBLISH` in
+   `.github/workflows/release.yml` to wait for a **Publish** click in the
+   Developer Dashboard instead.)
 
 Until all three settings below exist, the job prints `SKIPPED` and the
 release still succeeds.

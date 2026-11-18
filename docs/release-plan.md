@@ -174,9 +174,9 @@ working.
 - `POST https://chromewebstore.googleapis.com/upload/v2/publishers/$PUB/items/$ID:upload`
   with the ZIP.
 - `POST .../v2/publishers/$PUB/items/$ID:publish`, using
-  `publishType: STAGED_PUBLISH`, always (owner decision): once review
-  passes, the item waits for the owner's **Publish** click in the
-  dashboard.
+  `publishType: DEFAULT_PUBLISH` (owner decision, 2026-11-18; it was
+  `STAGED_PUBLISH` through 1.2.5): once review passes, the item goes live
+  by itself, so approving the `chrome` job is the go-live decision.
 - Implement as a small `scripts/publish-chrome.mjs` (fetch + JSON), not a
   third-party action, so we depend only on Google's documented API. If a
   maintained action or CLI with **confirmed v2 + service-account support**
@@ -349,7 +349,7 @@ How it combines with each store's own go-live click:
 
 | Store | GitHub gate (before upload) | Store-side click (after review) |
 |---|---|---|
-| Chrome | Approve | **Publish** in the dashboard (`STAGED_PUBLISH`) |
+| Chrome | **Approve = the go-live decision** | none (`DEFAULT_PUBLISH`: live once review passes) |
 | Edge | Approve | **Publish** in Partner Center (CI uploads the draft only) |
 | Firefox | **Approve = the go-live decision** | none (AMO goes live once approved) |
 | Safari | Approve | **Submit for Review** in App Store Connect (CI uploads to TestFlight only), with "Manually release this version" selected, so it also waits after approval |
@@ -394,7 +394,7 @@ demo-data screenshots.
   auto-updates. When happy, switch visibility to **Public** (owner decision)
   and do one manual publish so API publishing works afterwards (see §2
   gotcha).
-- Enable the CI publish job with `STAGED_PUBLISH`.
+- Enable the CI publish job (now `DEFAULT_PUBLISH`).
 - **Edge** ships here too. Owner: Partner Center account (free), first
   manual submission (hidden while testing, then **Public**), then the API key. CI uploads drafts
   and the owner clicks Publish.
