@@ -126,11 +126,11 @@ git push origin v1.4.0
 4. Redeploys the site so it shows the new version.
 5. Runs the store uploads behind the `release` environment's approval gate.
    They skip until their secrets and upload steps exist. Chrome is
-   submitted for review; Edge gets a draft
-   ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)). Each waits
-   for the owner's Publish click in its store. Firefox has no such click:
-   approving its job sends the version live once Mozilla approves it
-   ([docs/firefox-amo-setup.md](docs/firefox-amo-setup.md)).
+   submitted for review and goes live once Google approves it. Firefox is
+   the same: approving its job sends the version live once Mozilla approves
+   it ([docs/firefox-amo-setup.md](docs/firefox-amo-setup.md)). Edge gets a
+   draft that waits for the owner's Publish click in Partner Center
+   ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)).
 
 Local builds use the newest `vX.Y.Z` tag, or `0.0.0` if there is none. Set
 `RELEASE_VERSION=1.4.0` to override. The full plan, including stores,

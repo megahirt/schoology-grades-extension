@@ -165,9 +165,10 @@ jobs:
 
   chrome:
     # Chrome Web Store (API v2, scripts/publish-chrome.mjs): uploads the
-    # release's Chrome ZIP and submits it for review as STAGED_PUBLISH, so a
-    # reviewed update waits for the owner's Publish click in the Developer
-    # Dashboard. Runs in the `release` environment (owner approval). Skips,
+    # release's Chrome ZIP and submits it for review as DEFAULT_PUBLISH, so a
+    # reviewed update goes live as soon as review passes; approving this job
+    # is the go-live decision. Runs in the `release` environment (owner
+    # approval). Skips,
     # without failing, until the service account key and IDs are set
     # (docs/chrome-web-store-setup.md §4).
     runs-on: ubuntu-latest
@@ -213,7 +214,7 @@ jobs:
           CWS_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-          CWS_PUBLISH_TYPE: STAGED_PUBLISH
+          CWS_PUBLISH_TYPE: DEFAULT_PUBLISH
         run: node scripts/publish-chrome.mjs "out/schoology-grades-extension-${VERSION}-chrome.zip"
 
       - name: Skip (not set up yet)
