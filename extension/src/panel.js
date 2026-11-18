@@ -172,8 +172,8 @@ const SPINNER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 const CHEVRON_RIGHT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2"><path d="M9 6l6 6-6 6"/></g></svg>';
 
 // Per-child summary for the closed tab:
-//   [{ name, pictureUrl, missing, due, nogo, unknown }]
-// Missing and Due soon counts always show (when non-zero). NO-GO (or "?" for
+//   [{ name, pictureUrl, missing, overdue, nogo, unknown }]
+// Missing and Overdue counts always show (when non-zero). NO-GO (or "?" for
 // UNKNOWN) shows only for parents with the badge turned on; GO shows nothing.
 export async function tabSummaries() {
   const dashboards = (await getDashboards()) || {};
@@ -184,14 +184,19 @@ export async function tabSummaries() {
   const turnedIn = (await getTurnedIn()) || {};
   const done = (await getMarkedDone()) || {};
   return Object.entries(dashboards).map(([uid, d]) => {
-    // Marks are a student's own: a parent's view never uses them.
-    const sum = summarizeStudent(d.courses || [], settings, isStudent ? turnedIn[uid] : [], isStudent ? done[uid] : []);
+    // Marks are a student's own, except that a parent can mark Overdue work
+    // turned in (as on the dashboard), so a parent's marks count on Overdue only.
+    const full = summarizeStudent(d.courses || [], settings, [], []);
+    const overdueIds = new Set(full.overdueItems.map((a) => String(a.id)));
+    const sum = isStudent
+      ? summarizeStudent(d.courses || [], settings, turnedIn[uid], done[uid])
+      : summarizeStudent(d.courses || [], settings, (turnedIn[uid] || []).filter((id) => overdueIds.has(String(id))), []);
     const unknown = Boolean(d.error || isPartial(d));
     return {
       name: d.studentName || 'Student',
       pictureUrl: d.pictureUrl || null,
       missing: unknown ? 0 : sum.missingCount,
-      due: unknown ? 0 : sum.dueToday.length + sum.dueTomorrow.length,
+      overdue: unknown ? 0 : sum.overdueItems.length,
       nogo: verdictsOn && !unknown && sum.verdict.verdict === 'NO-GO',
       unknown: verdictsOn && unknown,
     };
@@ -264,7 +269,7 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
     const parts = kids.map((k) => {
       const bits = [];
       if (k.missing) bits.push(`${k.missing} missing`);
-      if (k.due) bits.push(`${k.due} due soon`);
+      if (k.overdue) bits.push(`${k.overdue} overdue`);
       if (k.nogo) bits.push('NO-GO');
       if (k.unknown) bits.push('verdict unknown');
       return `${k.name}${bits.length ? `: ${bits.join(', ')}` : ''}`;
@@ -279,7 +284,7 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
         : `<span class="kid-pic">${escapeHtml(initials(k.name))}</span>`;
       return `<span class="kid">${pic}` +
         (k.missing ? `<span class="kid-m">${MISSING_IMG}${k.missing}</span>` : '') +
-        (k.due ? `<span class="kid-m"><span class="hg">⌛</span>${k.due}</span>` : '') +
+        (k.overdue ? `<span class="kid-m"><span class="hg">😬</span>${k.overdue}</span>` : '') +
         (k.unknown ? '<span class="kid-unknown">?</span>' : '') +
         '</span>';
     }).join('');

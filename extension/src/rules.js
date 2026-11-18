@@ -194,6 +194,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
 
   const list = Array.isArray(courses) ? courses : [];
   const missingItems = [];
+  const overdueItems = [];
   const dueToday = [];
   const dueTomorrow = [];
   const doingWell = [];
@@ -264,6 +265,12 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
         waiting.push({ ...item, waitingReason: 'submitted' });
         continue;
       }
+      if (idKey !== null && turnedIn.has(idKey)) {
+        // Marked turned in (from Overdue: paper or in-class work Schoology
+        // never shows as submitted), not graded yet: waiting on the teacher.
+        waiting.push({ ...item, waitingReason: 'turnedIn' });
+        continue;
+      }
       if (idKey !== null && done.has(idKey)) {
         // Marked done, not graded yet: waiting on the teacher.
         waiting.push({ ...item, waitingReason: 'done' });
@@ -271,11 +278,17 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       }
       // Ungraded + not Missing = in-between / OK, not counted as Missing.
       // Due soon = outstanding items due today / tomorrow.
-      // Past due date AND time with no grade and not Missing disappears
-      // entirely (not in Due soon, not in Awaiting teacher).
+      // Overdue = past its due date AND time, no grade, nothing turned in
+      // and not marked Missing, due in the current grading period (quarter).
+      // It never counts toward the verdict (only the teacher's Missing mark
+      // does). Past-due work from an earlier period disappears.
       if (!dueValid) continue;
       const dueEnd = a.due && /T/.test(String(a.due)) ? due : endOfDay(due);
-      if (dueEnd < now) continue; // past due: disappears
+      if (dueEnd < now) {
+        const counts = a.status !== 'excused' && a.status !== 'incomplete';
+        if (counts && !pastPeriod) overdueItems.push(item);
+        continue;
+      }
       if (due >= todayStart && due < tomorrowStart) dueToday.push(item);
       else if (due >= tomorrowStart && due < dayAfterStart) dueTomorrow.push(item);
     }
@@ -286,6 +299,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
   return {
     missingCount,
     missingItems,
+    overdueItems,
     lowestClassGrade,
     lowClasses,
     dueToday,

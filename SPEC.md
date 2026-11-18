@@ -103,10 +103,20 @@ Defaults (the shipped default rules — defaults, NOT hard-coded for everyone):
   "things to finish first" note instead.
 - Class list: a class with no grade yet for the current quarter shows "—"
   there; its semester grade stands (and is what GO/NO-GO uses).
-- Due soon: outstanding (not yet graded) items due today / tomorrow. Items past
-  their due date AND time with no grade and NOT Missing disappear entirely
-  (may be noted in fine print only). No due time given = due at end of day.
-  Missing items always stay in Missing.
+- Due soon: outstanding (not yet graded) items due today / tomorrow. No due
+  time given = due at end of day. Missing items always stay in Missing.
+- Overdue (😬, right after Missing): items past their due date AND time with no
+  grade, no submission, no family mark and NOT Missing (nor excused or
+  incomplete), due in the current grading period (quarter). Oldest first, one
+  tight line each: the title (cut short if needed) and how many days late.
+  Often it's paper or in-class work Schoology never shows as submitted, so a
+  parent OR the student can mark it turned in (a parent's marks count on
+  Overdue items only); a marked item stays in place, struck through, with
+  Undo. Overdue never counts toward GO/NO-GO. Past-due work from an earlier
+  period disappears. The card and the closed panel tab show Missing and
+  Overdue counts (no Due soon count). This week's progress bar counts this
+  week's work plus this quarter's earlier Missing and Overdue work; an opened
+  class lists that earlier work too, Overdue marked 😬.
 - "Waiting on teacher" (near the bottom of the dashboard) holds:
   - Submitted work Schoology hasn't graded yet, whether or not the teacher
     marked it Missing. It does NOT count as Missing (no Undo: Schoology

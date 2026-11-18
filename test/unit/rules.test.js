@@ -212,12 +212,13 @@ describe('Waiting on teacher (turned-in and done marks)', () => {
     expect(s.verdict.verdict).toBe('GO');
   });
 
-  it('a turned-in item drops out of Waiting once graded, or once the Missing mark is removed', () => {
+  it('a turned-in item drops out of Waiting once graded, and stays there while the Missing mark is removed', () => {
     const s = summarizeStudent(course([
       { id: '1', title: 'Graded Now', status: 'graded', score: 8, maxPoints: 10, due: iso(lastWeek) },
       { id: '2', title: 'Missing Removed', status: 'pending', score: null, due: iso(lastWeek) },
     ]), DEFAULT_SETTINGS, ['1', '2']);
-    expect(s.waiting).toEqual([]);
+    expect(s.waiting.map((a) => [a.title, a.waitingReason])).toEqual([['Missing Removed', 'turnedIn']]);
+    expect(s.overdueItems).toEqual([]);
     expect(s.doingWell.map((a) => a.title)).toEqual(['Graded Now']);
   });
 
@@ -411,5 +412,75 @@ describe('effective settings', () => {
     expect(effectiveSettings({ gradeThreshold: 95, doingWellPercent: 50, missingThreshold: 12 })).toMatchObject({ gradeThreshold: 80, doingWellPercent: 75, missingThreshold: 6 });
     expect(effectiveSettings({ gradeThreshold: 40, doingWellPercent: 99, missingThreshold: 0 })).toMatchObject({ gradeThreshold: 60, doingWellPercent: 90, missingThreshold: 1 });
     expect(effectiveSettings({ gradeThreshold: 'x' }).gradeThreshold).toBe(75);
+  });
+});
+
+describe('Overdue (past due, not graded, not turned in, not marked Missing)', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const NOW = new Date(2026, 10, 18, 15, 0); // Wed Nov 18, 3 pm
+  const at = (daysAgo, time = '23:59:00') => {
+    const d = new Date(NOW);
+    d.setDate(d.getDate() - daysAgo);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${time}`;
+  };
+  const settings = { ...DEFAULT_SETTINGS, now: NOW.toISOString() };
+  const course = (assignments, periods) => [{ id: '10', name: 'Biology', grade: 90, assignments, periods }];
+  const titles = (list) => list.map((a) => a.title);
+
+  it('lists past-due work that has no grade, submission or Missing mark, however long ago', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Lab Report', status: 'overdue', score: null, due: at(2) },
+      { id: '2', title: 'Due This Morning', status: 'overdue', score: null, due: at(0, '08:00:00') },
+      { id: '3', title: 'Three Weeks Ago', status: 'overdue', score: null, due: at(21) },
+    ]), settings);
+    expect(titles(s.overdueItems)).toEqual(['Lab Report', 'Due This Morning', 'Three Weeks Ago']);
+    expect(s.overdueItems[0].courseName).toBe('Biology');
+  });
+
+  it('leaves out work that is graded, submitted, Missing, excused, incomplete, undated or not due yet', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Graded', status: 'graded', score: 9, maxPoints: 10, due: at(1) },
+      { id: '2', title: 'Submitted', status: 'overdue', score: null, submitted: true, due: at(1) },
+      { id: '3', title: 'Missing', status: 'missing', score: null, due: at(1) },
+      { id: '4', title: 'Excused', status: 'excused', score: null, due: at(1) },
+      { id: '5', title: 'Incomplete', status: 'incomplete', score: null, due: at(1) },
+      { id: '6', title: 'No Date', status: 'pending', score: null, due: null },
+      { id: '7', title: 'Due Tonight', status: 'pending', score: null, due: at(0) },
+    ]), settings);
+    expect(s.overdueItems).toEqual([]);
+    expect(titles(s.missingItems)).toEqual(['Missing']);
+    expect(titles(s.dueToday)).toEqual(['Due Tonight']);
+  });
+
+  it('does not count toward Missing or the GO/NO-GO verdict', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'One', status: 'overdue', score: null, due: at(1) },
+      { id: '2', title: 'Two', status: 'overdue', score: null, due: at(2) },
+      { id: '3', title: 'Three', status: 'overdue', score: null, due: at(3) },
+    ]), settings);
+    expect(s.overdueItems).toHaveLength(3);
+    expect(s.missingCount).toBe(0);
+    expect(s.verdict.verdict).toBe('GO');
+  });
+
+  it('marking it turned in moves it to Submitted, not graded yet', () => {
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Lab Report', status: 'overdue', score: null, due: at(2) },
+    ]), settings, ['1']);
+    expect(s.overdueItems).toEqual([]);
+    expect(s.waiting.map((a) => [a.title, a.waitingReason])).toEqual([['Lab Report', 'turnedIn']]);
+  });
+
+  it('keeps to the current quarter: earlier work is left out, all of this quarter stays', () => {
+    const periods = [
+      { title: 'Semester 1', topLevel: true, start: at(80) },
+      { title: 'Quarter 2', start: at(30, '00:00:00') },
+    ];
+    const s = summarizeStudent(course([
+      { id: '1', title: 'Last Quarter', status: 'overdue', score: null, due: at(31) },
+      { id: '2', title: 'Start Of Quarter', status: 'overdue', score: null, due: at(29) },
+      { id: '3', title: 'This Week', status: 'overdue', score: null, due: at(1) },
+    ], periods), settings);
+    expect(titles(s.overdueItems)).toEqual(['Start Of Quarter', 'This Week']);
   });
 });

@@ -125,19 +125,26 @@
       <div class="credit">
         <span>Made with <span role="img" aria-label="love">❤️</span> for</span><img id="credit-logo" alt="NPC" width="20" height="20"><span>by Chris Hirt</span>
       </div>
-      <div class="support">
-        <div class="support-art" aria-hidden="true">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.5 3.9 5.500 3.900 9s-1.300 6.500-3.900 9c-2.600-2.500-3.900-5.500-3.900-9s1.300-6.500 3.900-9z"/></svg>
-        </div>
-        <div class="grow">
-          <div class="strong">Has Grades Dashboard helped your family?</div>
-          <p class="muted">It's free. If you'd like to say thanks, you can support my family's mission work, or buy me a coffee.</p>
-          <div class="support-links">
-            <a class="btn link-btn" href="https://www.wycliffe.org/partner/hirt5" target="_blank" rel="noopener">Support our mission work</a>
-            <a class="btn link-btn" href="https://buymeacoffee.com/megahirt" target="_blank" rel="noopener"><span aria-hidden="true">☕</span> Buy me a coffee</a>
+      <!-- Closed by default: a quiet offer, not a request. -->
+      <details class="support">
+        <summary>
+          <span class="strong">Has Grades Dashboard helped your family?</span>
+          <svg class="support-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="support-body">
+          <div class="support-art" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.5 3.9 5.500 3.900 9s-1.300 6.500-3.900 9c-2.600-2.500-3.900-5.500-3.900-9s1.300-6.500 3.900-9z"/></svg>
+          </div>
+          <div class="grow">
+            <p class="muted">It's free. If you'd like to say thanks, you can support my family's mission work, buy me a coffee, or send me an encouraging note.</p>
+            <div class="support-links">
+              <a class="btn link-btn" href="https://www.wycliffe.org/partner/hirt5" target="_blank" rel="noopener"><span aria-hidden="true">✝️</span> Support our mission work</a>
+              <a class="btn link-btn" href="https://buymeacoffee.com/megahirt" target="_blank" rel="noopener"><span aria-hidden="true">☕</span> Buy me a coffee</a>
+              <a id="encourage-link" class="btn link-btn" href="mailto:gradesdashboard@hirtfamily.net?subject=A%20note%20of%20encouragement"><span aria-hidden="true">✉️</span> Send an encouraging note</a>
+            </div>
           </div>
         </div>
-      </div>
+      </details>
     </section>
 
     <section id="developer" class="card dev dev-only" hidden>

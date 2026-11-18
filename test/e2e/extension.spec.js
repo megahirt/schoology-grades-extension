@@ -570,8 +570,12 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // The School address section is gone; About links the website and two ways to say thanks.
       await expect(opts.getByRole('heading', { name: 'School address', exact: true })).toHaveCount(0);
       await expect(opts.getByRole('link', { name: 'Visit the website' })).toHaveAttribute('href', 'https://megahirt.github.io/schoology-grades-extension/');
+      // The thanks box starts closed; opening it shows the two links.
+      await expect(opts.getByRole('link', { name: 'Support our mission work' })).toBeHidden();
+      await opts.getByText('Has Grades Dashboard helped your family?').click();
       await expect(opts.getByRole('link', { name: 'Support our mission work' })).toHaveAttribute('href', 'https://www.wycliffe.org/partner/hirt5');
       await expect(opts.getByRole('link', { name: 'Buy me a coffee' })).toHaveAttribute('href', 'https://buymeacoffee.com/megahirt');
+      await expect(opts.getByRole('link', { name: 'Send an encouraging note' })).toHaveAttribute('href', 'mailto:gradesdashboard@hirtfamily.net?subject=A%20note%20of%20encouragement');
       await expect(opts.locator('#version')).toHaveText(/^Version \d+\.\d+\.\d+/);
       // Family rules are for parents only; removed choices are gone.
       await expect(opts.getByRole('heading', { name: 'Family rules', exact: true })).toBeHidden();

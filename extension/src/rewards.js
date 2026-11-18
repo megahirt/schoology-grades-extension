@@ -97,9 +97,9 @@ function markSets(marks = {}) {
 //   submitted  Schoology shows a submission
 //   turnedIn / done   the family marked it (turned in, or done)
 //   missing    the teacher marked it Missing
-//   assumed    past due without a Missing mark: counted as turned in, as
-//              everywhere else on the dashboard (only the teacher's Missing
-//              mark makes work Missing; parents can't see submissions)
+//   overdue    past due with no grade, submission, mark or Missing mark: not
+//              done (it's in the Overdue section too), but not Missing
+//              either (only the teacher's mark makes work Missing)
 //   open       still to do
 // The order matters: a family mark beats a Missing mark (the work is in,
 // the teacher hasn't caught up), as in the Submitted section.
@@ -112,12 +112,12 @@ export function weekState(a, marks = {}, now = Date.now()) {
   if (id !== null && sets.done.has(id)) return 'done';
   if (a.status === 'missing' || a.status === 'incomplete') return 'missing';
   const t = Date.parse(a.due || '');
-  if (!Number.isNaN(t) && t <= now) return 'assumed';
+  if (!Number.isNaN(t) && t <= now) return 'overdue';
   return 'open';
 }
 
 // The states that count as done this week (graded or turned in).
-export const WEEK_DONE = new Set(['graded', 'submitted', 'turnedIn', 'done', 'assumed']);
+export const WEEK_DONE = new Set(['graded', 'submitted', 'turnedIn', 'done']);
 
 // classWeek(course, marks, now, carried) -> { items: [{ a, state }], total, done }:
 // one class's assignments due this week, plus `carried`: earlier work the
@@ -134,8 +134,7 @@ export function classWeek(course, marks = {}, now = Date.now(), carried = []) {
 // weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted, missing }
 // total: everything due this week (Monday to Sunday), excused work left out.
 // graded: has a grade. submitted: not graded yet but counted as turned in
-// (weekState: submitted, marked by the family, or past due without a
-// Missing mark). missing: teacher-marked Missing, not turned in. The class
+// (weekState: submitted, or marked by the family). missing: teacher-marked Missing, not turned in. The class
 // bars add up to the same numbers.
 export function weekProgress(courses, marks = {}, now = Date.now()) {
   let total = 0;
