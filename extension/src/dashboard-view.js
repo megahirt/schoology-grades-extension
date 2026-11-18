@@ -4,7 +4,8 @@
 //   header (title or "Hi, <name>", updated time, refresh, close in the panel)
 //   → child switcher (parents with 2+ children)
 //   → verdict card (GO/NO-GO pill when settings.showGoNoGo, reason, numbers)
-//   → Missing (grey ✓ "Mark as turned in") → Due soon (grey ✓ "Mark as done")
+//   → Missing (grey ✓ "Mark as turned in") → Overdue (grey ✓ "Mark as turned in", parents too)
+//   → Due soon (grey ✓ "Mark as done")
 //   → Classes (grade bars with the passing line) → Doing well / Not so good
 //   → Records (personal bests, rewards.js) → Submitted, not graded yet (with Undo)
 //   → footer. The card also carries this week's progress bar (parents).
@@ -230,6 +231,7 @@ function shortHead(label) {
 const SHARE_LABEL = 'Share a picture of the dashboard';
 export const SECTION_EMOJI = {
   missing: MISSING_IMG, // Schoology's Missing icon rather than an emoji
+  overdue: '😬',
   due: '⌛',
   classes: '🏛️',
   notSoGood: '📉',
@@ -287,6 +289,36 @@ function renderMissing(full, uid, { isParentView = false, marked = new Set() } =
       mail + (isParentView ? '' : markButton(a, uid, { marked: isMarked, act: 'turned-in', verb: 'turned in' })) + '</div>';
   });
   return section(`Missing · ${left}`, rows.join(''), SECTION_EMOJI.missing);
+}
+
+// Overdue: past due, no grade, nothing turned in and no Missing mark
+// (rules.js overdueItems). Often it's paper or in-class work Schoology never
+// shows as submitted, so a parent or the student can mark it turned in; a
+// marked item stays here struck through, with Undo. One tight line each:
+// the title (cut short with … when the panel is narrow) and how many days
+// late it is ("5 days"), which always shows.
+function overdueAge(a, now) {
+  const due = new Date(a.due);
+  if (Number.isNaN(due.getTime())) return '';
+  const day = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+  const days = Math.round((day(now) - day(due)) / 86400000);
+  return days <= 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`;
+}
+function renderOverdue(full, uid, { marked = new Set(), now = Date.now() } = {}) {
+  if (!full.overdueItems || !full.overdueItems.length) return '';
+  let left = 0;
+  // Oldest first (by due date); undated work last.
+  const due = (a) => { const t = Date.parse(a.due || ''); return Number.isNaN(t) ? Infinity : t; };
+  const rows = [...full.overdueItems].sort((x, y) => due(x) - due(y)).map((a) => {
+    const isMarked = marked.has(String(a.id));
+    if (!isMarked) left += 1;
+    const age = overdueAge(a, now);
+    const when = dueLabel(a);
+    return `<div class="overdue-row${isMarked ? ' marked' : ''}" data-aid="${escapeHtml(a.id ?? '')}"${newAttr('overdue', [a.id ?? a.title])}>` +
+      `<div class="grow overdue-line">${titleLink(a, 'item-title overdue-title')}${age ? `<span class="overdue-age"${when ? ` title="${escapeHtml(when)}"` : ''}>${escapeHtml(age)}</span>` : ''}</div>` +
+      markButton(a, uid, { marked: isMarked, act: 'turned-in', verb: 'turned in' }) + '</div>';
+  });
+  return section(`Overdue · ${left}`, `<div class="overdue-list">${rows.join('')}</div>`, SECTION_EMOJI.overdue);
 }
 
 function renderDue(full, uid, { isParentView = false, marked = new Set() } = {}) {
@@ -357,12 +389,12 @@ function trendLine(history, threshold) {
 // one compact line each, with a check button (mark done or turned in, or
 // undo the family's own mark), the title, a Missing or Submitted icon, the
 // day it's due and, once graded, the grade. Work Schoology shows as graded or
-// submitted (or past due without a Missing mark) is already checked.
+// submitted is already checked; past-due work with nothing turned in shows
+// 😬 (it's in Overdue too).
 const WEEK_ICON_TITLE = {
   submitted: 'Submitted, not graded yet',
   turnedIn: 'Marked turned in, not graded yet',
   done: 'Marked done, not graded yet',
-  assumed: 'Past due and not marked Missing',
 };
 function weekSpan(now) {
   const { from, to } = weekRange(now);
@@ -379,7 +411,7 @@ function weekListHtml(wk, uid, settings, showGrades, now, canMark = true) {
     const hasId = a.id !== undefined && a.id !== null;
     const marked = state === 'turnedIn' || state === 'done';
     // Only students mark work; for a parent every row just shows its state.
-    const locked = !canMark || !hasId || state === 'graded' || state === 'submitted' || state === 'assumed';
+    const locked = !canMark || !hasId || state === 'graded' || state === 'submitted';
     const title = a.title || 'Assignment';
     let btn;
     if (locked) {
@@ -388,16 +420,18 @@ function weekListHtml(wk, uid, settings, showGrades, now, canMark = true) {
     } else if (marked) {
       btn = `<button class="wk-check undo" type="button" data-act="undo" data-reason="${state}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="true" aria-label="${escapeHtml(`Undo: ${title}`)}" title="Undo">${ICON.undo}</button>`;
     } else {
-      // Missing work is marked turned in (as in the Missing section), other
-      // work done (as in Due soon).
-      const act = state === 'missing' ? 'turned-in' : 'done';
-      const verb = state === 'missing' ? 'turned in' : 'done';
+      // Missing and Overdue work is marked turned in (as in those sections),
+      // other work done (as in Due soon).
+      const late = state === 'missing' || state === 'overdue';
+      const act = late ? 'turned-in' : 'done';
+      const verb = late ? 'turned in' : 'done';
       btn = `<button class="wk-check" type="button" data-act="${act}" data-uid="${escapeHtml(uid)}" data-aid="${escapeHtml(a.id)}" aria-pressed="false" aria-label="${escapeHtml(`Mark ${title} as ${verb}`)}" title="Mark as ${verb}">${ICON.docCheck}</button>`;
     }
     // The Missing icon stays until the work is graded (the teacher's mark is
     // still on it), beside the Submitted icon once it's in.
     let icon = '';
     if (isCarried(a) && state !== 'graded') icon += `<span class="wk-icon" role="img" aria-label="Missing" title="Missing">${MISSING_IMG}</span>`;
+    if (state === 'overdue') icon += `<span class="wk-icon wk-overdue" role="img" aria-label="Overdue" title="Overdue">${SECTION_EMOJI.overdue}</span>`;
     if (WEEK_ICON_TITLE[state]) icon += `<span class="wk-icon wk-sub" role="img" aria-label="${WEEK_ICON_TITLE[state]}" title="${WEEK_ICON_TITLE[state]}">${ICON.tray}</span>`;
     // This week: the weekday ("Fri"); earlier Missing work: the date ("Nov 3").
     const t = new Date(a.due);
@@ -419,11 +453,19 @@ function carriedMissing(summary, course, now) {
   return [...summary.missingItems, ...summary.waiting.filter(isCarried)]
     .filter((a) => String(a.courseId ?? a.courseName) === cid && !dueThisWeek(a, now));
 }
+// Earlier work carried into this week, for one class: Missing work (above)
+// and this quarter's Overdue work. `full` is the Overdue list before marks,
+// so work marked turned in stays, checked off.
+function carriedWork(summary, full, course, now) {
+  const cid = String(course.id ?? course.name);
+  const overdue = ((full && full.overdueItems) || []).filter((a) => String(a.courseId ?? a.courseName) === cid && !dueThisWeek(a, now));
+  return [...carriedMissing(summary, course, now), ...overdue];
+}
 function isCarried(a) {
   return a.status === 'missing' || a.status === 'incomplete';
 }
 
-function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, now = Date.now(), canMark = true } = {}) {
+function renderClasses(courses, settings, showGrades, uid, openClass = null, { marks = {}, summary = null, full = null, now = Date.now(), canMark = true } = {}) {
   const list = visibleCourses(courses);
   if (!list.length) return '';
   const t = settings.gradeThreshold;
@@ -472,7 +514,7 @@ function renderClasses(courses, settings, showGrades, uid, openClass = null, { m
     // The bar is this week's work in the class: graded or turned in, out of
     // everything due Monday to Sunday (the same count as this week's progress bar).
     // A low grade shows as the red pill on the grade itself.
-    const wk = classWeek(c, marks, now, carriedMissing(summary, c, now));
+    const wk = classWeek(c, marks, now, carriedWork(summary, full, c, now));
     // One segment per assignment due this week, filled left to right as
     // work is done. Nothing due: one grey bar and "No HW".
     const weekLabel = wk.total ? `${wk.done} of ${wk.total}` : '';
@@ -614,20 +656,23 @@ function renderWaiting(summary, uid, courses = [], now = Date.now()) {
 
 // This week's progress bar, along the bottom of the name card: graded (dark
 // blue), then turned in and waiting for a grade (light blue), then Missing
-// work from any week (the Missing orange), out of everything due Monday to
+// work from any week of the quarter (the Missing orange), then Overdue work
+// (amber), out of everything due Monday to
 // Sunday; the rest is still to do. No legend: hovering (or tapping) a part
 // says what it is ("3 graded", "2 turned in", "1 remaining").
 function weekBar(w, span) {
   if (!w.total) return '';
   const missing = w.missing || 0;
+  const overdue = w.overdue || 0;
   const n = w.graded + w.submitted;
-  const left = Math.max(0, w.total - n - missing);
+  const left = Math.max(0, w.total - n - missing - overdue);
   const label = `${n} of ${w.total} assignments, ${span}: ${w.graded} graded, ${w.submitted} turned in, ` +
-    `${missing ? `${missing} missing, ` : ''}${left} remaining`;
+    `${missing ? `${missing} missing, ` : ''}${overdue ? `${overdue} overdue, ` : ''}${left} remaining`;
   const parts = [
     { n: w.graded, cls: 'graded', tip: `${w.graded} graded` },
     { n: w.submitted, cls: 'turned-in', tip: `${w.submitted} turned in` },
     { n: missing, cls: 'missing', tip: `${missing} missing` },
+    { n: overdue, cls: 'overdue', tip: `${overdue} overdue` },
     { n: left, cls: 'left', tip: `${left} remaining` },
   ].filter((p) => p.n > 0);
   const segs = parts.map((p) => `<span class="wk-part ${p.cls}" data-tip="${escapeHtml(p.tip)}" style="flex-grow:${p.n}"></span>`).join('');
@@ -711,12 +756,16 @@ function avatarHtml(d) {
 export function renderStudentBody(d, uid, settings, marks, { isParentView, openClass = null, records = null, now = Date.now() }) {
   // Tidy class names ("07 English" -> "English") for everything below.
   const courses = cleanCourseNames(d.courses || []);
-  // Marks are a student's own: a parent's view never uses or offers them.
+  // Marks are a student's own, with one exception: a parent can mark Overdue
+  // work turned in, so a parent's marks count on Overdue items only.
   const canMark = !isParentView;
-  const own = canMark ? { turnedIn: marks.turnedIn || [], done: marks.done || [] } : { turnedIn: [], done: [] };
-  const summary = summarizeStudent(courses, settings, own.turnedIn, own.done);
   // The lists as Schoology has them: a marked item stays in its place.
-  const full = canMark ? summarizeStudent(courses, settings, [], []) : summary;
+  const full = summarizeStudent(courses, settings, [], []);
+  const overdueIds = new Set(full.overdueItems.map((a) => String(a.id)));
+  const own = canMark
+    ? { turnedIn: marks.turnedIn || [], done: marks.done || [] }
+    : { turnedIn: (marks.turnedIn || []).filter((id) => overdueIds.has(String(id))), done: [] };
+  const summary = summarizeStudent(courses, settings, own.turnedIn, own.done);
   const marked = new Set([...own.turnedIn, ...own.done].map(String));
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
@@ -741,31 +790,32 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
     // badge). UNKNOWN keeps a badge, explained by the line under the name.
     const showNoGo = verdictsOn && verdict === 'NO-GO';
     const pill = verdictsOn && verdict === 'UNKNOWN' ? verdictPill(verdict) : '';
-    // Compact metrics, only when non-zero: Missing and Due soon. (Classes
-    // below the passing grade show in the Classes section, in red.)
+    // Compact metrics, only when non-zero: Missing and Overdue (what's still
+    // unmarked). Classes below the passing grade show in Classes, in red.
     const stats = [];
     if (summary.missingCount > 0) {
       stats.push({ value: String(summary.missingCount), icon: MISSING_IMG, label: 'Missing', bad: summary.missingCount >= settings.missingThreshold });
     }
-    const dueCount = summary.dueToday.length + summary.dueTomorrow.length;
-    if (dueCount > 0) stats.push({ value: String(dueCount), icon: '<span class="stat-hg">⌛</span>', label: 'Due soon', bad: false });
+    const overdueCount = summary.overdueItems.length;
+    if (overdueCount > 0) stats.push({ value: String(overdueCount), icon: `<span class="stat-hg">${SECTION_EMOJI.overdue}</span>`, label: 'Overdue', bad: false });
     const cardTone = !verdictsOn ? 'plain' : partial ? 'unknown' : good ? 'go' : 'nogo';
     // Just the picture, name and (when on) the GO/NO-GO badge. The only
     // line under the name is for an UNKNOWN verdict, which needs a reason.
     const reason = partial ? `<div class="card-reason">Only part of the grades loaded${verdictsOn ? ', so no verdict yet' : ''}. Press Refresh.</div>` : '';
-    // The bar counts this week's work plus Missing work from any earlier
-    // week (still to do), drawn in the Missing orange.
+    // The bar counts this week's work plus this quarter's earlier Missing
+    // and Overdue work (still to do), drawn in their own colors.
     let bar = '';
     if (!partial) {
       // The same items as the class bars: this week's work plus earlier
-      // Missing work carried in.
-      const w = { total: 0, graded: 0, submitted: 0, missing: 0 };
+      // Missing and Overdue work carried in.
+      const w = { total: 0, graded: 0, submitted: 0, missing: 0, overdue: 0 };
       for (const c of courses) {
-        for (const { state } of classWeek(c, own, now, carriedMissing(summary, c, now)).items) {
+        for (const { state } of classWeek(c, own, now, carriedWork(summary, full, c, now)).items) {
           w.total += 1;
           if (state === 'graded') w.graded += 1;
           else if (WEEK_DONE.has(state)) w.submitted += 1;
           else if (state === 'missing') w.missing += 1;
+          else if (state === 'overdue') w.overdue += 1;
         }
       }
       bar = weekBar(w, weekSpan(now));
@@ -787,8 +837,9 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
   }
   if (!failed) {
     html += renderMissing(full, uid, { isParentView, marked });
+    html += renderOverdue(full, uid, { marked, now });
     html += renderDue(full, uid, { isParentView, marked });
-    html += renderClasses(courses, settings, showGrades, uid, openClass, { marks: own, summary, now, canMark });
+    html += renderClasses(courses, settings, showGrades, uid, openClass, { marks: own, summary, full, now, canMark });
     html += renderGradedList('Not so good', summary.notSoGood, settings, showGrades, SECTION_EMOJI.notSoGood);
     html += renderDoingWell(summary.doingWell, settings, showGrades);
     html += renderRecords(records, showGrades, now);
@@ -1452,7 +1503,9 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       await render();
       await storageSet('dashboardChild', uid).catch(() => {});
     } else if ((act === 'turned-in' || act === 'done') && uid && aid) {
-      if (await storageGet('markNoticeSeen', false).catch(() => false)) {
+      // The notice speaks to the student; a parent marking Overdue work
+      // turned in doesn't need it.
+      if (viewIsParent || await storageGet('markNoticeSeen', false).catch(() => false)) {
         await applyMark(act, uid, aid);
       } else {
         // Drawn near the button that was pressed, kept inside the view.

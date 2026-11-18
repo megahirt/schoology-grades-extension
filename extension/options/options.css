@@ -89,7 +89,14 @@ a.link-btn { display: inline-flex; align-items: center; gap: 6px; text-decoratio
 #about-icon { width: 44px; height: 44px; border-radius: 10px; display: block; }
 .credit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 14px; color: #4b5563; font-size: 13px; }
 #credit-logo { width: 20px; height: 20px; border-radius: 4px; display: block; }
-.support { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-top: 16px; padding: 16px; border: 1px solid #d6e4f7; border-radius: 12px; background: #f6f9fe; }
+.support { margin-top: 16px; border: 1px solid #d6e4f7; border-radius: 12px; background: #f6f9fe; }
+.support summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-radius: 12px; }
+.support summary::-webkit-details-marker { display: none; }
+.support summary:focus-visible { outline: 3px solid #93b4f5; outline-offset: 2px; }
+.support-chev { flex: 0 0 auto; color: #5b6b80; transition: transform 0.15s ease; }
+.support[open] .support-chev { transform: rotate(180deg); }
+.support-body { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; padding: 0 16px 16px; }
 .support-art { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%; background: #dfeafb; color: #1f5fc4; display: flex; align-items: center; justify-content: center; }
 .support .grow { flex: 1 1 260px; display: flex; flex-direction: column; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .support-chev { transition: none; } }
 .support-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }

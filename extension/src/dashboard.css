@@ -94,6 +94,16 @@
 .sgd .row-title { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
 
 .sgd .missing-card { border: 1px solid #f1d4cf; background: #fdf6f5; border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; }
+/* Overdue: one tight amber line per item (late, but not marked Missing). */
+.sgd .overdue-row { border: 1px solid #f3dfb4; background: #fdf8ec; border-radius: 8px; padding: 3px 4px 3px 10px; display: flex; gap: 8px; align-items: center; min-height: 34px; }
+.sgd .overdue-list { display: flex; flex-direction: column; gap: 4px; }
+.sgd .overdue-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.sgd .overdue-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.sgd .overdue-age { flex: 0 0 auto; margin-left: auto; font-size: 13px; color: #8a5a00; white-space: nowrap; }
+.sgd .overdue-row .check-btn { width: 26px; height: 26px; }
+.sgd .overdue-row.marked { opacity: 0.7; }
+.sgd .overdue-row.marked .item-title { text-decoration: line-through; text-decoration-color: #9aa4b1; color: var(--muted); }
+.sgd .wk-overdue { font-size: 13px; line-height: 1; }
 .sgd .note { display: inline-block; margin-top: 4px; font-size: 12px; color: #7a4b00; background: var(--unknown-bg); border-radius: 6px; padding: 3px 8px; }
 .sgd .btn { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink-2); font-size: 12px; font-weight: 500; flex: 0 0 auto; }
 .sgd .btn:hover { background: #f6f7f9; }
@@ -267,6 +277,7 @@
 /* Touch screens (iPhone, iPad): 44 px tap targets. */
 @media (pointer: coarse) {
   .sgd .icon-btn, .sgd .check-btn { width: 44px; height: 44px; }
+  .sgd .overdue-row .check-btn { width: 36px; height: 36px; }
   .sgd .close-pin + .head .head-row { padding-right: 54px; }
   .sgd .tab { height: 44px; font-size: 14px; }
   .sgd .btn { height: 40px; }
@@ -286,6 +297,7 @@
 .sgd .wk-part.graded { background: #1d4ed8; }
 .sgd .wk-part.turned-in { background: #93b4f5; }
 .sgd .wk-part.missing { background: #ea580c; }
+.sgd .wk-part.overdue { background: #f2c14e; }
 .sgd .wk-part.left { background: #fff; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.10); }
 .sgd .wk-tip { position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 3px 8px; border-radius: 6px; background: #1f2933; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; pointer-events: none; z-index: 2; }
 .sgd .wk-tip[hidden] { display: none; }

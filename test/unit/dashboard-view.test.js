@@ -114,12 +114,12 @@ describe('the student view looks like the parent view', () => {
     { turnedIn: [], done: [] },
     { isParentView },
   ).html;
-  it('same card: picture, name, Missing and Due soon chips, this week\'s progress bar', () => {
+  it('same card: picture, name, the Missing chip, this week\'s progress bar (no Due soon chip)', () => {
     const student = render(false);
     expect(student).toContain('<div class="card-name">Sam Rivera</div>');
     expect(student).toMatch(/class="avatar"/);
     expect(student).toMatch(/<span class="stat-l">Missing<\/span>/);
-    expect(student).toMatch(/<span class="stat-l">Due soon<\/span>/);
+    expect(student).not.toMatch(/<span class="stat-l">Due soon<\/span>/);
     expect(student).toContain('class="wk-progress"');
     expect(student).not.toContain('<svg viewBox="0 0 100 100"'); // no ring
   });
@@ -284,5 +284,98 @@ describe('classes: this week\'s work', () => {
     expect(waiting).not.toContain('Reading Quiz');
     expect(html).toContain('Submitted, not graded yet · 1');
     expect(render({ turnedIn: ['w5'] })).toContain('Submitted, not graded yet · 1');
+  });
+});
+
+describe('Overdue section', () => {
+  const list = [{
+    id: 'c9',
+    name: 'Biology',
+    grade: 91,
+    assignments: [
+      { id: 'm1', title: 'Old Missing', status: 'missing', due: iso(-2) },
+      { id: 'o1', title: 'Lab Report', status: 'overdue', due: iso(-1), maxPoints: 20 },
+      { id: 'o2', title: 'Reading Notes', status: 'overdue', due: iso(-3), maxPoints: 5 },
+      { id: 'd1', title: 'Due Tomorrow', status: 'pending', due: iso(1) },
+    ],
+  }];
+  const render = (isParentView, turnedIn = [], extra = {}) => renderStudentBody({ studentName: 'Sam Rivera', courses: list }, 'u1', { ...DEFAULT_SETTINGS },
+    { turnedIn, done: [] }, { isParentView, ...extra }).html;
+  const overdue = (html) => html.slice(html.indexOf('Overdue ·'), html.indexOf('Due soon ·'));
+
+  it('comes right after Missing and before Due soon, with the 😬 heading and a count', () => {
+    const html = render(true);
+    expect(html.indexOf('Missing ·')).toBeLessThan(html.indexOf('Overdue ·'));
+    expect(html.indexOf('Overdue ·')).toBeLessThan(html.indexOf('Due soon ·'));
+    expect(html).toMatch(/<span class="sec-emoji" aria-hidden="true">😬<\/span>Overdue · 2/);
+  });
+
+  it('keeps each item to one tight line: title (cut short if needed) and how many days late, no class, oldest first', () => {
+    const html = overdue(render(true));
+    expect(html).toMatch(/<div class="overdue-row" data-aid="o1"[^>]*><div class="grow overdue-line"><(?:a|span) class="item-title overdue-title"[^>]*>Lab Report<\/(?:a|span)><span class="overdue-age" title="Due [^"]+">1 day<\/span><\/div>/);
+    expect(html).toMatch(/Reading Notes<\/(?:a|span)><span class="overdue-age" title="Due [^"]+">3 days<\/span>/);
+    expect(html).not.toContain('Biology');
+    // Reading Notes (3 days late) before Lab Report (1 day), whatever the points.
+    expect(html.indexOf('Reading Notes')).toBeLessThan(html.indexOf('Lab Report'));
+  });
+
+  it('lets parents and students mark it turned in (no mail button)', () => {
+    for (const isParentView of [true, false]) {
+      const html = overdue(render(isParentView));
+      expect(html).not.toContain('email-teacher');
+      expect(html).toMatch(/data-act="turned-in"[^>]*aria-label="Mark Lab Report as turned in"/);
+    }
+  });
+
+  it('keeps a marked item in place, struck through with Undo, for parents and students', () => {
+    for (const isParentView of [true, false]) {
+      const html = render(isParentView, ['o1']);
+      expect(overdue(html)).toMatch(/class="overdue-row marked" data-aid="o1"[^]*?data-act="undo" data-reason="turnedIn"/);
+      expect(overdue(html)).toContain('Overdue · 1');
+    }
+  });
+
+  it('a parent\'s marks count only on Overdue items', () => {
+    // An old mark on teacher-marked Missing work changes nothing for a parent.
+    const html = render(true, ['m1']);
+    expect(html).toContain('Missing · 1');
+    expect(html).not.toMatch(/data-aid="m1"[^>]*>[^]*?data-act="undo"/);
+  });
+
+  it('puts an Overdue chip with 😬 on the card, counting what is still unmarked', () => {
+    expect(render(true)).toMatch(/<span class="stat-v">2<\/span><span class="stat-icon" aria-hidden="true"><span class="stat-hg">😬<\/span><\/span><span class="stat-l">Overdue<\/span>/);
+    expect(render(true, ['o1'])).toMatch(/<span class="stat-v">1<\/span><span class="stat-icon" aria-hidden="true"><span class="stat-hg">😬<\/span><\/span><span class="stat-l">Overdue<\/span>/);
+    expect(render(true, ['o1', 'o2'])).not.toContain('<span class="stat-l">Overdue</span>');
+  });
+
+  it('counts earlier Missing and Overdue work from the quarter in this week\'s progress bar', () => {
+    const earlier = [{ id: 'c8', name: 'History', grade: 90, assignments: [
+      { id: 'x1', title: 'Old Overdue', status: 'overdue', due: iso(-10) },
+      { id: 'x2', title: 'Old Missing', status: 'missing', due: iso(-12) },
+      { id: 'x3', title: 'Old Graded', status: 'graded', score: 9, maxPoints: 10, due: iso(-10) },
+    ] }];
+    const bar = (turnedIn) => {
+      const html = renderStudentBody({ studentName: 'Sam Rivera', courses: earlier }, 'u1', { ...DEFAULT_SETTINGS }, { turnedIn, done: [] }, { isParentView: true }).html;
+      return html.match(/class="wk-progress" role="img" aria-label="([^"]*)"/)[1];
+    };
+    expect(bar([])).toMatch(/^0 of 2 assignments, .*: 0 graded, 0 turned in, 1 missing, 1 overdue, 0 remaining$/);
+    expect(bar(['x1'])).toMatch(/^1 of 2 assignments, .*: 0 graded, 1 turned in, 1 missing, 0 remaining$/);
+  });
+
+  it('is left out when nothing is overdue', () => {
+    const html = renderStudentBody({ studentName: 'Sam Rivera', courses }, 'u1', { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: true }).html;
+    expect(html).not.toContain('Overdue ·');
+  });
+
+  it('shows 😬 after the title of this week\'s overdue work in the opened class', () => {
+    const week = (html) => html.slice(html.indexOf('week-list'));
+    // Due earlier today, so it is past due and inside this week whatever the weekday.
+    const today = new Date(now); today.setHours(0, 1, 0, 0);
+    const c = [{ ...list[0], assignments: [{ id: 'o3', title: 'Exit Ticket', status: 'overdue', due: today.toISOString() }] }];
+    const html = renderStudentBody({ studentName: 'Sam Rivera', courses: c }, 'u1', { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] },
+      { isParentView: false, openClass: 'u1:c9', now: now.getTime() }).html;
+    if (today.getTime() > now.getTime()) return; // just after midnight: nothing is past due yet
+    expect(week(html)).toMatch(/Exit Ticket<\/[a-z]+><span class="wk-icon wk-overdue" role="img" aria-label="Overdue" title="Overdue">😬<\/span>/);
+    expect(week(html)).toMatch(/data-act="turned-in"[^>]*aria-label="Mark Exit Ticket as turned in"/);
   });
 });

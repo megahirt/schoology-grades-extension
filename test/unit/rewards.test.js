@@ -38,15 +38,15 @@ describe('quarterChange', () => {
 
 describe('weekProgress', () => {
   it('counts this week (Monday to Sunday): graded, then turned in waiting for a grade', () => {
-    // Past due and not marked Missing counts as turned in (as everywhere on
-    // the dashboard); teacher-marked Missing without a submission does not.
+    // Past due with nothing turned in (Overdue) is not done; nor is
+    // teacher-marked Missing without a submission.
     expect(new Date(weekStart(NOW)).getDay()).toBe(1);
     const c = course({
       assignments: [
         { id: 'a1', status: 'graded', score: 9, maxPoints: 10, due: d(10, 2) }, // Monday
         { id: 'a2', status: 'missing', submitted: true, due: d(10, 3) }, // submitted
         { id: 'a3', status: 'pending', due: d(10, 7) }, // Saturday, not in yet
-        { id: 'a4', status: 'overdue', due: d(10, 4) }, // marked turned in
+        { id: 'a4', status: 'overdue', due: d(10, 4) }, // past due, then marked turned in
         { id: 'a5', status: 'excused', due: d(10, 4) },
         { id: 'a6', status: 'graded', score: 5, maxPoints: 5, due: d(9, 30) }, // last week
         { id: 'a7', status: 'overdue', due: d(10, 5) }, // past due, no Missing mark
@@ -54,8 +54,8 @@ describe('weekProgress', () => {
         { id: 'a9', status: 'pending', due: d(10, 8) }, // Sunday 11:59 pm, still this week
       ],
     });
-    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3, missing: 1 });
-    expect(weekProgress([c], { turnedIn: ['a3'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 4, missing: 1 });
+    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 1, missing: 1 });
+    expect(weekProgress([c], { turnedIn: ['a3', 'a4'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3, missing: 1 });
   });
   it('each class lists its own week, by due date, with where each item stands', () => {
     const c = course({
@@ -71,9 +71,9 @@ describe('weekProgress', () => {
     });
     const w = classWeek(c, { done: ['b5'] }, NOW);
     expect(w.items.map((i) => [i.a.title, i.state])).toEqual([
-      ['Graded', 'graded'], ['Submitted', 'submitted'], ['Missing', 'missing'], ['Overdue', 'assumed'], ['Sunday', 'done'],
+      ['Graded', 'graded'], ['Submitted', 'submitted'], ['Missing', 'missing'], ['Overdue', 'overdue'], ['Sunday', 'done'],
     ]);
-    expect([w.done, w.total]).toEqual([4, 5]);
+    expect([w.done, w.total]).toEqual([3, 5]);
     // The family's mark beats a Missing mark (the work is in).
     expect(weekState(c.assignments[3], { turnedIn: ['b3'] }, NOW)).toBe('turnedIn');
     expect(weekState(c.assignments[0], {}, NOW)).toBe('open');
