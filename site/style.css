@@ -161,6 +161,19 @@ ol.refs .why { display: block; color: var(--muted); font-size: 15px; margin-top:
 @media (max-width: 760px) { .site-foot .foot-right { text-align: left; } .site-foot .stores { justify-content: flex-start; } }
 .site-foot .stores a { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border: 1px solid #3e4c59; border-radius: 999px; text-decoration: none; font-size: 14px; }
 .site-foot .stores a:hover { background: #323f4b; }
+.site-foot .stores a.soon { opacity: 0.45; cursor: default; }
+.site-foot .stores a.soon img { filter: grayscale(1); }
+.site-foot .stores a.soon:hover { background: none; }
+
+/* Home page: which browsers it's available in today. */
+.avail-banner { display: block; background: var(--brand-soft); border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.avail-banner .wrap { display: flex; align-items: center; justify-content: center; gap: 10px; padding-top: 10px; padding-bottom: 10px; font-size: 15px; text-align: left; }
+.avail-banner img { flex: 0 0 auto; display: block; }
+.avail-banner strong { color: var(--brand); }
+.avail-go { flex: 0 0 auto; color: var(--brand); font-weight: 700; transition: transform 0.15s ease; }
+.avail-banner:hover .avail-go { transform: translateX(3px); }
+.avail-banner:hover strong { text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { .avail-go { transition: none; } }
 .site-foot .credit { margin: 14px 0 0; }
 .site-foot .credit img { display: inline-block; vertical-align: -4px; border-radius: 4px; }
 
