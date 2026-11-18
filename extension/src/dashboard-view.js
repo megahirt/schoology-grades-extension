@@ -4,7 +4,7 @@
 //   header (title or "Hi, <name>", updated time, refresh, close in the panel)
 //   → child switcher (parents with 2+ children)
 //   → verdict card (GO/NO-GO pill when settings.showGoNoGo, reason, numbers)
-//   → Missing (grey ✓ "Mark as turned in") → Overdue (grey ✓ "Mark as done")
+//   → Missing (grey ✓ "Mark as turned in") → Overdue (grey ✓ "Mark as turned in", parents too)
 //   → Due soon (grey ✓ "Mark as done")
 //   → Classes (grade bars with the passing line) → Doing well / Not so good
 //   → Records (personal bests, rewards.js) → Submitted, not graded yet (with Undo)
