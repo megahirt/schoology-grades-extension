@@ -310,11 +310,10 @@ describe('Overdue section', () => {
     expect(html).toMatch(/<span class="sec-emoji" aria-hidden="true">😬<\/span>Overdue · 2/);
   });
 
-  it('keeps each item to one tight line: title (cut short if needed) and how many days late, no class, oldest first', () => {
+  it('keeps each item to one tight line: title, class (muted, cut short first) and how many days late, oldest first', () => {
     const html = overdue(render(true));
-    expect(html).toMatch(/<div class="overdue-row" data-aid="o1"[^>]*><div class="grow overdue-line"><(?:a|span) class="item-title overdue-title"[^>]*>Lab Report<\/(?:a|span)><span class="overdue-age" title="Due [^"]+">1 day<\/span><\/div>/);
-    expect(html).toMatch(/Reading Notes<\/(?:a|span)><span class="overdue-age" title="Due [^"]+">3 days<\/span>/);
-    expect(html).not.toContain('Biology');
+    expect(html).toMatch(/<div class="overdue-row" data-aid="o1"[^>]*><div class="grow overdue-line"><(?:a|span) class="item-title overdue-title"[^>]*>Lab Report<\/(?:a|span)><span class="overdue-class">Biology<\/span><span class="overdue-age" title="Due [^"]+">1 day<\/span><\/div>/);
+    expect(html).toMatch(/Reading Notes<\/(?:a|span)><span class="overdue-class">Biology<\/span><span class="overdue-age" title="Due [^"]+">3 days<\/span>/);
     // Reading Notes (3 days late) before Lab Report (1 day), whatever the points.
     expect(html.indexOf('Reading Notes')).toBeLessThan(html.indexOf('Lab Report'));
   });
@@ -377,5 +376,21 @@ describe('Overdue section', () => {
     if (today.getTime() > now.getTime()) return; // just after midnight: nothing is past due yet
     expect(week(html)).toMatch(/Exit Ticket<\/[a-z]+><span class="wk-icon wk-overdue" role="img" aria-label="Overdue" title="Overdue">😬<\/span>/);
     expect(week(html)).toMatch(/data-act="turned-in"[^>]*aria-label="Mark Exit Ticket as turned in"/);
+  });
+});
+
+describe('holiday logo in the header', () => {
+  it('is the plain logo on an ordinary day', async () => {
+    const { headLogoHtml } = await import('../../extension/src/dashboard-view.js');
+    expect(headLogoHtml(null, null)).toMatch(/^<img class="head-logo" src="[^"]+" alt="" width="36" height="36">$/);
+  });
+  it('is the holiday picture, named on hover, near a holiday', async () => {
+    const { headLogoHtml } = await import('../../extension/src/dashboard-view.js');
+    const html = headLogoHtml({ slug: 'christmas', name: 'Christmas', label: 'Christmas – Dec 25' }, 'data:image/png;base64,AAA');
+    expect(html).toBe('<img class="head-logo holiday" src="data:image/png;base64,AAA" alt="Christmas" title="Christmas – Dec 25" height="50">');
+  });
+  it('falls back to the plain logo if the picture could not be loaded', async () => {
+    const { headLogoHtml } = await import('../../extension/src/dashboard-view.js');
+    expect(headLogoHtml({ slug: 'christmas', name: 'Christmas', label: 'x' }, null)).toContain('class="head-logo"');
   });
 });

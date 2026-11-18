@@ -7,6 +7,7 @@ import browser from 'webextension-polyfill';
 import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
 import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, setSite, changedFor } from '../src/storage.js';
 import { loadDemo, initials, feedbackHref, ABOUT_URL, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
+import { holidayFor } from '../src/holidays.js';
 import npcLogo from '../icons/npc_icon_tiny.png';
 
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
@@ -207,10 +208,23 @@ async function init() {
   setSite(settings.schoologyBase);
   bindSlider('grade-threshold', 'gradeThreshold');
   bindSlider('missing-threshold', 'missingThreshold', (v) => `${v} ${v === 1 ? 'item' : 'items'}`);
+  bindSlider('overdue-threshold', 'overdueThreshold', (v) => `${v} items`);
   bindSlider('doing-well-percent', 'doingWellPercent');
   for (const seg of document.querySelectorAll('.seg[data-setting]')) bindSeg(seg, seg.dataset.setting);
   $('credit-logo').src = npcLogo;
-  $('about-icon').src = browser.runtime.getURL('icons/icon128.png');
+  // The logo at the top; on and just before a holiday, its picture
+  // (holidays.js), and hovering it names the day.
+  const holiday = holidayFor(Date.now());
+  const logo = $('top-logo');
+  if (holiday) {
+    logo.src = browser.runtime.getURL(`icons/holidays/${holiday.slug}.png`);
+    logo.classList.add('holiday');
+    logo.alt = holiday.name;
+    logo.title = holiday.label;
+    logo.removeAttribute('width');
+  } else {
+    logo.src = browser.runtime.getURL('icons/icon128.png');
+  }
   $('close-btn').addEventListener('click', closeSettings);
   $('about-site').href = ABOUT_URL;
   $('about-name').href = ABOUT_URL;

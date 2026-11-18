@@ -9,12 +9,10 @@
 <body>
 <header class="top">
   <div class="top-in">
-    <div class="top-icon" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </div>
+    <img id="top-logo" class="top-logo" alt="" width="36" height="36">
     <div class="grow">
       <h1>Grades Dashboard settings</h1>
-      <p class="muted">Everything here is saved in this browser only.</p>
+      <p class="muted">Free. Private. Grades and Homework you can understand.</p>
     </div>
     <div id="save-state" class="save-state" role="status" aria-live="polite">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
@@ -72,6 +70,13 @@
         </div>
         <div class="field slider"><input id="missing-threshold" type="range" min="1" max="6" step="1"><output for="missing-threshold" id="missing-threshold-out"></output></div>
       </div>
+      <div class="row">
+        <div class="grow">
+          <label for="overdue-threshold" class="strong">Overdue work limit</label>
+          <div class="muted">NO-GO when this many items are past due with nothing turned in. Work marked turned in doesn't count.</div>
+        </div>
+        <div class="field slider"><input id="overdue-threshold" type="range" min="2" max="8" step="1"><output for="overdue-threshold" id="overdue-threshold-out"></output></div>
+      </div>
     </section>
 
     <section id="display" class="card">
@@ -110,7 +115,6 @@
     <section id="about" class="card">
       <div class="card-h"><h2>About</h2></div>
       <div class="about-top">
-        <img id="about-icon" alt="" width="44" height="44">
         <div class="grow">
           <div class="strong"><a id="about-name" target="_blank" rel="noopener">Grades Dashboard for Schoology</a></div>
           <div id="version" class="muted"></div>
