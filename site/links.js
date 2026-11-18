@@ -57,11 +57,18 @@ window.SITE_LINKS = {
   document.addEventListener('DOMContentLoaded', () => {
     // Store buttons: <a class="btn" data-store="chrome" data-label="Add to Chrome">
     for (const el of document.querySelectorAll('[data-store]')) wire(el, el.dataset.store);
-    // Footer store links: placeholders ("#") until the listing exists.
+    // Footer store icons: a store with its own listing links to it; the
+    // others are greyed out and link nowhere ("coming soon").
     for (const el of document.querySelectorAll('[data-store-link]')) {
       const key = el.dataset.storeLink;
-      if (urlFor(key)) el.href = urlFor(key);
-      if (key === 'edge' && !L.edge && L.chrome) el.title = 'Chrome Web Store (works in Edge)';
+      if (L[key]) {
+        el.href = L[key];
+      } else {
+        el.removeAttribute('href');
+        el.setAttribute('aria-disabled', 'true');
+        el.classList.add('soon');
+        el.title = `${NAMES[key] || 'This browser'}: coming soon`;
+      }
     }
     for (const el of document.querySelectorAll('[data-link]')) {
       if (L[el.dataset.link]) el.href = L[el.dataset.link];
