@@ -352,12 +352,23 @@ jobs:
           echo "SKIPPED: addons.mozilla.org submission. Set the AMO_JWT_ISSUER and AMO_JWT_SECRET secrets (docs/firefox-amo-setup.md); not a failure."
 
   safari:
-    # App Store Connect. Scaffold: the Xcode project, archive and TestFlight
-    # upload are Phase 3 of docs/release-plan.md. Version for Apple:
-    # MARKETING_VERSION = the tag's X.Y.Z, build number = github.run_number.
-    runs-on: ubuntu-latest
+    # App Store (scripts/upload-safari.mjs + scripts/submit-appstore.mjs): on
+    # a macOS runner, builds the Xcode project for this tag, archives the Mac
+    # and iOS apps, signs them with cloud-managed signing through the App
+    # Store Connect API key (no certificates stored), uploads both, then
+    # submits version X.Y.Z for review. It is released automatically once
+    # Apple approves it, so approving this job is the go-live decision.
+    # Build number = run number x 100 + attempt, so re-running the job
+    # uploads a fresh build. "What's New" = the tag's message if
+    # it is an annotated tag (git tag -a v1.5.0 -m "…"), otherwise a line
+    # pointing at the GitHub release notes. Re-running the job after a
+    # failure is safe. Skips, without failing, until the key is set
+    # (docs/safari.md, "Releases from GitHub Actions").
+    runs-on: macos-26
     needs: [verify, release]
     environment: release
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - name: Check App Store Connect secrets
         id: asc
@@ -365,20 +376,70 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_ISSUER: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_P8: ${{ secrets.ASC_API_KEY_P8_B64 }}
+          TEAM: ${{ vars.APPLE_TEAM_ID }}
         run: |
-          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER" ] && [ -n "$ASC_P8" ]; then
+          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER" ] && [ -n "$ASC_P8" ] && [ -n "$TEAM" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))" >> "$GITHUB_ENV"
 
-      - name: Upload to TestFlight
+      - name: Check out
+        if: steps.asc.outputs.configured == 'true'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Use the newest Xcode on the runner
         if: steps.asc.outputs.configured == 'true'
         run: |
-          echo "App Store Connect key is set. The archive + TestFlight upload isn't built yet (docs/release-plan.md, Phase 3)."
-          echo "It will ship version ${{ needs.verify.outputs.version }} as build ${{ github.run_number }}."
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
+          [ -n "$XCODE" ] && sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
-      - name: Skip (no secrets)
+      - name: Set up Node 24
+        if: steps.asc.outputs.configured == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.asc.outputs.configured == 'true'
+        run: |
+          npm ci
+          npx playwright install chromium
+
+      - name: Build the Xcode project
+        if: steps.asc.outputs.configured == 'true'
+        env:
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: npm run build:safari
+
+      - name: Archive, sign and upload the Mac and iOS apps
+        if: steps.asc.outputs.configured == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
+        run: node scripts/upload-safari.mjs
+
+      - name: Submit for App Review
+        if: steps.asc.outputs.configured == 'true'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
+        run: |
+          if [ "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag ]; then
+            export WHATS_NEW="$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents)' | sed '/-----BEGIN PGP SIGNATURE-----/,$d')"
+          fi
+          node scripts/submit-appstore.mjs --version "$VERSION" --build "$BUILD_NUMBER"
+
+      - name: Skip (not set up yet)
         if: steps.asc.outputs.configured != 'true'
         run: |
-          echo "SKIPPED: App Store Connect upload. Secrets not set yet; not a failure."
+          echo "SKIPPED: App Store upload. Set the ASC_API_KEY_ID, ASC_API_ISSUER_ID and ASC_API_KEY_P8_B64 secrets and the APPLE_TEAM_ID variable (docs/safari.md); not a failure."

@@ -128,7 +128,10 @@ git push origin v1.4.0
    They skip until their secrets and upload steps exist. Chrome is
    submitted for review and goes live once Google approves it. Firefox is
    the same: approving its job sends the version live once Mozilla approves
-   it ([docs/firefox-amo-setup.md](docs/firefox-amo-setup.md)). Edge gets a
+   it ([docs/firefox-amo-setup.md](docs/firefox-amo-setup.md)). Safari too:
+   a macOS runner builds, signs and uploads the Mac and iOS apps and
+   submits them for review, and they are released once Apple approves
+   them ([docs/safari.md](docs/safari.md)). Edge gets a
    draft that waits for the owner's Publish click in Partner Center
    ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)).
 
