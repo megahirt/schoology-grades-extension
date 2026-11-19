@@ -2,8 +2,8 @@
 // button for this device. When a store listing goes live, paste its URL here; the buttons
 // switch from "Coming soon" to a real link on every page.
 window.SITE_LINKS = {
-  safariMac: '',     // Mac App Store listing
-  safariIOS: '',     // App Store listing (iPhone and iPad)
+  safariMac: 'https://apps.apple.com/app/grades-dashboard-for-schoology/id6833034168', // App Store listing (one listing for Mac, iPhone and iPad)
+  safariIOS: 'https://apps.apple.com/app/grades-dashboard-for-schoology/id6833034168', // the same listing
   chrome: 'https://chromewebstore.google.com/detail/grades-dashboard-for-scho/nglbmnaepjadllenolmliglnonjkdhjp', // Chrome Web Store listing
   edge: '',          // Microsoft Edge Add-ons listing (Edge can also install from the Chrome Web Store)
   firefox: '',       // addons.mozilla.org listing (desktop and Android)
@@ -24,6 +24,18 @@ window.SITE_LINKS = {
     safariMac: 'Safari on Mac', safariIOS: 'Safari on iPhone/iPad', chrome: 'Chrome',
     edge: 'Edge', firefox: 'Firefox',
   };
+
+  // The browser's logo for the hero's button.
+  const LOGOS = { safariMac: 'safari', safariIOS: 'safari', chrome: 'chrome', edge: 'edge', firefox: 'firefox' };
+  function logo(key) {
+    const img = document.createElement('img');
+    img.src = `img/browsers/${LOGOS[key]}.svg`;
+    img.alt = '';
+    img.width = 24;
+    img.height = 24;
+    img.className = 'btn-logo';
+    return img;
+  }
 
   // Which browser this visitor most likely needs.
   function detect() {
@@ -102,12 +114,14 @@ window.SITE_LINKS = {
       if (url) {
         btn.href = url;
         btn.textContent = `Get it for ${d.label}`;
+        btn.prepend(logo(d.key));
       } else {
         btn.removeAttribute('href');
         btn.setAttribute('aria-disabled', 'true');
         btn.classList.add('soon');
         btn.classList.remove('primary');
         btn.textContent = d ? `Coming soon for ${d.label}` : 'Coming soon';
+        if (d) btn.prepend(logo(d.key));
       }
     }
   });
