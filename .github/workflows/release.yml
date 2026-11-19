@@ -17,8 +17,9 @@
 #   3. release — GitHub Release for the tag (generated notes + the zips),
 #                then redeploys the site (pages.yml) to show the version.
 #   4. chrome / edge / firefox / safari — store jobs. They run in the `release` environment
-#                (owner approval gate + store secrets) and skip gracefully
-#                until their secrets and real upload steps exist; see
+#                (owner approval gate + store secrets). Chrome and Safari
+#                are set up and fail if their secrets go missing; Edge and
+#                Firefox skip, without failing, until theirs are set; see
 #                docs/release-plan.md. The `release` environment must allow
 #                tags matching v* (Settings → Environments → release →
 #                Deployment branches and tags), or these jobs can't start.
@@ -168,8 +169,7 @@ jobs:
     # release's Chrome ZIP and submits it for review as DEFAULT_PUBLISH, so a
     # reviewed update goes live as soon as review passes; approving this job
     # is the go-live decision. Runs in the `release` environment (owner
-    # approval). Skips,
-    # without failing, until the service account key and IDs are set
+    # approval). Needs the service account key and IDs
     # (docs/chrome-web-store-setup.md §4).
     runs-on: ubuntu-latest
     needs: [verify, release]
@@ -177,39 +177,21 @@ jobs:
     env:
       VERSION: ${{ needs.verify.outputs.version }}
     steps:
-      - name: Check Chrome Web Store settings
-        id: cws
-        # Secrets go in through env, never pasted into the script itself.
-        env:
-          CWS_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
-          CWS_ID: ${{ vars.CWS_EXTENSION_ID }}
-          CWS_PUB: ${{ vars.CWS_PUBLISHER_ID }}
-        run: |
-          if [ -n "$CWS_JSON" ] && [ -n "$CWS_ID" ] && [ -n "$CWS_PUB" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Check out
-        if: steps.cws.outputs.configured == 'true'
         uses: actions/checkout@v7
 
       - name: Set up Node 24
-        if: steps.cws.outputs.configured == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
 
       - name: Download release files
-        if: steps.cws.outputs.configured == 'true'
         uses: actions/download-artifact@v8
         with:
           name: release-files
           path: out
 
       - name: Upload to the Chrome Web Store and submit for review
-        if: steps.cws.outputs.configured == 'true'
         env:
           CWS_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
@@ -217,10 +199,6 @@ jobs:
           CWS_PUBLISH_TYPE: DEFAULT_PUBLISH
         run: node scripts/publish-chrome.mjs "out/schoology-grades-extension-${VERSION}-chrome.zip"
 
-      - name: Skip (not set up yet)
-        if: steps.cws.outputs.configured != 'true'
-        run: |
-          echo "SKIPPED: Chrome Web Store upload. Set the CWS_SERVICE_ACCOUNT_JSON_B64 secret and the CWS_EXTENSION_ID and CWS_PUBLISHER_ID variables (docs/chrome-web-store-setup.md); not a failure."
 
   edge:
     # Microsoft Edge Add-ons (Update REST API v1.1, scripts/publish-edge.mjs):
@@ -362,7 +340,7 @@ jobs:
     # uploads a fresh build. "What's New" = the tag's message if
     # it is an annotated tag (git tag -a v1.5.0 -m "…"), otherwise a line
     # pointing at the GitHub release notes. Re-running the job after a
-    # failure is safe. Skips, without failing, until the key is set
+    # failure is safe. Needs the App Store Connect key and APPLE_TEAM_ID
     # (docs/safari.md, "Releases from GitHub Actions").
     runs-on: macos-26
     needs: [verify, release]
@@ -370,56 +348,39 @@ jobs:
     env:
       VERSION: ${{ needs.verify.outputs.version }}
     steps:
-      - name: Check App Store Connect secrets
-        id: asc
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ASC_ISSUER: ${{ secrets.ASC_API_ISSUER_ID }}
-          ASC_P8: ${{ secrets.ASC_API_KEY_P8_B64 }}
-          TEAM: ${{ vars.APPLE_TEAM_ID }}
+      - name: Build number (run number x 100 + attempt)
         run: |
-          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER" ] && [ -n "$ASC_P8" ] && [ -n "$TEAM" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          fi
           echo "BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))" >> "$GITHUB_ENV"
 
       - name: Check out
-        if: steps.asc.outputs.configured == 'true'
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Use the newest Xcode on the runner
-        if: steps.asc.outputs.configured == 'true'
         run: |
           XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
           [ -n "$XCODE" ] && sudo xcode-select -s "$XCODE"
           xcodebuild -version
 
       - name: Set up Node 24
-        if: steps.asc.outputs.configured == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Install dependencies
-        if: steps.asc.outputs.configured == 'true'
         run: |
           npm ci
           npx playwright install chromium
 
       - name: Build the Xcode project
-        if: steps.asc.outputs.configured == 'true'
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: npm run build:safari
 
       - name: Archive, sign and upload the Mac and iOS apps
-        if: steps.asc.outputs.configured == 'true'
         env:
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
@@ -428,7 +389,6 @@ jobs:
         run: node scripts/upload-safari.mjs
 
       - name: Submit for App Review
-        if: steps.asc.outputs.configured == 'true'
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
@@ -438,8 +398,3 @@ jobs:
             export WHATS_NEW="$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents)' | sed '/-----BEGIN PGP SIGNATURE-----/,$d')"
           fi
           node scripts/submit-appstore.mjs --version "$VERSION" --build "$BUILD_NUMBER"
-
-      - name: Skip (not set up yet)
-        if: steps.asc.outputs.configured != 'true'
-        run: |
-          echo "SKIPPED: App Store upload. Set the ASC_API_KEY_ID, ASC_API_ISSUER_ID and ASC_API_KEY_P8_B64 secrets and the APPLE_TEAM_ID variable (docs/safari.md); not a failure."

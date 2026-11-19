@@ -97,6 +97,22 @@ describe('submit-appstore', () => {
     expect(calls.map((c) => c.k)).toEqual(['GET /v1/apps', 'GET /v1/builds', 'GET /v1/apps/app1/appStoreVersions']);
   });
 
+  it('explains a 409 when another version is still in progress', async () => {
+    const logs = [];
+    const { calls, fetchImpl } = fakeAsc({
+      'GET /v1/apps': [APP],
+      'GET /v1/builds': [BUILD('VALID', false)],
+      'GET /v1/apps/app1/appStoreVersions': [{ body: { data: [
+        { id: 'live', attributes: { versionString: '1.2.3', appVersionState: 'READY_FOR_DISTRIBUTION' } },
+        { id: 'rev', attributes: { versionString: '1.2.4', appVersionState: 'IN_REVIEW' } },
+      ] } }],
+      'POST /v1/appStoreVersions': [{ status: 409, body: { errors: [{ detail: 'You cannot create a new version of the App in the current state.' }] } }],
+    });
+    await expect(run(fetchImpl, { platforms: ['MAC_OS'], log: (m) => logs.push(m) })).rejects.toThrow(/Mac: version 1\.2\.4 is in review, and Apple allows only one version in progress.*re-run this job once 1\.2\.4 is released/);
+    expect(logs.at(-1)).toMatch(/can't add 1\.4\.0 yet/);
+    expect(calls.at(-1).k).toBe('POST /v1/appStoreVersions');
+  });
+
   it('stops with a clear message when Apple rejects the build or it never shows up', async () => {
     await expect(run(fakeAsc({ 'GET /v1/apps': [APP], 'GET /v1/builds': [BUILD('INVALID')] }).fetchImpl)).rejects.toThrow(/rejected the iPhone and iPad build/);
     await expect(run(fakeAsc({ 'GET /v1/apps': [APP], 'GET /v1/builds': [{ body: { data: [] } }] }).fetchImpl, { pollTries: 2 })).rejects.toThrow(/not ready after/);
