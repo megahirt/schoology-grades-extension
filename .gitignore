@@ -15,3 +15,4 @@ dist-safari/
 
 # The Xcode project that npm run build:safari generates (made again on every run)
 safari/Grades Dashboard for Schoology/
+safari/build/

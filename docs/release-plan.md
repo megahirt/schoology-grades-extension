@@ -352,7 +352,7 @@ How it combines with each store's own go-live click:
 | Chrome | **Approve = the go-live decision** | none (`DEFAULT_PUBLISH`: live once review passes) |
 | Edge | Approve | **Publish** in Partner Center (CI uploads the draft only) |
 | Firefox | **Approve = the go-live decision** | none (AMO goes live once approved) |
-| Safari | Approve | **Submit for Review** in App Store Connect (CI uploads to TestFlight only), with "Manually release this version" selected, so it also waits after approval |
+| Safari | **Approve = the go-live decision** | none: CI uploads both apps, submits X.Y.Z for review and it is released automatically once Apple approves it (docs/safari.md, "Releases from GitHub Actions") |
 
 For Chrome, Edge and Safari, the store-side click is what satisfies
 "wait for the owner's click", so the GitHub gate is extra protection

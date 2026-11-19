@@ -222,19 +222,51 @@ extension-only update channel.
 | Add the helper in App Store Connect → Users and Access with a role (e.g. Developer / App Manager) so the helper works **without the account owner's Apple ID password** — never share the Apple ID password or 2FA codes | Submit a build for review *only if* the account owner granted that role; The account owner should still read the final listing and press submit the first time |
 | Answer/submit privacy, age-rating, and trader (EU, if applicable) declarations; reply to App Review messages; renew membership yearly | Prepare the privacy policy text and the review notes |
 
-## CI
+## Releases from GitHub Actions
 
-GitHub Actions **can** build/submit on macOS runners (see
-`.github/workflows/release.yml`): `macos-15`/`macos-26` runners can run
-the packager, `xcodebuild archive`, and upload via `xcrun altool` /
-fastlane. Secrets needed: distribution certificate as base64 `.p12` +
-password, provisioning profiles (base64) for *each* target, App Store
-Connect API key (`.p8` base64 / Key ID / Issuer ID), Team ID. The
-release workflow's Safari job **skips gracefully** when those secrets
-are not set (The account owner has not done Apple Developer setup yet) — it still
-produces the extension ZIP + converter script so the manual path stays
-open. Xcode Cloud is the alternative: 25 compute hours/month included
-with the $99 membership, signing managed by Apple.
+Pushing a `vX.Y.Z` tag runs [`release.yml`](../.github/workflows/release.yml).
+Its `safari` job (on a `macos-26` runner, after you approve it in the
+`release` environment) does everything Xcode's Archive and App Store
+Connect's Submit buttons do:
+
+1. `npm run build:safari` makes the Xcode project for the tag's version.
+   The build number is the run number x 100 + the attempt, so a re-run
+   uploads a fresh build.
+2. [`scripts/upload-safari.mjs`](../scripts/upload-safari.mjs) archives the
+   Mac and iOS apps, signs them for the App Store and uploads both.
+   Signing is cloud-managed through the App Store Connect API key
+   (`-allowProvisioningUpdates`): no certificate or profile is stored.
+3. [`scripts/submit-appstore.mjs`](../scripts/submit-appstore.mjs) waits
+   for Apple to process each build, answers export compliance (no
+   non-exempt encryption), creates version X.Y.Z (or renames an unsent
+   draft), attaches the build, sets **What's New** and submits it for
+   review. The version is released **automatically** once Apple approves
+   it, so approving the job is the go-live decision.
+
+**What's New** is the tag's message when the tag is annotated:
+
+```bash
+git tag -a v1.5.0 -m "New Overdue section, and holiday logos."
+git push origin v1.5.0
+```
+
+A plain tag gets a line pointing at the GitHub release notes.
+
+Settings (Settings → Environments → `release`): the secrets
+`ASC_API_KEY_ID`, `ASC_API_ISSUER_ID` and `ASC_API_KEY_P8_B64` (the
+`.p8` file, base64), and the variable `APPLE_TEAM_ID`. The key needs the
+**Admin** role (App Store Connect → Users and Access → Integrations), or
+cloud signing fails. Without these the job skips without failing.
+
+Same steps on a Mac, to try signing without uploading:
+
+```bash
+RELEASE_VERSION=1.5.0 BUILD_NUMBER=1 APPLE_TEAM_ID=F2YJQBNUHD npm run build:safari
+node scripts/upload-safari.mjs --no-upload   # also needs the ASC_* variables
+```
+
+The job is safe to re-run: the submit step skips a version that is
+already in review.
 
 ## iOS and iPadOS
 
