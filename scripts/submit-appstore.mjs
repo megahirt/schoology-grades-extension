@@ -46,6 +46,17 @@ export function ascJwt({ keyId, issuerId, p8 }, now = Date.now()) {
 }
 
 // state(version) -> its App Store state (appVersionState is the newer name).
+// States of a version that is finished with (live, or gone): anything else
+// still blocks a new version on that platform.
+const SETTLED = ['READY_FOR_DISTRIBUTION', 'READY_FOR_SALE', 'REPLACED_WITH_NEW_VERSION', 'REMOVED_FROM_SALE', 'DEVELOPER_REMOVED_FROM_SALE'];
+const DESCRIBE = {
+  WAITING_FOR_REVIEW: 'waiting for review', IN_REVIEW: 'in review',
+  PENDING_DEVELOPER_RELEASE: 'approved and waiting for you to release it',
+  PENDING_APPLE_RELEASE: 'approved and waiting for Apple to release it',
+  PROCESSING_FOR_DISTRIBUTION: 'approved and being prepared for release',
+  PROCESSING_FOR_APP_STORE: 'approved and being prepared for release',
+};
+const describe = (s) => DESCRIBE[s] || `in state ${s || 'unknown'}`;
 const state = (v) => (v && v.attributes && (v.attributes.appVersionState || v.attributes.appStoreState)) || '';
 
 export async function submitAppStore({
@@ -82,6 +93,7 @@ export async function submitAppStore({
   if (!app) throw new Error(`No app with bundle ID ${BUNDLE_ID} in App Store Connect (or the key can't see it).`);
   const text = (whatsNew || '').trim() || `Improvements and fixes. Full notes: https://github.com/megahirt/schoology-grades-extension/releases/tag/v${version}`;
   const results = {};
+  const busy = [];
 
   for (const platform of platforms) {
     const name = NAMES[platform];
@@ -118,7 +130,17 @@ export async function submitAppStore({
         v = (await api('PATCH', `/v1/appStoreVersions/${draft.id}`, { data: { type: 'appStoreVersions', id: draft.id, attributes: { versionString: version, releaseType: 'AFTER_APPROVAL' } } })).data;
         log(`${name}: renamed the draft version ${draft.attributes.versionString} to ${version}.`);
       } else {
-        v = (await api('POST', '/v1/appStoreVersions', { data: { type: 'appStoreVersions', attributes: { platform, versionString: version, releaseType: 'AFTER_APPROVAL' }, relationships: { app: { data: { type: 'apps', id: app.id } } } } })).data;
+        try {
+          v = (await api('POST', '/v1/appStoreVersions', { data: { type: 'appStoreVersions', attributes: { platform, versionString: version, releaseType: 'AFTER_APPROVAL' }, relationships: { app: { data: { type: 'apps', id: app.id } } } } })).data;
+        } catch (err) {
+          // 409: Apple allows one version in progress per platform.
+          const other = /HTTP 409/.test(err.message) && versions.find((x) => !SETTLED.includes(state(x)));
+          if (!other) throw err;
+          busy.push(`${name}: version ${other.attributes.versionString} is ${describe(state(other))}, and Apple allows only one version in progress at a time. Build ${build} is uploaded; re-run this job once ${other.attributes.versionString} is released (it uploads a fresh build), or remove ${other.attributes.versionString} from review in App Store Connect and re-run to send ${version} instead.`);
+          log(`${name}: can't add ${version} yet: ${other.attributes.versionString} is ${describe(state(other))}.`);
+          results[platform] = 'BLOCKED';
+          continue;
+        }
         log(`${name}: created version ${version}.`);
       }
     }
@@ -144,6 +166,7 @@ export async function submitAppStore({
     log(`${name}: submitted ${version} for review. It goes live by itself once Apple approves it.`);
     results[platform] = 'WAITING_FOR_REVIEW';
   }
+  if (busy.length) throw new Error(busy.join(' '));
   return results;
 }
 
