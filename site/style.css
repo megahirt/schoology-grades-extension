@@ -55,6 +55,8 @@ p { margin: 0 0 1em; }
 .btn.primary:hover { background: #43624a; }
 .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--line); }
 .btn.soon { background: #eef0f3; color: var(--faint); cursor: default; }
+.btn-logo { flex: 0 0 auto; display: block; width: 24px; height: 24px; padding: 2px; margin-left: -4px; background: #fff; border-radius: 50%; }
+.btn.soon .btn-logo { filter: grayscale(1); opacity: 0.6; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
 /* Hero */
@@ -165,15 +167,6 @@ ol.refs .why { display: block; color: var(--muted); font-size: 15px; margin-top:
 .site-foot .stores a.soon img { filter: grayscale(1); }
 .site-foot .stores a.soon:hover { background: none; }
 
-/* Home page: which browsers it's available in today. */
-.avail-banner { display: block; background: var(--brand-soft); border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; }
-.avail-banner .wrap { display: flex; align-items: center; justify-content: center; gap: 10px; padding-top: 10px; padding-bottom: 10px; font-size: 15px; text-align: left; }
-.avail-banner img { flex: 0 0 auto; display: block; }
-.avail-banner strong { color: var(--brand); }
-.avail-go { flex: 0 0 auto; color: var(--brand); font-weight: 700; transition: transform 0.15s ease; }
-.avail-banner:hover .avail-go { transform: translateX(3px); }
-.avail-banner:hover strong { text-decoration: underline; }
-@media (prefers-reduced-motion: reduce) { .avail-go { transition: none; } }
 .site-foot .credit { margin: 14px 0 0; }
 .site-foot .credit img { display: inline-block; vertical-align: -4px; border-radius: 4px; }
 
