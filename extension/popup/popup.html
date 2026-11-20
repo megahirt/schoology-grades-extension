@@ -2,12 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Grades Dashboard</title>
 <style>
-  body { width: 460px; margin: 0; background: #fff; }
+  body { width: 300px; margin: 0; padding: 16px 18px 18px; background: #fff; color: #1f2933;
+    font: 15px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  /* Safari on iPhone shows the popup as a sheet: use its width. */
+  @media (max-width: 500px) { body { width: auto; } }
+  p { margin: 0 0 10px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li + li { margin-top: 8px; }
+  .site { display: block; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; color: #1d4ed8;
+    font-weight: 600; text-decoration: none; word-break: break-all; }
+  .site:hover { background: #f3f7ff; border-color: #c7d7fb; }
+  .site:focus-visible { outline: 3px solid #93b4f5; outline-offset: 2px; }
+  .demo { margin-top: 14px; font-size: 12px; color: #5f6b7a; }
+  .demo a { color: inherit; }
   /* "Use Grades Dashboard here", on a school's own Schoology address. */
-  .school-offer { margin: 12px 12px 0; padding: 12px 14px; border: 1px solid #c7d7fb; border-radius: 12px; background: #f3f7ff;
-    font: 13px/1.4 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #111827; }
+  .school-offer { margin: 0 0 14px; padding: 12px 14px; border: 1px solid #c7d7fb; border-radius: 12px; background: #f3f7ff; font-size: 13px; }
   .school-offer[hidden] { display: none; }
   .school-offer p { margin: 0 0 8px; }
   .school-offer .muted { color: #6b7280; font-size: 12px; margin: 8px 0 0; }
@@ -23,7 +35,9 @@
   <button id="school-offer-btn" type="button">Use Grades Dashboard here</button>
   <p id="school-offer-note" class="muted">Your browser will ask to let the extension read this one site. Nothing leaves your browser.</p>
 </div>
-<div id="dashboard"></div>
+<p>The dashboard shows on these Schoology pages:</p>
+<ul id="sites"></ul>
+<p class="demo">No Schoology account? <a id="demo-link" href="dashboard.html">See a demo</a></p>
 <script src="popup.js"></script>
 </body>
 </html>

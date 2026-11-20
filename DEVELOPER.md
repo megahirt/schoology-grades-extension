@@ -20,8 +20,8 @@ npm run build       # production build -> dist/
 npm test            # unit tests
 ```
 
-Then load `dist/` in Chrome (see below), open the toolbar popup and click
-**Load demo data**. It loads made-up students, so you can see everything with
+Then load `dist/` in Chrome (see below), click the toolbar button, then
+**See a demo** and **Load demo data**. It loads made-up students, so you can see everything with
 no Schoology login.
 
 ## How it works

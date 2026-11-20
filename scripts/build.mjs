@@ -101,6 +101,8 @@ async function main() {
     background: path.join(extDir, 'background.js'),
     content: path.join(extDir, 'content.js'),
     'popup/popup': path.join(extDir, 'popup', 'popup.js'),
+    'popup/dashboard': path.join(extDir, 'popup', 'dashboard.js'),
+    'popup/print': path.join(extDir, 'popup', 'print.js'),
     'options/options': path.join(extDir, 'options', 'options.js'),
   };
   for (const [outName, entry] of Object.entries(entries)) {
@@ -142,6 +144,8 @@ async function main() {
 
   // Static assets.
   await cp(path.join(extDir, 'popup', 'popup.html'), path.join(distDir, 'popup', 'popup.html'));
+  await cp(path.join(extDir, 'popup', 'dashboard.html'), path.join(distDir, 'popup', 'dashboard.html'));
+  await cp(path.join(extDir, 'popup', 'print.html'), path.join(distDir, 'popup', 'print.html'));
   await cp(path.join(extDir, 'popup', 'demo-data.json'), path.join(distDir, 'popup', 'demo-data.json'));
   await cp(path.join(extDir, 'options', 'options.html'), path.join(distDir, 'options', 'options.html'));
   await cp(path.join(extDir, 'options', 'options.css'), path.join(distDir, 'options', 'options.css'));

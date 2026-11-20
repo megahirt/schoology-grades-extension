@@ -191,7 +191,7 @@ async function refresh(ctx, extId, worker, expected) {
   });
   const before = (await read()).refreshState.finishedAt || null;
   const page = await ctx.newPage();
-  await page.goto(`chrome-extension://${extId}/popup/popup.html`);
+  await page.goto(`chrome-extension://${extId}/popup/dashboard.html`);
   await page.evaluate(() => chrome.runtime.sendMessage({ type: 'refresh-now' }));
   for (let i = 0; i < 60; i++) {
     const { dashboards = {}, refreshState = {} } = await read();
@@ -406,7 +406,7 @@ try {
       // Popup.
       const popup = await ctx.newPage();
       await popup.setViewportSize({ width: 400, height: 640 });
-      await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
+      await popup.goto(`chrome-extension://${extId}/popup/dashboard.html`);
       await popup.locator('.card').first().waitFor();
       await hideDev(popup);
       await popup.waitForTimeout(400);

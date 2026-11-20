@@ -111,7 +111,11 @@ describe('the containing app', () => {
     expect(script).toContain('function show(platform, enabled, useSettingsInsteadOfPreferences)');
     // The Mac and the iPhone each get their own steps.
     for (const cls of ['platform-mac', 'platform-ios']) expect(html).toContain(cls);
-    expect(html).toContain('Settings</strong>, then <strong>Apps</strong>');
+    expect(html).toContain('Tap <strong>Apps</strong>, then <strong>Safari</strong>');
+    // Home Screen: web app mode off (no extensions there), and never Delete App.
+    expect(html).toContain('Turn <strong>off</strong> <strong>Open as Web App</strong>');
+    expect(html).toContain('Remove from Home Screen');
+    expect(html).toContain("Don't choose Delete App.");
     expect(script).toContain('post("open-preferences")');
   });
 

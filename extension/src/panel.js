@@ -385,6 +385,17 @@ export function mountPanel({ document, browser, open = false, onOpenChange } = {
   tab.addEventListener('click', () => userToggle(!isOpen));
   backdrop.addEventListener('click', () => userToggle(false));
 
+  // On a phone (or a narrow window) the dashboard covers the page, so a tap
+  // on an assignment or class link would load that page out of sight. Close
+  // the dashboard as the link opens, so the student sees the page load (the
+  // tab brings the dashboard back). Links that open a new tab are left alone.
+  bodyHost.addEventListener('click', (e) => {
+    const link = e.target && e.target.closest && e.target.closest('a[href]');
+    if (!link || link.target === '_blank' || e.defaultPrevented) return;
+    const narrow = win && win.matchMedia && win.matchMedia('(max-width: 600px)').matches;
+    if (wrap.classList.contains('phone') || narrow) userToggle(false);
+  });
+
   // Keep the tab's verdicts current while the panel is closed.
   const WATCHED = ['dashboards', 'settings', 'turnedIn', 'markedDone', 'refreshState'];
   function onStorageChanged(changes, area) {

@@ -16,10 +16,6 @@
         </div>
     </header>
 
-    <section class="status platform-ios">
-        <p>Turn the extension on in the Settings app to start.</p>
-    </section>
-
     <section class="status platform-mac">
         <p class="state-unknown">The extension needs to be turned on in Safari.</p>
         <p class="state-on"><span class="dot on"></span>The extension is on in Safari.</p>
@@ -27,14 +23,41 @@
         <button class="open-preferences">Quit and Open Safari Extensions Preferences…</button>
     </section>
 
-    <section>
+    <section class="platform-ios">
         <h2>How to start</h2>
-        <ol class="platform-ios">
-            <li>Open <strong>Settings</strong>, then <strong>Apps</strong>, <strong>Safari</strong>, <strong>Extensions</strong>, and turn on <strong>Grades Dashboard for Schoology</strong>.</li>
-            <li>Open Schoology in Safari and sign in as you normally do.</li>
-            <li>Tap the Extensions button in Safari's address bar, then <strong>Grades Dashboard</strong>. When Safari asks, choose <strong>Always Allow on This Website</strong>.</li>
+        <p class="lead">Do these steps once. It takes about two minutes.</p>
+        <ol class="steps">
+            <li>Open the <strong>Settings</strong> app (the gray gear).</li>
+            <li>Tap <strong>Apps</strong>, then <strong>Safari</strong>, then <strong>Extensions</strong>.</li>
+            <li>Tap <strong>Grades Dashboard for Schoology</strong> and turn on <strong>Allow Extension</strong>.</li>
+            <li>Open <strong>Safari</strong> and go to your Schoology page:
+                <span class="sites"><a href="https://app.schoology.com/" data-open>app.schoology.com</a> or <a href="https://schoology.npchristian.org/" data-open>schoology.npchristian.org</a></span></li>
+            <li>Sign in to Schoology as you normally do.</li>
+            <li>If Safari asks about Grades Dashboard, tap <strong>Always Allow on This Website</strong>.</li>
+            <li>The dashboard opens over the page. Tap <strong>×</strong> to hide it. Tap the dark tab on the right edge to bring it back.</li>
         </ol>
-        <ol class="platform-mac">
+    </section>
+
+    <section class="platform-ios">
+        <h2>Optional: put Schoology on your Home Screen</h2>
+        <ol class="steps" start="8">
+            <li>In Safari, on your Schoology page, tap the <strong>Share</strong> button (a square with an arrow), then <strong>Add to Home Screen</strong>.</li>
+            <li>Turn <strong>off</strong> <strong>Open as Web App</strong>, then tap <strong>Add</strong>.</li>
+        </ol>
+        <p class="note"><strong>Why off?</strong> Apple doesn't run Safari extensions in Home Screen web apps, so the dashboard won't show there. With it off, the icon opens Schoology in Safari, where the dashboard works.</p>
+    </section>
+
+    <section class="platform-ios">
+        <h2>Optional: tidy up</h2>
+        <ol class="steps" start="10">
+            <li>You don't need to open this app again. To hide its icon, touch and hold it, tap <strong>Remove App</strong>, then <strong>Remove from Home Screen</strong>.</li>
+        </ol>
+        <p class="note"><strong>Don't choose Delete App.</strong> That removes the dashboard from Safari too.</p>
+    </section>
+
+    <section class="platform-mac">
+        <h2>How to start</h2>
+        <ol>
             <li>Turn on <strong>Grades Dashboard for Schoology</strong> in Safari's Extensions settings.</li>
             <li>Open Schoology in Safari and sign in as you normally do.</li>
             <li>Click the Grades Dashboard button in Safari's toolbar. When Safari asks, choose <strong>Always Allow on This Website</strong>.</li>

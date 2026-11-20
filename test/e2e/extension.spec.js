@@ -48,7 +48,10 @@ const MANIFEST = HAS_DEV_BUILD
   ? JSON.parse(readFileSync(path.join(DIST_DIR, 'manifest.json'), 'utf8'))
   : {};
 const OPTIONS_PAGE = MANIFEST.options_page || 'options/options.html';
-const POPUP_PAGE = MANIFEST.action?.default_popup || 'popup/popup.html';
+// The toolbar popup now only links to Schoology; the full dashboard page
+// (popup/dashboard.html) is what these tests drive as "the popup".
+const POPUP_PAGE = 'popup/dashboard.html';
+const TOOLBAR_POPUP = MANIFEST.action?.default_popup || 'popup/popup.html';
 
 let mock;
 let mockBase; // http://localhost:<port> — the DEV build's host permission is
@@ -630,6 +633,53 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('toolbar popup: only the Schoology addresses, as links, no second dashboard', async () => {
+    test.skip(isFirefox(), "Playwright's Firefox can't open moz-extension:// pages (the popup).");
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId } = await launchWithExtension(userDataDir);
+    try {
+      const popup = await context.newPage();
+      await popup.goto(`chrome-extension://${extensionId}/${TOOLBAR_POPUP}`);
+      await expect(popup.getByText('The dashboard shows on these Schoology pages:')).toBeVisible();
+      const links = popup.locator('#sites a');
+      await expect(links).toHaveText(['app.schoology.com', 'schoology.npchristian.org']);
+      await expect(links.first()).toHaveAttribute('href', 'https://app.schoology.com/');
+      await expect(popup.locator('.sgd')).toHaveCount(0); // no dashboard in the popup
+      // "See a demo" opens the full dashboard page, where demo data loads.
+      const [demo] = await Promise.all([context.waitForEvent('page'), popup.getByRole('link', { name: 'See a demo' }).click()]);
+      await expect(demo).toHaveURL(/\/popup\/dashboard\.html$/);
+      await expect(demo.getByRole('button', { name: 'Load demo data' })).toBeVisible();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
+  test('in-page panel on a narrow screen closes when a link in it is opened', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      await triggerRefresh(context, extensionId);
+
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 420, height: 800 });
+      await page.goto(`${mockBase}/grades/grades`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByRole('heading', { name: 'Hi, Alex', exact: true })).toBeVisible({ timeout: 15000 });
+      const link = panel.locator('.missing-card a.item-title', { hasText: 'Persuasive Essay Draft' });
+      await link.click();
+      await expect(page).toHaveURL(/\/assignment\/5101$/);
+      // The dashboard closed as the link opened, and stays closed on the next
+      // page, so the assignment shows.
+      await expect.poll(() => worker.evaluate(async () => (await chrome.storage.local.get('panelOpen')).panelOpen)).toBe(false);
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('in-page panel on Schoology pages: open by default, closes, reopens, remembered', async () => {
     const userDataDir = freshUserDataDir();
     const { context, extensionId, worker } = await launchWithExtension(userDataDir);
@@ -879,6 +929,21 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(again.getByRole('tab', { name: 'Jamie' })).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });
       await expect(again.locator('.card').getByText('Jamie Rivera', { exact: true })).toBeVisible();
       await again.close();
+      // Print: the picked child (Jamie) on one sheet of Letter paper, in a new
+      // tab. (Playwright's Firefox can't open moz-extension:// pages.)
+      if (!isFirefox()) {
+        await popup.evaluate(() => { window.print = () => {}; });
+        const [sheet] = await Promise.all([context.waitForEvent('page'), popup.getByRole('button', { name: 'Print on one page' }).click()]);
+        await expect(sheet).toHaveURL(/\/popup\/print\.html\?/);
+        await sheet.evaluate(() => { window.print = () => {}; });
+        await expect(sheet.locator('.p-name')).toHaveText('Jamie Rivera', { timeout: 15000 });
+        await expect(sheet.locator('.p-verdict')).toHaveText('GO');
+        await expect(sheet.getByRole('heading', { name: 'Missing · 1' })).toBeVisible();
+        const fit = await sheet.evaluate(() => ({ h: document.getElementById('sheet').getBoundingClientRect().height, fit: document.body.dataset.fit }));
+        expect(fit.fit).toBeTruthy();
+        expect(fit.h).toBeLessThanOrEqual(979 + 1);
+        await sheet.close();
+      }
       await popup.close();
 
       // Email the teacher (parents only). Sam's class lists two admins (its
