@@ -6,7 +6,7 @@ window.SITE_LINKS = {
   safariIOS: 'https://apps.apple.com/app/grades-dashboard-for-schoology/id6833034168', // the same listing
   chrome: 'https://chromewebstore.google.com/detail/grades-dashboard-for-scho/nglbmnaepjadllenolmliglnonjkdhjp', // Chrome Web Store listing
   edge: '',          // Microsoft Edge Add-ons listing (Edge can also install from the Chrome Web Store)
-  firefox: '',       // addons.mozilla.org listing (desktop and Android)
+  firefox: 'https://addons.mozilla.org/firefox/addon/grades-dashboard-for-schoology/', // addons.mozilla.org listing (desktop and Android)
   releases: 'https://github.com/megahirt/schoology-grades-extension/releases',
   latestRelease: 'https://github.com/megahirt/schoology-grades-extension/releases/latest',
   source: 'https://github.com/megahirt/schoology-grades-extension',
