@@ -35,3 +35,15 @@ body.platform-ios h1 { font-size: 21px; }
 body.platform-ios h2 { font-size: 16px; }
 body.platform-ios li + li { margin-top: 8px; }
 body.platform-ios footer { flex-wrap: wrap; row-gap: 6px; }
+/* iPhone and iPad: big, numbered steps anyone can follow. */
+.lead { color: var(--muted); margin-bottom: 10px; }
+.steps { padding-left: 0; list-style: none; counter-reset: step; }
+.steps[start="8"] { counter-reset: step 7; }
+.steps[start="10"] { counter-reset: step 9; }
+.steps li { counter-increment: step; position: relative; padding-left: 40px; min-height: 28px; }
+.steps li::before { content: counter(step); position: absolute; left: 0; top: -1px; width: 28px; height: 28px; border-radius: 50%;
+  background: #1d4ed8; color: #fff; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+body.platform-ios .steps li + li { margin-top: 14px; }
+.sites { display: block; margin-top: 4px; }
+.sites a { font-weight: 600; }
+.note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(128, 128, 128, 0.12); }

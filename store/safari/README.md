@@ -51,7 +51,7 @@ FOR STUDENTS
 • Mark work you've turned in, so the list stays honest.
 
 HOW IT WORKS
-Turn the extension on in Safari's Settings, under Extensions, and allow it on your Schoology site. Sign in to Schoology in Safari as you normally do. The dashboard reads the same grades pages you can already see, and shows a panel on Schoology pages and in the toolbar button. Keep a Schoology tab open when you refresh.
+Turn the extension on in Safari's Settings, under Extensions, and allow it on your Schoology site. Sign in to Schoology in Safari as you normally do. The dashboard reads the same grades pages you can already see, and shows a panel on Schoology pages; the toolbar button links to Schoology. Keep a Schoology tab open when you refresh.
 
 PRIVATE BY DESIGN
 • Everything stays on your Mac. Nothing is sent to us or anyone else.
@@ -126,7 +126,7 @@ Answer "None of the algorithms mentioned above".
 ```text
 Grades Dashboard is a Safari web extension. To use it: open the app once, turn the extension on in Safari > Settings > Extensions, and allow it on app.schoology.com.
 
-The extension shows a dashboard of a student's grades from Schoology (a school learning system by PowerSchool). It needs a Schoology parent or student account, which schools issue to their families; we cannot create a demo account. Signed out, the toolbar button shows the dashboard's empty state and a prompt to sign in to Schoology.
+The extension shows a dashboard of a student's grades from Schoology (a school learning system by PowerSchool). It needs a Schoology parent or student account, which schools issue to their families; we cannot create a demo account. The toolbar button lists the Schoology addresses where the dashboard appears, and its "See a demo" link opens the dashboard with a "Load demo data" button that shows made-up students.
 
 The extension only reads Schoology pages the signed-in user can already see. It stores everything in Safari's extension storage on the Mac and sends nothing anywhere. There is no server, no account and no analytics.
 

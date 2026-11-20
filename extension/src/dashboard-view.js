@@ -116,6 +116,7 @@ const ICON = {
   undo: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2.2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.500a5.500 5.500 0 0 1 0 11H11"/></g></svg>',
   tray: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2.2"><path d="M3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/><path d="M12 11V3.5"/><path d="M8.5 7L12 3.5 15.5 7"/></g></svg>',
   spinner: '<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true"><g stroke-width="2.25"><path d="M12 3a9 9 0 1 0 9 9"/></g></svg>',
+  printer: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></g></svg>',
   cog: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g></svg>',
   checkSmall: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="2.25"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></svg>',
 };
@@ -138,7 +139,7 @@ function shortDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function dueLabel(a) {
+export function dueLabel(a) {
   if (a.due) {
     const s = shortDate(a.due);
     if (s) return `Due ${s}`;
@@ -146,7 +147,7 @@ function dueLabel(a) {
   return a.dueText ? `Due ${a.dueText}` : '';
 }
 
-function updatedLabel(iso) {
+export function updatedLabel(iso) {
   const when = new Date(iso);
   if (Number.isNaN(when.getTime())) return '';
   const time = when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -166,7 +167,7 @@ function gradeText(a, settings) {
 // What an assignment is worth ("10 pts"), never what was earned (the
 // percent shows that). Empty when Schoology doesn't say: parents only see
 // the total once the work is graded.
-function ptsText(a) {
+export function ptsText(a) {
   const m = a && a.maxPoints;
   if (typeof m !== 'number' || !(m > 0)) return '';
   const n = Math.round(m * 100) / 100;
@@ -174,7 +175,7 @@ function ptsText(a) {
 }
 
 // Largest point value first; work with no known value keeps its order, last.
-function byPointsDesc(list, get = (x) => x) {
+export function byPointsDesc(list, get = (x) => x) {
   const val = (x) => (typeof get(x).maxPoints === 'number' ? get(x).maxPoints : -1);
   return list.map((x, i) => ({ x, i })).sort((p, q) => val(q.x) - val(p.x) || p.i - q.i).map(({ x }) => x);
 }
@@ -230,6 +231,7 @@ function shortHead(label) {
 
 // Section headings carry an emoji; sections with no items are left out.
 const SHARE_LABEL = 'Share a picture of the dashboard';
+const PRINT_LABEL = 'Print on one page';
 export const SECTION_EMOJI = {
   missing: MISSING_IMG, // Schoology's Missing icon rather than an emoji
   overdue: '😬',
@@ -764,12 +766,14 @@ export function renderStudentBody(d, uid, settings, marks, { isParentView, openC
   // work turned in, so a parent's marks count on Overdue items only.
   const canMark = !isParentView;
   // The lists as Schoology has them: a marked item stays in its place.
-  const full = summarizeStudent(courses, settings, [], []);
+  // The lists as of `now` (the dashboard's time: tests pass a fixed one).
+  const at = { ...settings, now };
+  const full = summarizeStudent(courses, at, [], []);
   const overdueIds = new Set(full.overdueItems.map((a) => String(a.id)));
   const own = canMark
     ? { turnedIn: marks.turnedIn || [], done: marks.done || [] }
     : { turnedIn: (marks.turnedIn || []).filter((id) => overdueIds.has(String(id))), done: [] };
-  const summary = summarizeStudent(courses, settings, own.turnedIn, own.done);
+  const summary = summarizeStudent(courses, at, own.turnedIn, own.done);
   const marked = new Set([...own.turnedIn, ...own.done].map(String));
   const showGrades = settings.gradeVisibility === 'both'
     || (settings.gradeVisibility === 'parent' && isParentView)
@@ -1254,6 +1258,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
         : `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>`) +
       (current ? `<button class="icon-btn" type="button" data-act="share" aria-label="${SHARE_LABEL}" title="${SHARE_LABEL}">${shareIcon()}</button>` : '') +
+      (current ? `<button class="icon-btn" type="button" data-act="print" aria-label="${PRINT_LABEL}" title="${PRINT_LABEL}">${ICON.printer}</button>` : '') +
       `<button class="icon-btn" type="button" data-act="options" aria-label="Settings" title="Settings">${ICON.cog}</button>` +
       '</div>';
     // Close (the panel only) stays on screen while the header scrolls away:
@@ -1490,6 +1495,16 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const { act, uid, aid } = btn.dataset;
     if (act === 'share') {
       await sharePicture(btn);
+      return;
+    }
+    if (act === 'print') {
+      // The print page opens in its own tab (popup/print.html), laid out for
+      // one sheet of Letter paper, and opens the print dialog there.
+      try {
+        await browser.runtime.sendMessage({ type: 'open-print', site: getSite() || null, uid: pickedUid });
+      } catch (err) {
+        setStatus(`Couldn’t open the print page: ${err && err.message ? err.message : err}`);
+      }
       return;
     }
     if (act === 'email-teacher' && uid && aid) {

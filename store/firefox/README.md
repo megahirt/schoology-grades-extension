@@ -91,7 +91,7 @@ to show it here too.
 **Notes for reviewers:**
 
 ```text
-The add-on needs a Schoology account to show real grades. Without one, open the toolbar button and click "Load demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button shows the same dashboard.
+The add-on needs a Schoology account to show real grades. Without one, click the toolbar button, then "See a demo", then "Load demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button links to the Schoology pages where it appears.
 
 No data is collected or sent anywhere: grades are read from the Schoology pages the signed-in user can already see and are kept in the browser's extension storage (data_collection_permissions: none).
 

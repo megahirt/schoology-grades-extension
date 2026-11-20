@@ -636,6 +636,16 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       if (!/^[a-z-]+$/.test(String(message.slug || ''))) return { ok: false };
       return { ok: true, src: await holidayIconDataUrl(message.slug) };
     }
+    case 'open-print': {
+      // The dashboard's Print button: one child's dashboard on one page
+      // (popup/print.html), in a new tab next to this one.
+      const site = await siteOf(message.site);
+      const q = new URLSearchParams({ site, uid: String(message.uid || '') });
+      const opts = { url: browser.runtime.getURL(`popup/print.html?${q}`) };
+      if (sender && sender.tab && typeof sender.tab.index === 'number') opts.index = sender.tab.index + 1;
+      await browser.tabs.create(opts);
+      return { ok: true };
+    }
     case 'open-options': {
       // From the in-page panel: content scripts cannot open the options page.
       await browser.runtime.openOptionsPage();

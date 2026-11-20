@@ -103,7 +103,8 @@ passes and proves the harness works.
    `127.0.0.1`), because the DEV host permission is `http://localhost`.
 3. It logs in to the mock server, sets `settings.schoologyBase` to the mock
    URL via the options page (storage), triggers a refresh, opens
-   `popup/popup.html`, and asserts:
+   `popup/dashboard.html` (the full dashboard page; the toolbar popup itself
+   only links to Schoology), and asserts:
    - **Student:** "Missing · 1", "Persuasive Essay Draft", badge **NO-GO —
      Low grades** (Algebra 2 is 68%, below 75; one Missing alone would be
      GO), with the student's name "Alex Student".

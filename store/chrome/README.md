@@ -132,5 +132,5 @@ https://app.schoology.com/* and https://schoology.npchristian.org/* : the extens
 ## Notes for review (Test instructions field)
 
 ```text
-The extension needs a Schoology account to show real grades. Without one, open the toolbar button and click "Load demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button shows the same dashboard.
+The extension needs a Schoology account to show real grades. Without one, click the toolbar button, then "See a demo", then "Load demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button links to the Schoology pages where it appears.
 ```

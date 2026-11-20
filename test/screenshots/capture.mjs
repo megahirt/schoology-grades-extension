@@ -54,7 +54,7 @@ try {
   // Popup + demo data (parent view, GO/NO-GO badge on).
   const popup = await ctx.newPage();
   await popup.setViewportSize({ width: 400, height: 600 });
-  await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
+  await popup.goto(`chrome-extension://${extId}/popup/dashboard.html`);
   // Data is kept per Schoology site ("<key>@<origin>"); the screenshots use
   // app.schoology.com, so the popup is pointed there too.
   await popup.evaluate(() => chrome.storage.local.set({ settings: { showGoNoGo: true, schoologyBase: 'https://app.schoology.com' }, 'turnedIn@https://app.schoology.com': {}, 'markedDone@https://app.schoology.com': {} }));

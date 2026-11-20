@@ -1,19 +1,18 @@
-// popup.js — the toolbar popup. Renders the shared dashboard view
-// (src/dashboard-view.js); the same view is shown in the in-page panel on
-// Schoology pages (src/panel.js).
+// popup.js — the toolbar popup. The dashboard itself lives on the Schoology
+// page (src/panel.js), so the popup doesn't show it again: it lists the
+// Schoology addresses where the dashboard appears, as links, so someone on
+// another page can get there in one tap, and a quiet "See a demo" link to the
+// full dashboard page (popup/dashboard.html, with "Load demo data"). On a
+// school's own Schoology address the extension doesn't cover yet, it also
+// offers to use it there.
 
 import browser from 'webextension-polyfill';
-import { mountDashboard, DASHBOARD_CSS, REAL_SCHOOLOGY } from '../src/dashboard-view.js';
-import { setSite, getSettings, getSites } from '../src/storage.js';
-import { isSchoologySite } from '../src/sites.js';
-import { addedSchools, requestSchool, schoolOfferForTab } from '../src/school-access.js';
+import { REAL_SCHOOLOGY, SCHOOL_HOSTS } from '../src/sites.js';
+import { requestSchool, schoolOfferForTab } from '../src/school-access.js';
 
-const style = document.createElement('style');
-style.textContent = DASHBOARD_CSS;
-document.head.append(style);
+// The addresses, in the order a family is most likely to use them.
+export const POPUP_SITES = [REAL_SCHOOLOGY, ...SCHOOL_HOSTS.map((h) => `https://${h}`)];
 
-// Show the Schoology site of the tab the popup was opened on (each site has
-// its own account and data); on any other tab, the site used last.
 async function activeTab() {
   try {
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -23,16 +22,27 @@ async function activeTab() {
   }
 }
 
-async function pickSite(tab) {
-  const sites = (await getSites()) || [];
-  try {
-    const origin = tab && tab.url ? new URL(tab.url).origin : null;
-    if (origin && (isSchoologySite(tab.url, await addedSchools(browser)) || sites.includes(origin))) return origin;
-  } catch {
-    // no tab access: fall back to the last site used
+// Open a site in a new tab and close the popup (Safari on iPhone keeps a
+// popup open over the page otherwise).
+function openSite(url) {
+  browser.tabs.create({ url }).then(() => window.close(), () => window.open(url, '_blank'));
+}
+
+function drawSites() {
+  const list = document.getElementById('sites');
+  for (const origin of POPUP_SITES) {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.className = 'site';
+    a.href = `${origin}/`;
+    a.textContent = new URL(origin).host;
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      openSite(a.href);
+    });
+    li.append(a);
+    list.append(li);
   }
-  const settings = (await getSettings()) || {};
-  return settings.schoologyBase || REAL_SCHOOLOGY;
 }
 
 // On a school's own Schoology address the extension doesn't cover yet:
@@ -67,8 +77,11 @@ async function showSchoolOffer(tab) {
   });
 }
 
-activeTab().then(async (tab) => {
-  setSite(await pickSite(tab));
-  mountDashboard(document.getElementById('dashboard'), { browser, openLinksInActiveTab: true, siteSwitch: true });
-  showSchoolOffer(tab).catch(() => {});
+drawSites();
+// The full dashboard on a page of its own, where "Load demo data" shows
+// made-up students (for anyone without Schoology, and store reviewers).
+document.getElementById('demo-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  openSite(browser.runtime.getURL('popup/dashboard.html'));
 });
+activeTab().then((tab) => showSchoolOffer(tab)).catch(() => {});
