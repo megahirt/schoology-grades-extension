@@ -890,6 +890,13 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await page.waitForTimeout(1500);
       const after = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('refreshState@'))[1].startedAt);
       expect(after).toBe(before);
+
+      // With grades on screen, a refresh shows only a thin bar under the
+      // child tabs, not the banner, so the dashboard doesn't move.
+      await panel.getByRole('button', { name: 'Refresh grades' }).click();
+      await expect(panel.locator('.tabs-bar .refresh-line[role="progressbar"]')).toBeVisible({ timeout: 10000 });
+      await expect(panel.locator('.refreshing')).toHaveCount(0);
+      await expect(panel.locator('.refresh-line')).toHaveCount(0, { timeout: 30000 });
       await page.close();
     } finally {
       await context.close();

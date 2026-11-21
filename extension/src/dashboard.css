@@ -42,7 +42,12 @@
 .sgd .icon-btn:disabled { opacity: 0.45; cursor: default; background: #f1f3f5; }
 .sgd .icon-btn.busy:disabled { opacity: 1; color: #8a94a1; }
 
-/* Refresh in progress: banner + progress bar at the top of the body. */
+/* Refresh in progress. The first time (nothing to show yet): a banner and
+   progress bar at the top of the body. Later: a thin bar over the bottom
+   edge of the header, so nothing on the dashboard moves. */
+.sgd .head { position: relative; }
+.sgd .refresh-line { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: #d6e2fa; overflow: hidden; z-index: 1; }
+.sgd .refresh-line-fill { height: 100%; background: #1d4ed8; transition: width 0.3s ease; }
 .sgd .refreshing { border: 1px solid #bcd0f7; background: #eef3fd; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; color: #1e3a8a; }
 .sgd .refreshing-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
 .sgd .refreshing-row b { font-weight: 700; }
@@ -51,7 +56,7 @@
 .sgd .progress-fill { height: 6px; border-radius: 3px; background: #1d4ed8; transition: width 0.3s ease; }
 .sgd .spin { animation: sgd-spin 0.9s linear infinite; flex: 0 0 auto; }
 @keyframes sgd-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .sgd .spin { animation-duration: 2.5s; } .sgd .progress-fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sgd .spin { animation-duration: 2.5s; } .sgd .progress-fill, .sgd .refresh-line-fill { transition: none; } }
 .sgd .sites { display: flex; gap: 4px; margin: 0 0 10px; }
 .sgd .site { border: 1px solid var(--line, #e3e6ea); background: #fff; color: #4b5563; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
 .sgd .site.sel { background: var(--ink, #1f2937); border-color: var(--ink, #1f2937); color: #fff; }
