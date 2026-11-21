@@ -314,6 +314,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // The class's highest score sits under its chart.
       await expect(algebra.locator('.class-best')).toContainText('Highest score');
       // Desktop hover shows the nearest assignment: date, title and its grade.
+      // Scrolled into view first: in Firefox's panel a lower chart can sit
+      // under the footer.
+      await algebra.locator('svg.gchart').scrollIntoViewIfNeeded();
       const box = await algebra.locator('svg.gchart .gc-hit').boundingBox();
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
       await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
@@ -849,6 +852,58 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('Overdue leaves out work its own page says can\'t be submitted online', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      const overdue = panel.locator('.overdue-list');
+      await expect(overdue).toContainText('Primary Source Notes', { timeout: 30000 });
+      await expect(overdue).not.toContainText('Field Trip Form');
+      const known = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('noSubmissions@'))?.[1]);
+      expect(Object.keys(known || {})).toEqual(['5203']);
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
+  test('a parent opening a child\'s class page doesn\'t start a refresh', async () => {
+    // Schoology names the child as the page's user there, not the parent.
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'parent');
+      await configureExtension(context, extensionId, worker);
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 30000 });
+      await expect(panel.locator('.refresh-line, .refreshing')).toHaveCount(0, { timeout: 30000 });
+      const state = () => worker.evaluate(async () => {
+        const all = await chrome.storage.local.get(null);
+        const pick = (p) => Object.entries(all).find(([k]) => k.startsWith(p))?.[1] || {};
+        return { started: pick('refreshState@').startedAt, uid: pick('user@').uid };
+      });
+      const before = await state();
+      const preview = await panel.locator('a[href*="/preview/"]').first().getAttribute('href');
+      expect(preview).toBeTruthy();
+      await page.goto(new URL(preview, mockBase).href);
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(2000);
+      expect(await state()).toEqual(before);
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('refreshes by itself when a Schoology page loads, with banner, progress and a disabled button', async () => {
     // A slow mock (like real Schoology) so the in-progress state is visible.
     const slow = await startServer(0, { delayMs: 700 });
@@ -890,6 +945,13 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await page.waitForTimeout(1500);
       const after = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('refreshState@'))[1].startedAt);
       expect(after).toBe(before);
+
+      // With grades on screen, a refresh shows only a thin bar under the
+      // child tabs, not the banner, so the dashboard doesn't move.
+      await panel.getByRole('button', { name: 'Refresh grades' }).click();
+      await expect(panel.locator('.tabs-bar .refresh-line[role="progressbar"]')).toBeVisible({ timeout: 10000 });
+      await expect(panel.locator('.refreshing')).toHaveCount(0);
+      await expect(panel.locator('.refresh-line')).toHaveCount(0, { timeout: 30000 });
       await page.close();
     } finally {
       await context.close();

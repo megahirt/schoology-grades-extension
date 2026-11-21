@@ -60,7 +60,7 @@ function hasBrowserStorage() {
 
 // Keys about one person's account on one site, and about the site itself
 // (see PER SITE AND PER USER above).
-export const USER_KEYS = ['dashboards', 'account', 'records', 'dailyLog', 'turnedIn', 'markedDone', 'classAdmins', 'classTeacher', 'dashboardChild'];
+export const USER_KEYS = ['dashboards', 'account', 'records', 'dailyLog', 'turnedIn', 'markedDone', 'classAdmins', 'classTeacher', 'dashboardChild', 'noSubmissions'];
 export const ORIGIN_KEYS = ['refreshState', 'user'];
 export const SITE_KEYS = [...USER_KEYS, ...ORIGIN_KEYS];
 

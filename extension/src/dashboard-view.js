@@ -1286,9 +1286,17 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       const doneSteps = Math.min(total, Number(refreshState.done) || 0);
       // Never show an empty bar: the first step is already under way.
       const pct = Math.max(8, Math.round(((doneSteps + 0.5) / total) * 100));
-      body = '<div class="refreshing" role="status" aria-live="polite">' +
+      const step = `${refreshState.label || ''}${total > 1 ? ` · ${Math.min(doneSteps + 1, total)} of ${total}` : ''}`;
+      if (current) {
+        // Grades are already on screen: only a thin bar along the bottom
+        // edge of the child tabs (they stay on screen) or else the header,
+        // drawn over that edge so nothing below it moves.
+        const line = `<div class="refresh-line" role="progressbar" aria-label="Refresh progress" aria-valuetext="${escapeHtml(step || 'Refreshing grades')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" title="Refreshing grades${step ? ` · ${escapeHtml(step)}` : ''}"><div class="refresh-line-fill" style="width:${pct}%"></div></div>`;
+        if (tabsBar) tabsBar = tabsBar.replace(/<\/div>$/, `${line}</div>`);
+        else header = header.replace(/<\/header>$/, `${line}</header>`);
+      } else body = '<div class="refreshing" role="status" aria-live="polite">' +
         `<div class="refreshing-row">${ICON.spinner}<b>Refreshing grades…</b>` +
-        `<span class="refreshing-step">${escapeHtml(refreshState.label || '')}${total > 1 ? ` · ${Math.min(doneSteps + 1, total)} of ${total}` : ''}</span></div>` +
+        `<span class="refreshing-step">${escapeHtml(step)}</span></div>` +
         `<div class="progress" role="progressbar" aria-label="Refresh progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="progress-fill" style="width:${pct}%"></div></div>` +
         '</div>' + body;
     }
