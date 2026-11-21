@@ -1,6 +1,6 @@
 // assignment-page.js: what an assignment's own page says about handing it in.
 import { describe, it, expect } from 'vitest';
-import { readAssignmentPage, needsPageCheck, checkOverdueWork, NO_SUBMISSIONS_KEEP_MS } from '../../extension/src/assignment-page.js';
+import { readAssignmentPage, needsPageCheck, checkOverdueWork, paperClass, NO_SUBMISSIONS_KEEP_MS } from '../../extension/src/assignment-page.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from '../../extension/src/rules.js';
 import { weekState } from '../../extension/src/rewards.js';
 
@@ -21,7 +21,14 @@ describe('readAssignmentPage', () => {
     expect(readAssignmentPage(newPage(true), `${SITE}/assignments/11/info`)).toMatchObject({ page: 'new', takesSubmissions: true });
     expect(readAssignmentPage(newPage(false), `${SITE}/assignments/11/info`)).toMatchObject({ page: 'new', takesSubmissions: false });
   });
-  it('says nothing for tests, error pages and anything else', () => {
+  it('test pages: Submissions Disabled or Enabled', () => {
+    const test = (state, text) => `<div class="assessment-status-wrapper"><span role="button" tabindex="0" class="infotip" aria-label='Submissions ${state} This assessment is ${text}'><span class='assessment-status disabled'>Submissions ${state}</span></span></div>`;
+    expect(readAssignmentPage(test('Disabled', 'not currently accepting submissions'), `${SITE}/assignment/11/assessment`)).toEqual({ page: 'test', takesSubmissions: false, submitted: false });
+    expect(readAssignmentPage(test('Enabled', 'currently accepting submissions'), `${SITE}/course/5/assessments/11`)).toEqual({ page: 'test', takesSubmissions: true, submitted: false });
+    // The words alone (Schoology's list of UI strings is on every page) say nothing.
+    expect(readAssignmentPage('"assessments.submissions_disabled":"Submissions Disabled"', `${SITE}/assignment/11/assessment`).page).toBe(null);
+  });
+  it('says nothing for error pages and anything else', () => {
     const none = { page: null, takesSubmissions: null, submitted: false };
     expect(readAssignmentPage('<html>attempts</html>', `${SITE}/course/5/assessments/11`)).toEqual(none);
     expect(readAssignmentPage('<html>Page not found</html>', `${SITE}/assignment/11/info`)).toEqual(none);
@@ -51,7 +58,7 @@ describe('checkOverdueWork', () => {
     const reads = await checkOverdueWork(courses, { fetchPage, known, now: NOW });
     const [a1, a2, a3, a4, a5] = courses[0].assignments;
     expect(reads).toBe(4); // not the item that isn't due yet
-    expect(a1.noSubmissions).toBe(true);
+    expect(a1.noSubmissions).toBe('page');
     expect(a2.noSubmissions).toBeUndefined();
     expect(a3.submitted).toBe(true);
     expect(a4.noSubmissions).toBeUndefined();
@@ -72,7 +79,7 @@ describe('checkOverdueWork', () => {
     const c1 = [{ assignments: [item(1)] }];
     await checkOverdueWork(c1, { fetchPage: counting, known: fresh, now: NOW });
     expect(reads).toBe(0);
-    expect(c1[0].assignments[0].noSubmissions).toBe(true);
+    expect(c1[0].assignments[0].noSubmissions).toBe('page');
     const old = { 2: { at: new Date(NOW - NO_SUBMISSIONS_KEEP_MS - 1).toISOString() } };
     const c2 = [{ assignments: [item(2)] }];
     await checkOverdueWork(c2, { fetchPage: counting, known: old, now: NOW });
@@ -97,6 +104,22 @@ describe('checkOverdueWork', () => {
     const few = [{ assignments: [item(1), item(1)] }];
     expect(await checkOverdueWork(few, { fetchPage, known, now: NOW })).toBe(1);
     expect(few[0].assignments.map((a) => Boolean(a.noSubmissions))).toEqual([true, true]);
+  });
+
+  it('a paper class (hardly any graded work turned in online): its work isn\'t Overdue, no page is read', async () => {
+    const graded = (n, online) => Array.from({ length: n }, (_, i) => ({ id: 100 + i, status: 'graded', score: 9, maxPoints: 10, submitted: i < online }));
+    expect(paperClass({ assignments: graded(10, 1) })).toBe(true); // 10%
+    expect(paperClass({ assignments: graded(10, 2) })).toBe(false); // 20%
+    expect(paperClass({ assignments: graded(4, 0) })).toBe(false); // too few to tell
+    let reads = 0;
+    const counting = async (url) => { reads += 1; return fetchPage(url); };
+    const courses = [{ id: 'm', name: 'Math', assignments: [...graded(10, 0), item(2)] }, { id: 's', name: 'Spanish', assignments: [...graded(10, 4), item(2)] }];
+    await checkOverdueWork(courses, { fetchPage: counting, now: NOW });
+    expect(reads).toBe(1);
+    expect(courses[0].assignments.at(-1).noSubmissions).toBe('class');
+    expect(courses[1].assignments.at(-1).noSubmissions).toBeUndefined();
+    const s = summarizeStudent(courses, DEFAULT_SETTINGS, [], []);
+    expect(s.overdueItems.map((a) => a.courseName)).toEqual(['Spanish']);
   });
 
   it('needsPageCheck: past due, ungraded, not submitted, with a link', () => {

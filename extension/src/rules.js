@@ -283,7 +283,7 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       const dueEnd = a.due && /T/.test(String(a.due)) ? due : endOfDay(due);
       if (dueEnd < now) {
         // Can't be submitted in Schoology (paper, in class): not Overdue.
-        if (a.noSubmissions === true) continue;
+        if (a.noSubmissions) continue;
         const counts = a.status !== 'excused' && a.status !== 'incomplete';
         if (counts && !pastPeriod) overdueItems.push(item);
         continue;
