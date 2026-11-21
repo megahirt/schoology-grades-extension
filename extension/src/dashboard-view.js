@@ -156,7 +156,7 @@ export function updatedLabel(iso) {
   return `Updated ${shortDate(iso)}, ${time}`;
 }
 
-function gradeText(a, settings) {
+export function gradeText(a, settings) {
   const pct = assignmentPercent(a);
   if (pct === null && isExtraCredit(a)) return `+${Math.round(a.score * 100) / 100} pts`;
   if (pct === null) return a.status === 'graded' && a.letterGrade ? String(a.letterGrade) : '';
