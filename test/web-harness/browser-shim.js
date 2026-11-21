@@ -187,8 +187,12 @@ if (typeof __WEB_ROLE__ !== 'undefined' && typeof window !== 'undefined') {
   // storage.js reads browser.storage from the global, which every real
   // browser running the extension provides. Both bundles share this global,
   // so the first one's shim is it; storage behaves the same in either role
-  // (one localStorage, one bus).
-  globalThis.browser ??= shim;
+  // (one localStorage, one bus). Safari gives ordinary web pages a `browser`
+  // of its own ({ runtime, test }, no storage), so replace any global
+  // without storage, not just a missing one.
+  if (!globalThis.browser?.storage?.local) {
+    Object.defineProperty(globalThis, 'browser', { value: shim, writable: true, configurable: true });
+  }
 }
 
 export default shim;
