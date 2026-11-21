@@ -41,6 +41,7 @@ import { quarterChange, isNewRecord, classHighScore, classWeek, weekRange, dueTh
 import { composeMessage, composeHash, composeUrlFor } from './teacher-email.js';
 import { captureDashboard, copyImage, shareImage, saveImage, isApplePlatform } from './screenshot.js';
 import css from './dashboard.css';
+import { enterDemoMode, exitDemoMode, isDemoMode, hasNoSavedData } from './demo-mode.js';
 import { holidayFor, ICON_SCALE } from './holidays.js';
 // Bundled as a data: URL (scripts/build.mjs) so the panel can show it inside
 // Schoology's page without exposing extension files to web pages.
@@ -55,7 +56,6 @@ export const MISSING_IMG = `<img class="missing-icon" src="${missingIcon}" alt="
 
 export const DASHBOARD_CSS = css;
 
-const DEMO_ANCHOR = new Date('2026-11-06T00:00:00');
 
 // Dev builds only (scripts/build.mjs --dev defines __DEV__): a footer switch
 // between real Schoology (the default) and the local mock server
@@ -242,6 +242,9 @@ export const SECTION_EMOJI = {
   waiting: '📬',
   records: '🏆',
 };
+
+// Demo mode's banner, at the very bottom of every dashboard.
+export const DEMO_BANNER = '<div class="demo-banner"><button type="button" class="demo-exit" data-act="exit-demo">Exit demo mode</button></div>';
 
 function sectionHeading(title, emoji, extraClass = '') {
   // `emoji` is trusted markup from SECTION_EMOJI (an emoji, or the icon <img>).
@@ -884,33 +887,9 @@ async function holidayIconSrc(browser, slug) {
   return src;
 }
 
-// Demo data with due dates shifted so "today"/"tomorrow" line up with the
-// day the demo is loaded (demo anchor: 2026-11-06).
-export async function loadDemo(browser) {
-  const res = await fetch(browser.runtime.getURL('popup/demo-data.json'));
-  const data = await res.json();
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const shiftMs = todayStart.getTime() - DEMO_ANCHOR.getTime();
-  const dashboards = data.dashboards || {};
-  for (const d of Object.values(dashboards)) {
-    for (const c of d.courses || []) {
-      for (const p of c.periods || []) {
-        if (p.start) p.start = new Date(new Date(p.start).getTime() + shiftMs).toISOString();
-        if (p.end) p.end = new Date(new Date(p.end).getTime() + shiftMs).toISOString();
-      }
-      for (const a of c.assignments || []) {
-        if (a.due) {
-          const shifted = new Date(new Date(a.due).getTime() + shiftMs);
-          a.due = shifted.toISOString();
-          a.dueText = shifted.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        }
-      }
-    }
-    d.updatedAt = new Date().toISOString();
-  }
-  await setDashboards(dashboards);
-}
+// Demo data and demo mode: src/demo-mode.js.
+import { loadDemo } from './demo-mode.js';
+export { loadDemo };
 
 async function loadState() {
   const dashboards = (await getDashboards()) || {};
@@ -929,6 +908,9 @@ async function loadState() {
     records: (await storageGet('records', null)) || {},
     // Who is signed in on this site (signedOut: the data shown is old).
     user: (await getUser()) || null,
+    // Demo mode (src/demo-mode.js): the made-up family, nothing read from
+    // Schoology, and a banner to leave it.
+    demo: await isDemoMode().catch(() => false),
   };
 }
 
@@ -1224,7 +1206,10 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   }
 
   async function render() {
-    const { settings, dashboards, turnedIn, done, refreshState, lastChild, records, user } = await loadState();
+    const { settings, dashboards, turnedIn, done, refreshState, lastChild, records, user, demo } = await loadState();
+    // The demo button only from nothing saved: leaving demo mode clears
+    // everything, so it must never sit on top of real data.
+    const offerDemo = showDemo && !demo && await hasNoSavedData(browser).catch(() => false);
     const running = refreshRunning(refreshState);
     // Signed out: Schoology said so (user.signedOut), or the last refresh
     // failed because nobody is signed in. Either way the data shown is old,
@@ -1252,7 +1237,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
 
     const holiday = holidayFor(Date.now());
     const holidaySrc = holiday ? await holidayIconSrc(browser, holiday.slug) : null;
-    let header = `<header class="head">${siteSwitch ? await siteSwitchHtml() : ''}<div class="head-row">${headLogoHtml(holiday, holidaySrc)}<div class="grow">${heading}` +
+    let header = `<header class="head">${siteSwitch && !demo ? await siteSwitchHtml() : ''}<div class="head-row">${headLogoHtml(holiday, holidaySrc)}<div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
@@ -1286,7 +1271,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
 
     let body;
     if (!current) {
-      body = `<p class="empty">No Schoology data yet. Sign in to Schoology in this browser (your school\'s Schoology page, if it has its own address) and press Refresh${showDemo ? ', or load the demo data to see how the dashboard looks' : ''}.</p>`;
+      body = `<p class="empty">No Schoology data yet. Sign in to Schoology in this browser (your school\'s Schoology page, if it has its own address) and press Refresh${offerDemo ? ', or show the demo data to see how the dashboard looks' : ''}.</p>`;
     } else {
       const marks = { turnedIn: turnedIn[pickedUid], done: done[pickedUid] };
       drawnCharts.clear();
@@ -1328,14 +1313,15 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       : '';
     const footer = '<footer class="foot">' +
       `<div class="status" role="status">${escapeHtml(statusText)}</div>` +
-      (showDemo ? '<div class="foot-row"><button class="btn btn-sm" type="button" data-act="demo">Load demo data</button></div>' : '') +
+      (offerDemo ? '<div class="foot-row"><button class="btn btn-sm" type="button" data-act="demo">Show demo data</button></div>' : '') +
       '</footer>' +
       `<div class="credit"><span class="credit-made"><span>Made with <span role="img" aria-label="love">❤️</span> for</span><img class="credit-logo" src="${npcLogo}" alt="NPC" width="20" height="20"><span>by Chris Hirt</span></span>` +
       `<span class="credit-end"><a class="feedback-link" href="${escapeHtml(feedbackHref(browser))}" aria-label="Send feedback">Feedback</a>` +
       `<a class="about-link" href="${ABOUT_URL}" target="_blank" rel="noopener">About</a>` +
       `<a class="coffee-link" href="${COFFEE_URL}" target="_blank" rel="noopener" aria-label="Buy me a coffee" title="Buy me a coffee">☕</a></span></div>` +
       // Dev builds: last of all, so a screenshot can crop it off the bottom.
-      (devSwitch ? `<div class="dev-foot">${devSwitch}</div>` : '');
+      (devSwitch ? `<div class="dev-foot">${devSwitch}</div>` : '') +
+      (demo ? DEMO_BANNER : '');
 
     // Re-rendering replaces the whole view; keep where the reader was
     // scrolled (the panel scrolls .body, the popup scrolls the page), so
@@ -1594,11 +1580,17 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       await render();
     } else if (act === 'demo') {
       try {
-        await loadDemo(browser);
-        setStatus('Demo data loaded.');
+        await enterDemoMode(browser, { dev: IS_DEV });
       } catch (err) {
         setStatus(`Could not load demo data: ${err.message || err}`);
       }
+      await render();
+    } else if (act === 'exit-demo') {
+      await exitDemoMode(browser);
+      // On a Schoology page, reload so the real grades are read right away.
+      const win = container.ownerDocument.defaultView;
+      if (/^https?:$/.test(win.location.protocol)) win.location.reload();
+      else await render();
     } else if (act === 'options') {
       if (openOptions) openOptions();
       else browser.runtime.openOptionsPage();

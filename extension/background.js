@@ -21,6 +21,7 @@ import {
 } from './src/sites.js';
 import { parseGradesHtml } from './src/parser.js';
 import { syncSchoolScripts } from './src/school-access.js';
+import { isDemoMode } from './src/demo-mode.js';
 import { summarizeStudent, DEFAULT_SETTINGS, effectiveSettings, isStudentAccount } from './src/rules.js';
 import { coursePagePath, findComposeHref, findCourseAdmins, findParentName, likelyTeacher } from './src/teacher-email.js';
 import {
@@ -476,6 +477,7 @@ browser.runtime.onStartup.addListener(async () => {
 browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== ALARM_NAME) return;
   try {
+    if (await isDemoMode()) return; // demo mode reads nothing from Schoology
     // Every site that has data, one after another. A parent refresh
     // switches Schoology's "viewing as" child: don't do that underneath
     // someone using that site right now; the next alarm catches up.
@@ -610,8 +612,16 @@ async function holidayIconDataUrl(slug) {
   return `data:image/png;base64,${btoa(bin)}`;
 }
 
+// Demo mode (src/demo-mode.js): every message that would read Schoology, or
+// write what a Schoology page reports, does nothing. Refresh says it worked,
+// so the dashboard shows no error.
+const READS_SCHOOLOGY = new Set(['refresh-now', 'page-user', 'schoology-page-loaded', 'run-live-probe', 'grades-scraped', 'grades-page-url', 'teacher-compose-url', 'view-child', 'refresh-via-hidden-tab']);
+
 browser.runtime.onMessage.addListener(async (message, sender) => {
   if (!message || typeof message.type !== 'string') return undefined;
+  if (READS_SCHOOLOGY.has(message.type) && await isDemoMode()) {
+    return message.type === 'refresh-now' ? { ok: true, demo: true } : { ok: false, demo: true, error: 'Demo mode: nothing is read from Schoology.' };
+  }
   switch (message.type) {
     case 'refresh-now': {
       return startRefresh('manual', await siteOf(message.site));

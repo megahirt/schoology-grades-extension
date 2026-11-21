@@ -12,7 +12,7 @@
 
 import { summarizeStudent } from './rules.js';
 import { cleanCourseNames } from './names.js';
-import { escapeHtml, dueLabel, updatedLabel, ptsText, byPointsDesc, gradeColumns, visibleCourses, isPartial, gradeText, SECTION_EMOJI } from './dashboard-view.js';
+import { escapeHtml, dueLabel, updatedLabel, ptsText, byPointsDesc, gradeColumns, visibleCourses, isPartial, gradeText, SECTION_EMOJI, ABOUT_URL } from './dashboard-view.js';
 
 // Letter paper, with 0.4 in margins, in CSS pixels (96 per inch).
 export const PAGE = { width: Math.round(7.7 * 96), height: Math.round(10.2 * 96) };
@@ -84,6 +84,9 @@ td.low { color: #b42318; font-weight: 700; }
 .p-foot b { color: #1d4ed8; }
 `;
 
+// The website, named in the footer.
+const SITE_HOST = new URL(ABOUT_URL).host;
+
 function pct(n) {
   return typeof n === 'number' ? `${Math.round(n)}%` : '–';
 }
@@ -103,9 +106,9 @@ function list(title, items, key, { check = false, count = true } = {}) {
   const li = (it) => '<li>' + (check ? '<span class="p-box" aria-hidden="true"></span>' : '') +
     `<div class="grow"><span class="p-t">${escapeHtml(it.title)}</span>${it.sub ? `<div class="p-s">${escapeHtml(it.sub)}</div>` : ''}</div>` +
     (it.grade ? `<span class="p-g">${escapeHtml(it.grade)}</span>` : '') + '</li>';
-  const body = items.length
-    ? `<ul data-list="${key}" data-total="${items.length}">${items.map(li).join('')}</ul>`
-    : '<p class="p-none">None</p>';
+  // A section with nothing in it is left out, as on the dashboard.
+  if (!items.length) return '';
+  const body = `<ul data-list="${key}" data-total="${items.length}">${items.map(li).join('')}</ul>`;
   return `<section class="p-sec ${key}">${heading(count ? `${title} · ${items.length}` : title, key)}${body}</section>`;
 }
 
@@ -171,11 +174,12 @@ export function renderPrintSheet({ d, settings, marks = {}, isParentView = false
       (showGrades ? `<td class="n${low(first)}">${pct(first)}</td>${cols.quarter && cols.overall ? `<td class="n${low(second)}">${pct(second)}</td>` : ''}` : '') +
       `<td class="n">${missingBy.get(c.name) || ''}</td></tr>`;
   });
-  const classes = `<section class="p-sec classes">${heading('Classes', 'classes')}` + (rows.length
-    ? '<table><thead><tr><th>Class</th>' +
+  const classes = rows.length
+    ? `<section class="p-sec classes">${heading('Classes', 'classes')}` +
+      '<table><thead><tr><th>Class</th>' +
       (showGrades ? `<th class="n">${escapeHtml(cols.quarter || 'Grade')}</th>${cols.quarter && cols.overall ? `<th class="n">${escapeHtml(cols.overall)}</th>` : ''}` : '') +
-      `<th class="n">Missing</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
-    : '<p class="p-none">No classes with grades yet.</p>') + '</section>';
+      `<th class="n">Missing</th></tr></thead><tbody>${rows.join('')}</tbody></table></section>`
+    : '';
 
   // Recent low grades (rules.js notSoGood) only where grades show; then
   // Doing well (B or better lately), most recent first, with the grade only
@@ -192,7 +196,7 @@ export function renderPrintSheet({ d, settings, marks = {}, isParentView = false
   const box = { check: true };
   html += '<div class="p-cols"><div>' + list('Missing', missing, 'missing', box) + list('Overdue', overdue, 'overdue', box) + list('Due soon', due, 'due', box) + '</div>' +
     `<div>${classes}${showGrades ? list('Recent low grades', lows, 'low') : ''}${list('Doing well', well, 'well')}</div></div>`;
-  html += '<footer class="p-foot">Read from Schoology on this device by <b>Grades Dashboard for Schoology</b>. Check Schoology for the latest.</footer>';
+  html += `<footer class="p-foot">By <b>Grades Dashboard for Schoology</b> · get it at <b>${escapeHtml(SITE_HOST)}</b></footer>`;
   return html;
 }
 

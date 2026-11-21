@@ -367,3 +367,8 @@
 @media (prefers-reduced-motion: reduce) {
   .sgd .new-in, .sgd .new-cue, .sgd .new-cue::after { animation: none; }
 }
+
+/* Demo mode (src/demo-mode.js): one centered "Exit demo mode" link at the very bottom. */
+.sgd .demo-banner { position: sticky; bottom: 0; z-index: 7; padding: 7px 14px; background: #fff; border-top: 1px solid var(--line-2); font-size: 12px; text-align: center; }
+.sgd .demo-exit { border: none; background: none; padding: 0; color: #1d4ed8; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.sgd .demo-exit:hover { color: #1e40af; }

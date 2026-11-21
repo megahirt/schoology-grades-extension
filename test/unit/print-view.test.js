@@ -23,6 +23,15 @@ describe('print sheet', () => {
     expect(html).not.toMatch(/<section class="p-sec well">(?:(?!<\/section>).)*p-box/); // boxes only on work to do
   });
 
+  it('leaves out sections with nothing in them, and points to the website at the bottom', () => {
+    const html = renderPrintSheet({ d: demo['demo-jamie'], settings, isParentView: true, now: NOW });
+    expect(html).not.toContain('<section class="p-sec overdue">');
+    expect(html).not.toContain('<section class="p-sec low">');
+    expect(html).not.toContain('None');
+    expect(html).toContain('<section class="p-sec missing">');
+    expect(html).toMatch(/<footer class="p-foot">By <b>Grades Dashboard for Schoology<\/b> · get it at <b>schoology\.hirtfamily\.net<\/b><\/footer>/);
+  });
+
   it('shows no verdict to a student and no grades where grades are hidden', () => {
     const student = renderPrintSheet({ d: demo['demo-sam'], settings, isParentView: false, now: NOW });
     expect(student).not.toContain('p-verdict');
