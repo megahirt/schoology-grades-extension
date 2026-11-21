@@ -69,6 +69,12 @@ describe('mock server with a web build of the extension', () => {
     expect(html).toContain('<script src="/__ext/background.js"></script><script src="/__ext/content.js"></script></body>');
   });
 
+  it('?mock-no-background=1: only the content script (a second page with no background of its own)', async () => {
+    const html = await (await fetch(`${web.url}/login?mock-no-background=1`)).text();
+    expect(html).toContain('<script src="/__ext/content.js"></script></body>');
+    expect(html).not.toContain('/__ext/background.js');
+  });
+
   it('no injection without webExt', async () => {
     const html = await (await fetch(`${plain.url}/login`)).text();
     expect(html).not.toContain('/__ext/');

@@ -27,7 +27,10 @@
 //
 // MOCK_WEB_EXT=1 (or createServer({ webExt: <abs path of dist-web> })) also
 // serves that web build at /__ext/ and adds its background.js and content.js
-// to every HTML page.
+// to every HTML page. A page asked for with ?mock-no-background=1 gets only
+// content.js: a second open page then has no background of its own, as in
+// the real extension (one background per browser), instead of starting its
+// own refresh (test/web/refresh.web.mjs).
 //
 // MOCK_DATA=showcase (or createServer({ dataset: 'showcase' })) swaps the
 // personas below for the richer showcase data in ./showcase.js.
@@ -168,11 +171,12 @@ function send(res, status, type, body, headers = {}) {
 // With a web build of the extension (webExt), every page also loads the
 // extension's background and content scripts, after the page settings.
 const WEB_EXT_TAGS = '<script src="/__ext/background.js"></script><script src="/__ext/content.js"></script>';
+const WEB_EXT_CONTENT_ONLY = '<script src="/__ext/content.js"></script>';
 const sendHtml = (res, status, html, headers) => {
   let body = res.mockUserUid
     ? String(html).replace('</body>', `<script>jQuery.extend(Drupal.settings, {"s_common":{"user":{"uid":"${res.mockUserUid}","school_nid":"1"}}});</script></body>`)
     : html;
-  if (res.mockWebExt) body = String(body).replace('</body>', `${WEB_EXT_TAGS}</body>`);
+  if (res.mockWebExt) body = String(body).replace('</body>', `${res.mockWebExt === 'content' ? WEB_EXT_CONTENT_ONLY : WEB_EXT_TAGS}</body>`);
   send(res, status, 'text/html', body, headers);
 };
 const EXT_TYPES = {
@@ -242,7 +246,7 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now(), 
     try {
       const reqUrl = new URL(req.url, 'http://localhost');
       const pathname = reqUrl.pathname;
-      res.mockWebExt = Boolean(webExt);
+      res.mockWebExt = webExt ? (reqUrl.searchParams.get('mock-no-background') === '1' ? 'content' : 'all') : false;
       // Judged on the path as sent: URL parsing would tidy `/__ext/../x` into `/x`.
       const rawPath = req.url.split('?')[0];
       if (webExt && req.method === 'GET' && rawPath.startsWith('/__ext/')) {
