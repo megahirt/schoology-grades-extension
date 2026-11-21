@@ -76,6 +76,9 @@ const SESSION_ERROR = [
   /invalid session id/i,
   /\bECONNREFUSED\b/,
   /\bECONNRESET\b/,
+  // A WebDriver command that got no answer within connectionRetryTimeout.
+  /\bETIMEDOUT\b/,
+  /Request timed out!/,
 ];
 export function isSessionError(err) {
   if (!err || typeof err !== 'object') return false;
@@ -115,7 +118,7 @@ async function quitSafari() {
   else console.log('[web] quit Safari so safaridriver can start its own');
 }
 
-async function attempt(fn, opts) {
+async function attempt(fn, opts, n) {
   const { remote } = await import('webdriverio');
   // WebDriver classic in every browser (Safari has nothing else): with
   // WebDriver BiDi, webdriverio's execute never answers in a window the page
@@ -142,7 +145,7 @@ async function attempt(fn, opts) {
       // to connect…", "Request timed out!…"); any of them is a session error.
       throw Object.assign(new Error(`Could not create a session: ${e.message}`), { name: 'SessionNotCreatedError', cause: e });
     }
-    await fn({ browser, base, mock });
+    await fn({ browser, base, mock, attempt: n });
   } finally {
     if (browser) await browser.deleteSession().catch(() => {});
     await mock.close();
@@ -150,17 +153,57 @@ async function attempt(fn, opts) {
 }
 
 // Start the mock (serving dist-web/), open a browser session, run
-// fn({ browser, base, mock }), and always close both. opts.delayMs delays the
-// mock's grade answers.
+// fn({ browser, base, mock, attempt }), and always close both. attempt is 1,
+// or 2 on the one retry. opts.delayMs delays the mock's grade answers.
 export async function withSession(fn, opts = {}) {
   try {
-    await attempt(fn, opts);
+    await attempt(fn, opts, 1);
   } catch (err) {
     if (!isSessionError(err)) throw err;
     console.log(`[web] session error, retrying once: ${err.message}`);
     if (BROWSER === 'safari' && shouldQuitSafari(err, await safariRunning())) await quitSafari();
-    await attempt(fn, opts);
+    await attempt(fn, opts, 2);
   }
+}
+
+// Start a scenario signed out, with empty storage (sessionSuite's before).
+export async function freshStart({ browser, base }) {
+  await browser.url(`${base}/login`);
+  await browser.deleteCookies();
+  await browser.execute(() => localStorage.clear());
+}
+
+// What a scenario's error means: 'rerun' (a session/driver error on the
+// first attempt: the whole file runs again in a fresh session) or 'fail'
+// (a failed assertion or wait, or any error on the retry).
+export function scenarioOutcome(err, attemptNo) {
+  return attemptNo === 1 && isSessionError(err) ? 'rerun' : 'fail';
+}
+
+// Run a file's scenarios as node:test subtests of `t`, all in one browser
+// session (Safari allows one at a time). scenarios: [[name, fn(session)]].
+// before(session) runs at the start of each one. A session/driver error in
+// any scenario marks that subtest skipped ("rerun"), stops this attempt and
+// reruns every scenario once in a fresh session (withSession logs it); a
+// failed assertion or [web-wait] fails its subtest as usual, never rerun.
+// opts.withSession is for unit tests.
+export async function sessionSuite(t, scenarios, { before = async () => {}, withSession: run = withSession, ...opts } = {}) {
+  await run(async (session) => {
+    let rerun = null;
+    for (const [name, fn] of scenarios) {
+      await t.test(name, async (st) => {
+        try {
+          await before(session);
+          await fn(session);
+        } catch (err) {
+          if (scenarioOutcome(err, session.attempt) !== 'rerun') throw err;
+          rerun = err;
+          st.skip(`session error, rerunning the file in a fresh session: ${err.message}`);
+        }
+      });
+      if (rerun) throw rerun;
+    }
+  }, opts);
 }
 
 // Sign in to the mock as `persona`. The panel may open over the form, so fill
@@ -429,6 +472,8 @@ async function bringToFront(browser) {
 export async function realClickDashboard(browser, selector, { hasText = null, navigatesTo = null } = {}) {
   let seen = null;
   const arrived = async () => Boolean(navigatesTo && navigatesTo.test(await browser.getUrl()));
+  // Already there: reaching it would prove nothing about the click.
+  if (await arrived()) throw new Error(`${WAIT_PREFIX} the page is already at ${navigatesTo} before clicking ${selector}`);
   for (let attempt = 1; attempt <= 3; attempt++) {
     await bringToFront(browser);
     const { x, y } = await pointIn(browser, selector, hasText, 0.5, 0.5);

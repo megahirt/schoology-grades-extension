@@ -11,8 +11,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  WAIT_PREFIX, clickDashboard, count, expectDashboard, inDashboard, realClickDashboard, refreshNow, shownCount,
-  signIn, skipReason, useMock, visible, waitForPanel, withSession,
+  WAIT_PREFIX, freshStart, clickDashboard, count, expectDashboard, inDashboard, realClickDashboard, refreshNow, shownCount,
+  signIn, skipReason, useMock, visible, waitForPanel, sessionSuite,
 } from './helpers.mjs';
 
 // The panel's widths, read from extension/src/panel.js (it can't be
@@ -128,7 +128,8 @@ async function openClosesRemembered({ browser, base }) {
       window.__copied = { type: blob.type, w: bmp.width, h: bmp.height };
     };
   });
-  await clickDashboard(browser, 'button', { label: /^Share a picture of the dashboard$/ });
+  // A real click, so the copy runs in a user gesture as it would for a person.
+  await realClickDashboard(browser, 'button[aria-label="Share a picture of the dashboard"]');
   await see(shownCount, 1, 'Copied button shown', 'button[aria-label="Copied"]');
   let shot = null;
   await browser.waitUntil(async () => (shot = await browser.execute(() => window.__copied)) !== null, {
@@ -219,21 +220,11 @@ async function openClosesRemembered({ browser, base }) {
 }
 
 // Both scenarios in one browser session (one session per file: Safari
-// allows one at a time). Each starts signed out with empty storage.
+// allows one at a time). Each starts signed out with empty storage; a
+// session error in either reruns both in a fresh session (sessionSuite).
 test('in-page panel', { skip: skipReason(), timeout: 420_000 }, async (t) => {
-  await withSession(async (session) => {
-    const fresh = async () => {
-      await session.browser.url(`${session.base}/login`);
-      await session.browser.deleteCookies();
-      await session.browser.execute(() => localStorage.clear());
-    };
-    await t.test('in-page panel on a narrow screen closes when a link in it is opened', async () => {
-      await fresh();
-      await narrowScreenLink(session);
-    });
-    await t.test('in-page panel on Schoology pages: open by default, closes, reopens, remembered', async () => {
-      await fresh();
-      await openClosesRemembered(session);
-    });
-  });
+  await sessionSuite(t, [
+    ['in-page panel on a narrow screen closes when a link in it is opened', narrowScreenLink],
+    ['in-page panel on Schoology pages: open by default, closes, reopens, remembered', openClosesRemembered],
+  ], { before: freshStart });
 });

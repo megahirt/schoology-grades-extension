@@ -10,8 +10,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WAIT_PREFIX, attr, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
-  refreshNow, shownCount, shownText, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, withSession,
+  WAIT_PREFIX, freshStart, attr, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
+  refreshNow, shownCount, shownText, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, sessionSuite,
 } from './helpers.mjs';
 
 // The tab for `name` is selected.
@@ -213,21 +213,11 @@ async function dashboardAndPrint({ browser, base }) {
 // Both scenarios in one browser session (one session per file: Safari
 // allows one at a time, and a second one in the same process found the
 // first safaridriver still running). Each starts signed out with empty
-// storage.
+// storage; a session error in either reruns both in a fresh session
+// (sessionSuite).
 test('parent persona', { skip: skipReason(), timeout: 420_000 }, async (t) => {
-  await withSession(async (session) => {
-    const fresh = async () => {
-      await session.browser.url(`${session.base}/login`);
-      await session.browser.deleteCookies();
-      await session.browser.execute(() => localStorage.clear());
-    };
-    await t.test('TWO child dashboards — Sam NO-GO, Jamie GO, submitted work waiting', async () => {
-      await fresh();
-      await twoChildren(session);
-    });
-    await t.test('dashboard page and print page show the same dashboard', async () => {
-      await fresh();
-      await dashboardAndPrint(session);
-    });
-  });
+  await sessionSuite(t, [
+    ['TWO child dashboards — Sam NO-GO, Jamie GO, submitted work waiting', twoChildren],
+    ['dashboard page and print page show the same dashboard', dashboardAndPrint],
+  ], { before: freshStart });
 });

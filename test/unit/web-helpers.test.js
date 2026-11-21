@@ -3,7 +3,7 @@
 // session) and which are real failures (never retried).
 import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
-import { WAIT_PREFIX, capabilitiesFor, isSessionError, shouldQuitSafari, waitMessage } from '../web/helpers.mjs';
+import { WAIT_PREFIX, capabilitiesFor, isSessionError, scenarioOutcome, sessionSuite, shouldQuitSafari, waitMessage } from '../web/helpers.mjs';
 
 describe('isSessionError', () => {
   it('is true for session and driver errors', () => {
@@ -50,5 +50,95 @@ describe('shouldQuitSafari', () => {
     expect(shouldQuitSafari(new Error('connect ECONNREFUSED 127.0.0.1:4444'), true)).toBe(false);
     expect(shouldQuitSafari(new Error('invalid session id'), true)).toBe(false);
     expect(shouldQuitSafari(new assert.AssertionError({ message: 'timed out while connecting to a Safari instance' }), true)).toBe(false);
+  });
+});
+
+describe('scenarioOutcome', () => {
+  it('reruns a session error on the first attempt only', () => {
+    expect(scenarioOutcome(new Error('invalid session id'), 1)).toBe('rerun');
+    expect(scenarioOutcome(new Error('WebDriverError: Request timed out! when running "window/rect"'), 1)).toBe('rerun');
+    expect(scenarioOutcome(new Error('invalid session id'), 2)).toBe('fail');
+  });
+
+  it('never reruns a failed assertion or wait', () => {
+    expect(scenarioOutcome(new assert.AssertionError({ message: 'x' }), 1)).toBe('fail');
+    expect(scenarioOutcome(new Error(`${WAIT_PREFIX} panel hidden: expected false, got true`), 1)).toBe('fail');
+    // A wait message quoting driver words is still a wait.
+    expect(scenarioOutcome(new Error(`${WAIT_PREFIX} panel text: invalid session id`), 1)).toBe('fail');
+  });
+});
+
+describe('sessionSuite', () => {
+  // A fake node:test context and withSession (one retry on session errors).
+  function harness() {
+    const results = [];
+    const t = {
+      async test(name, fn) {
+        const st = { skipped: null, skip(msg) { this.skipped = msg; } };
+        try {
+          await fn(st);
+          results.push([name, st.skipped ? 'skip' : 'pass']);
+        } catch (err) {
+          results.push([name, `fail: ${err.message}`]);
+        }
+      },
+    };
+    const fakeSession = async (fn) => {
+      try {
+        await fn({ attempt: 1 });
+      } catch (err) {
+        if (!isSessionError(err)) throw err;
+        await fn({ attempt: 2 });
+      }
+    };
+    return { t, results, fakeSession };
+  }
+
+  it('a session error in scenario 2 reruns every scenario once', async () => {
+    const { t, results, fakeSession } = harness();
+    const runs = [];
+    let broken = true;
+    await sessionSuite(t, [
+      ['one', async (s) => { runs.push(`one@${s.attempt}`); }],
+      ['two', async (s) => { runs.push(`two@${s.attempt}`); if (broken) { broken = false; throw new Error('invalid session id'); } }],
+    ], { withSession: fakeSession });
+    expect(runs).toEqual(['one@1', 'two@1', 'one@2', 'two@2']);
+    expect(results).toEqual([['one', 'pass'], ['two', 'skip'], ['one', 'pass'], ['two', 'pass']]);
+  });
+
+  it('a failed assertion fails its scenario with no rerun', async () => {
+    const { t, results, fakeSession } = harness();
+    const runs = [];
+    await sessionSuite(t, [
+      ['one', async (s) => { runs.push(`one@${s.attempt}`); assert.ok(false, 'nope'); }],
+      ['two', async (s) => { runs.push(`two@${s.attempt}`); }],
+    ], { withSession: fakeSession });
+    expect(runs).toEqual(['one@1', 'two@1']);
+    expect(results).toEqual([['one', 'fail: nope'], ['two', 'pass']]);
+  });
+
+  it('a [web-wait] failure fails with no rerun', async () => {
+    const { t, results, fakeSession } = harness();
+    const runs = [];
+    await sessionSuite(t, [
+      ['one', async (s) => { runs.push(`one@${s.attempt}`); throw new Error(`${WAIT_PREFIX} no panel`); }],
+    ], { withSession: fakeSession });
+    expect(runs).toEqual(['one@1']);
+    expect(results).toEqual([['one', `fail: ${WAIT_PREFIX} no panel`]]);
+  });
+
+  it('a session error on the retry fails', async () => {
+    const { t, results, fakeSession } = harness();
+    await sessionSuite(t, [['one', async () => { throw new Error('invalid session id'); }]], { withSession: fakeSession });
+    expect(results).toEqual([['one', 'skip'], ['one', 'fail: invalid session id']]);
+  });
+
+  it('runs before() at the start of each scenario', async () => {
+    const { t, fakeSession } = harness();
+    const seen = [];
+    await sessionSuite(t, [['a', async () => seen.push('a')], ['b', async () => seen.push('b')]], {
+      withSession: fakeSession, before: async () => seen.push('fresh'),
+    });
+    expect(seen).toEqual(['fresh', 'a', 'fresh', 'b']);
   });
 });
