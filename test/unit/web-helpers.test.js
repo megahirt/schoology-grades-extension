@@ -3,7 +3,7 @@
 // session) and which are real failures (never retried).
 import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
-import { WAIT_PREFIX, capabilitiesFor, isSessionError, scenarioOutcome, sessionSuite, shouldQuitSafari, waitMessage } from '../web/helpers.mjs';
+import { WAIT_PREFIX, capabilitiesFor, isSessionError, readyWindow, scenarioOutcome, sessionSuite, shouldQuitSafari, waitMessage } from '../web/helpers.mjs';
 
 describe('isSessionError', () => {
   it('is true for session and driver errors', () => {
@@ -140,5 +140,34 @@ describe('sessionSuite', () => {
       withSession: fakeSession, before: async () => seen.push('fresh'),
     });
     expect(seen).toEqual(['fresh', 'a', 'fresh', 'b']);
+  });
+});
+
+describe('readyWindow', () => {
+  const fake = (handles, { urlFails = false } = {}) => {
+    const calls = [];
+    return {
+      calls,
+      getWindowHandles: async () => handles,
+      switchToWindow: async (h) => { calls.push(`switch ${h}`); },
+      getUrl: async () => { calls.push('getUrl'); if (urlFails) throw new Error('no such window'); return 'about:blank'; },
+    };
+  };
+
+  it('makes the first window current and checks it answers', async () => {
+    const b = fake(['w1', 'w2']);
+    expect(await readyWindow(b)).toBe('w1');
+    expect(b.calls).toEqual(['switch w1', 'getUrl']);
+  });
+
+  it('fails when the session has no window or the window is gone', async () => {
+    await expect(readyWindow(fake([]))).rejects.toThrow('the new session has no window');
+    await expect(readyWindow(fake(['w1'], { urlFails: true }))).rejects.toThrow('no such window');
+  });
+
+  it('a readiness failure, wrapped as attempt() wraps it, is a session error; a bare one is not', () => {
+    const e = new Error('no such window');
+    expect(isSessionError(e)).toBe(false);
+    expect(isSessionError(Object.assign(new Error(`Could not create a session: ${e.message}`), { name: 'SessionNotCreatedError', cause: e }))).toBe(true);
   });
 });

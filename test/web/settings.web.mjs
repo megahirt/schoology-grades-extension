@@ -201,8 +201,10 @@ async function autoSavingStudentPage({ browser, base }) {
 
     // Clear data removes everything, settings included, and the page
     // shows the defaults again.
+    await see(text, 'Clear data…', '#clear-btn name', '#clear-btn');
     await realClickDashboard(browser, '#clear-btn');
     await see(isShown, true, 'confirm box shown', '[role="alertdialog"]');
+    await see(text, 'Clear data', '#clear-yes name', '[role="alertdialog"] #clear-yes');
     await realClickDashboard(browser, '[role="alertdialog"] #clear-yes', { reloads: true });
     await waitFor(browser, async () => (await storedKeys(browser)).filter((k) => k !== 'settings'), [], 'nothing saved after Clear data');
     await see(prop, '80', '#doing-well-percent value after Clear data', '#doing-well-percent', 'value');
@@ -234,10 +236,15 @@ async function clearDataAndDemo({ browser, base, mock }) {
     await browser.url(`${base}${OPTIONS}#privacy`);
     await browser.execute(() => sessionStorage.removeItem('sgd-test:nativeDialog'));
     await watchDialogs();
+    // The buttons by their names, as the original found them.
+    await see(text, 'Clear data…', '#clear-btn name', '#clear-btn');
+    await see(text, 'Show demo data', '#demo-mode-btn name', '#demo-mode-btn');
     await see(prop, false, 'Clear data… enabled', '#clear-btn', 'disabled');
     await see(isShown, false, 'Show demo data hidden', '#demo-mode-btn');
     await realClickDashboard(browser, '#clear-btn');
     await see(isShown, true, 'confirm box shown', '[role="alertdialog"]');
+    await see(text, 'Cancel', '#clear-cancel name', '[role="alertdialog"] #clear-cancel');
+    await see(text, 'Clear data', '#clear-yes name', '[role="alertdialog"] #clear-yes');
     await realClickDashboard(browser, '[role="alertdialog"] #clear-cancel');
     await see(isShown, false, 'confirm box hidden after Cancel', '[role="alertdialog"]');
     await realClickDashboard(browser, '#clear-btn');

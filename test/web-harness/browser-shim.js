@@ -139,6 +139,9 @@ export function createBrowserShim({ role, bus, storage, manifest, location, open
       sendMessage: (_id, message) => deliver(bus.listeners.page, message, sender()),
       query: async () => [TAB(location)],
       getCurrent: async () => TAB(location),
+      // Must not answer with a tab id: background.js removes the tab its
+      // hidden-tab scrape created (tabs.remove(tab.id)), and an id of 1
+      // would close the calling page (see remove below).
       create: async ({ url } = {}) => { open(url); },
       // Both forms are in use: update({ url }) and update(tabId, { url }).
       update: async (idOrProps, maybeProps) => {

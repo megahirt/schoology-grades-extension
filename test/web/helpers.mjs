@@ -118,6 +118,20 @@ async function quitSafari() {
   else console.log('[web] quit Safari so safaridriver can start its own');
 }
 
+// A new session's window, made current and answering. Safari has been seen
+// to start a session whose current window is gone ("no such window" on the
+// first command, the previous session's windows still closing): attempt()
+// counts any failure here as a failed session start, so it gets the one
+// logged retry. (A "no such window" later in a test is never retried: it
+// may be a real bug, such as closing the wrong window.)
+export async function readyWindow(browser) {
+  const [handle] = await browser.getWindowHandles();
+  if (!handle) throw new Error('the new session has no window');
+  await browser.switchToWindow(handle);
+  await browser.getUrl();
+  return handle;
+}
+
 async function attempt(fn, opts, n) {
   const { remote } = await import('webdriverio');
   // WebDriver classic in every browser (Safari has nothing else): with
@@ -140,6 +154,7 @@ async function attempt(fn, opts, n) {
         connectionRetryTimeout: 60_000,
         capabilities,
       });
+      await readyWindow(browser);
     } catch (e) {
       // webdriver rewrites session-start failures into plain Errors ("Unable
       // to connect…", "Request timed out!…"); any of them is a session error.
