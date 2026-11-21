@@ -24,7 +24,7 @@ describe('isSessionError', () => {
 describe('capabilitiesFor', () => {
   it('gives each browser its capabilities', () => {
     expect(capabilitiesFor('safari')).toEqual({ browserName: 'safari' });
-    expect(capabilitiesFor('chrome')).toEqual({ browserName: 'chrome', 'goog:chromeOptions': { args: ['--headless=new', '--window-size=1280,900'] } });
+    expect(capabilitiesFor('chrome')).toEqual({ browserName: 'chrome', 'goog:chromeOptions': { args: ['--headless=new', '--window-size=1280,900', '--screen-info={1920x1080}'] } });
     expect(capabilitiesFor('firefox')).toEqual({ browserName: 'firefox', 'moz:firefoxOptions': { args: ['-headless', '-width=1280', '-height=900'] } });
   });
 });

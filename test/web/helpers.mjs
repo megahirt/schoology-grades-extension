@@ -49,7 +49,9 @@ export function skipReason() {
 export function capabilitiesFor(browser) {
   switch (browser) {
     case 'chrome':
-      return { browserName: 'chrome', 'goog:chromeOptions': { args: ['--headless=new', '--window-size=1280,900'] } };
+      // Headless Chrome's screen is 800×600 unless told otherwise: the panel
+      // would take it for a phone (short side ≤ 600) and draw its phone sheet.
+      return { browserName: 'chrome', 'goog:chromeOptions': { args: ['--headless=new', '--window-size=1280,900', '--screen-info={1920x1080}'] } };
     case 'firefox':
       return { browserName: 'firefox', 'moz:firefoxOptions': { args: ['-headless', '-width=1280', '-height=900'] } };
     case 'safari':
@@ -383,9 +385,10 @@ async function pointIn(browser, selector, hasText, fx, fy) {
       if (!el) return null;
       el.scrollIntoView({ block: 'center' });
       const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, w: r.width, h: r.height };
+      return { x: r.x, y: r.y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight };
     },
-    (b) => b && b.w > 0 && b.h > 0,
+    // Its centre on screen (not, say, mid-way through the panel sliding in).
+    (b) => b && b.w > 0 && b.h > 0 && b.x + b.w / 2 >= 0 && b.x + b.w / 2 < b.vw && b.y + b.h / 2 >= 0 && b.y + b.h / 2 < b.vh,
     `no visible ${selector}${hasText ? ` with "${hasText}"` : ''}`,
     { args: [selector, hasText] },
   );
@@ -398,6 +401,21 @@ export async function hoverDashboard(browser, selector, { hasText = null, fx = 0
   await browser.action('pointer').move({ x, y, origin: 'viewport' }).perform();
 }
 
+// A real click only reaches a page whose window is in front. On a Mac in
+// use, another app can be in front of Safari (the page is then "hidden" and
+// has no focus), and every pointer click is lost: bring the window forward
+// first (switching to it is WebDriver's way; Safari also needs telling).
+async function bringToFront(browser) {
+  // Only Safari runs as a window on the desktop here (Chrome and Firefox are headless).
+  if (BROWSER !== 'safari') return;
+  const front = () => browser.execute(() => document.hasFocus() && document.visibilityState === 'visible');
+  if (await front()) return;
+  await browser.switchToWindow(await browser.getWindowHandle());
+  if (!(await front())) await run('osascript', ['-e', 'tell application "Safari" to activate']).catch(() => {});
+  await browser.waitUntil(front, { timeout: 5_000, interval: 100 }).catch(() => {});
+  console.log(`[web] the browser window was not in front; brought it forward (${(await front()) ? 'now in front' : 'still not in front'})`);
+}
+
 // A real (trusted) pointer click on the first `selector`: for what needs a
 // user's click, such as opening a window.
 // It waits until a trusted click reached that element, and fails (with
@@ -405,9 +423,14 @@ export async function hoverDashboard(browser, selector, { hasText = null, fx = 0
 // click at all for the pointer action (no click event in the page, seen
 // after other sessions' work in the same Safari): then, and only then, the
 // click is sent again (at most 3 times, logged), since nothing happened.
-export async function realClickDashboard(browser, selector, { hasText = null } = {}) {
+// navigatesTo (a RegExp for the URL): the click follows a link in this tab,
+// so the page that saw the click is gone: reaching that URL is the proof,
+// and the function waits for it.
+export async function realClickDashboard(browser, selector, { hasText = null, navigatesTo = null } = {}) {
   let seen = null;
+  const arrived = async () => Boolean(navigatesTo && navigatesTo.test(await browser.getUrl()));
   for (let attempt = 1; attempt <= 3; attempt++) {
+    await bringToFront(browser);
     const { x, y } = await pointIn(browser, selector, hasText, 0.5, 0.5);
     await inDashboard(browser, (root, q, sel) => {
       window.__sgdRealClick = [];
@@ -419,14 +442,24 @@ export async function realClickDashboard(browser, selector, { hasText = null } =
     await browser.action('pointer').move({ x, y, origin: 'viewport' }).down().up().perform();
     await browser.waitUntil(
       async () => {
+        if (await arrived()) return true;
         seen = await browser.execute(() => window.__sgdRealClick || null);
         return Boolean(seen && seen.length);
       },
       { timeout: 3_000, interval: 100 },
     ).catch(() => {});
-    if (seen && seen.some((c) => c.trusted && c.hit)) return;
+    if (await arrived()) return;
+    if (seen && seen.some((c) => c.trusted && c.hit)) {
+      if (!navigatesTo) return;
+      await browser.waitUntil(arrived, {
+        timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} a real click reached ${selector}, but the page did not go to ${navigatesTo}`,
+      });
+      return;
+    }
     if (seen && seen.length) break;
-    console.log(`[web] the click at ${x},${y} on ${selector} produced no click event (attempt ${attempt}); clicking again`);
+    const state = await browser.execute(() => ({ focus: document.hasFocus(), vis: document.visibilityState, iw: innerWidth, ih: innerHeight, sx: scrollX, sy: scrollY, at: (() => { const e = document.elementFromPoint(0, 0); return e ? e.tagName : null; })() })).catch(() => null);
+    const rect = await browser.getWindowRect().catch(() => null);
+    console.log(`[web] the click at ${x},${y} on ${selector} produced no click event (attempt ${attempt}); clicking again. page ${JSON.stringify(state)} window ${JSON.stringify(rect)}`);
   }
   throw new Error(`${WAIT_PREFIX} a real click did not reach ${selector}: clicks seen ${JSON.stringify(seen)}`);
 }
