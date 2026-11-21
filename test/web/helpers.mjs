@@ -278,11 +278,24 @@ export function requestsTo(mock, pathPrefix) {
 // Runs `fn(root, q, ...args)` in the page and returns its result (a Promise
 // is awaited). root is the dashboard; q(selector, hasText?, scope = root)
 // lists the elements matching selector whose textContent contains hasText.
-// fn is sent as source: it can't use anything from this file.
+// fn is sent as source: it can't use anything from this file, but it can
+// call shown(el), defined beside it:
+//   shown(el): el is shown, as Playwright's toBeVisible means it: a
+//   non-empty box (getBoundingClientRect width and height > 0; this is 0
+//   under any display:none ancestor), and computed visibility is not
+//   'hidden' or 'collapse'.
+// On an extension page (/__ext/…) a #sgd-panel-host is the panel of an
+// extension loaded in the browser (e.g. a Safari temporary extension, whose
+// content script runs on localhost too): that fails at once, since it would
+// stand in for the page's own dashboard.
 export function inDashboard(browser, fn, ...args) {
   return browser.execute(
-    'const root = document.getElementById("sgd-panel-host")?.shadowRoot?.querySelector(".sheet") || document;' +
+    'if (location.pathname.startsWith("/__ext/") && document.getElementById("sgd-panel-host")) ' +
+      `throw new Error(${JSON.stringify(`${WAIT_PREFIX} a panel (#sgd-panel-host) is on an extension page: an extension loaded in this browser runs on localhost. Remove it (Safari: quit Safari, which drops temporary extensions) and run again.`)});` +
+      'const root = document.getElementById("sgd-panel-host")?.shadowRoot?.querySelector(".sheet") || document;' +
       'const q = (sel, has, scope = root) => [...scope.querySelectorAll(sel)].filter((e) => has == null || (e.textContent || "").includes(has));' +
+      'const shown = (e) => { if (!e) return false; const r = e.getBoundingClientRect(); const v = getComputedStyle(e).visibility;' +
+      ' return r.width > 0 && r.height > 0 && v !== "hidden" && v !== "collapse"; };' +
       `return (${fn})(root, q, ...arguments);`,
     ...args,
   );
@@ -302,10 +315,18 @@ export const attr = (root, q, sel, has, name) => q(sel, has)[0]?.getAttribute(na
 // Some shown element's text contains s (Playwright's getByText(s) ...
 // toBeVisible). textContent, not innerText: innerText applies CSS
 // text-transform (section headings are upper case).
+/* global shown */
 export const visible = (root, q, s) => {
   const norm = (e) => (e.textContent || '').replace(/\s+/g, ' ');
   const hits = q('*').filter((e) => norm(e).includes(s) && ![...e.children].some((c) => norm(c).includes(s)));
-  return hits.some((e) => e.getClientRects().length > 0);
+  return hits.some((e) => shown(e));
+};
+// How many `sel` with `has` are shown (see shown() at inDashboard).
+export const shownCount = (root, q, sel, has) => q(sel, has).filter((e) => shown(e)).length;
+// How many `inner` in the first `outer` with outerHas are shown (-1: no outer).
+export const shownIn = (root, q, outer, outerHas, inner) => {
+  const o = q(outer, outerHas)[0];
+  return o ? [...o.querySelectorAll(inner)].filter((e) => shown(e)).length : -1;
 };
 // Within the first `outer` with outerHas: `inner`'s text (or null).
 export const textIn = (root, q, outer, outerHas, inner) => {

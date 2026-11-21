@@ -6,18 +6,21 @@
 //   shares the page's navigator, so the stubbed navigator.share is seen);
 // - the dashboard page and its Print page (the original's Chromium popup part).
 // See test/web/helpers.mjs.
+/* global shown */ // in page-side readers: see inDashboard (helpers.mjs)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WAIT_PREFIX, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
-  refreshNow, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, withSession,
+  WAIT_PREFIX, attr, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
+  refreshNow, shownCount, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, withSession,
 } from './helpers.mjs';
 
 // The tab for `name` is selected.
 const tabSelected = (root, q, name) => q('[role="tab"]').find((t) => t.textContent.trim() === name)?.getAttribute('aria-selected') ?? null;
 const pickTab = (browser, name) => clickDashboard(browser, '[role="tab"]', { hasText: name });
 // An element in the first `outer` whose own text is exactly `exact`.
-const exactIn = (root, q, outer, exact) => q(`${outer} *`).some((e) => e.textContent.trim() === exact && e.getClientRects().length > 0);
+const exactIn = (root, q, outer, exact) => q(`${outer} *`).some((e) => e.textContent.trim() === exact && shown(e));
+// The tab for `name` is shown.
+const tabShown = (root, q, name) => shown(q('[role="tab"]').find((t) => t.textContent.trim() === name));
 
 async function twoChildren({ browser, base, mock }) {
   const see = (read, expected, message, ...args) => expectDashboard(browser, read, expected, message, { args });
@@ -28,18 +31,20 @@ async function twoChildren({ browser, base, mock }) {
   await refreshNow(browser, base);
 
   // One child at a time, picked with the tabs at the top.
+  await see(tabShown, true, 'Sam tab shown', 'Sam');
   await see(tabSelected, 'true', 'Sam tab selected', 'Sam');
   await see(tabSelected, 'false', 'Jamie tab', 'Jamie');
   // Sam: 2 Missing + lowest class 55% => NO-GO.
   await see(exactIn, true, 'Sam Rivera on the card', '.card', 'Sam Rivera');
   // NO-GO replaces Sam's picture with the NO-GO circle; no separate badge.
   assert.deepEqual(await panelVerdicts(browser), ['NO-GO']);
+  await see(shownCount, 1, 'NO-GO disc shown', '.card [role="img"][aria-label="NO-GO"]');
   await see(count, 0, 'no picture beside the NO-GO circle', '.card .avatar:not(.nogo-circle)');
   await see(count, 0, 'no pill on Sam', '.card .pill');
   // Sam's essay is marked Missing but has a submission: it waits on the
   // teacher and does not count as Missing.
   await see(visible, true, 'Missing · 1 for Sam', 'Missing · 1');
-  await see(count, 1, 'Unit 2 Essay Missing card', '.missing-card', 'Unit 2 Essay');
+  await see(shownCount, 1, 'Unit 2 Essay Missing card shown', '.missing-card', 'Unit 2 Essay');
   // Compact metrics: only non-zero counts; no class chips.
   await see(text, /^1\s*Missing$/, 'Sam Missing stat', '.card .stat', 'Missing');
   await see(count, 0, 'no class chip', '.card .stat', 'American Literature');
@@ -55,16 +60,16 @@ async function twoChildren({ browser, base, mock }) {
   }, true, 'Persuasive Essay Draft checked off (disabled)');
   await see((root, q) => {
     const wk = q('.class', 'American Literature').flatMap((c) => q('.wk', 'Persuasive Essay Draft', c))[0];
-    return Boolean(wk?.querySelector('[role="img"][aria-label="Submitted, not graded yet"], img[alt="Submitted, not graded yet"]'));
-  }, true, 'Submitted, not graded yet icon');
+    return shown(wk?.querySelector('[role="img"][aria-label="Submitted, not graded yet"], img[alt="Submitted, not graded yet"]'));
+  }, true, 'Submitted, not graded yet icon shown');
   await see(count, 0, 'essay not in Submitted', '.waiting', 'Persuasive Essay Draft');
   // Classes leave out sections with no grade data (House Group 1).
-  await see(count, 1, 'United States History shown', '.class', 'United States History');
+  await see(shownCount, 1, 'United States History shown', '.class', 'United States History');
   await see(count, 0, 'House Group 1 left out', '.class', 'House Group 1');
   // Records: personal bests saved with the refresh (they only go up).
-  await see(count, 1, 'Records heading', '.sec-h', 'Records');
+  await see(shownCount, 1, 'Records heading shown', '.sec-h', 'Records');
   await see(count, 0, 'no Highest score record (per class now)', '.record', 'Highest score');
-  await see(count, 1, 'Highest class grade record', '.record', 'Highest class grade');
+  await see(shownCount, 1, 'Highest class grade record shown', '.record', 'Highest class grade');
   // Storage is the shim's localStorage (keys sgd:<chrome.storage key>).
   assert.equal(await browser.execute(() => {
     const k = Object.keys(localStorage).find((key) => key.startsWith('sgd:records@'));
@@ -83,7 +88,7 @@ async function twoChildren({ browser, base, mock }) {
   // A parent's Family rules take effect: with a Missing limit of 1,
   // Jamie's one Missing item is NO-GO.
   await updateSettings(browser, { missingThreshold: 1 });
-  await see(count, 1, 'NO-GO circle at Missing limit 1', '.card .nogo-circle');
+  await see(shownCount, 1, 'NO-GO circle shown at Missing limit 1', '.card .nogo-circle');
   await updateSettings(browser, { missingThreshold: 2 });
   await see(count, 0, 'GO again at Missing limit 2', '.card .nogo-circle');
 
@@ -121,14 +126,14 @@ async function twoChildren({ browser, base, mock }) {
   // which one, with the likely teacher preselected. The message goes to
   // that one teacher, filled in and unsent.
   await pickTab(browser, 'Sam');
-  await see(count, 1, 'Unit 2 Essay', '.missing-card', 'Unit 2 Essay');
+  await see(shownCount, 1, 'Unit 2 Essay shown', '.missing-card', 'Unit 2 Essay');
   let posted = false;
   mock.server.on('request', (req) => { if (req.method === 'POST' && /messages/.test(req.url || '')) posted = true; });
   const MAIL = /^Message the .* teacher about /;
   const mail = () => clickDashboard(browser, 'button', { within: '.missing-card', withinText: 'Unit 2 Essay', label: MAIL });
   const CHOOSER = '[role="group"][aria-label="Email which teacher?"]';
   await mail();
-  await see(count, 1, 'teacher chooser', CHOOSER);
+  await see(shownCount, 1, 'teacher chooser shown', CHOOSER);
   await see((root, q, c) => q(`${c} .tc-name`).map((e) => e.textContent.trim()), ['Mr. Ortiz', 'Ms. Park'], 'teacher names', CHOOSER);
   const parkChecked = (root, q) => q('.tc-opt', 'Ms. Park')[0]?.querySelector('input[type="radio"]')?.checked ?? null;
   await see(parkChecked, true, 'Ms. Park preselected');
@@ -144,14 +149,20 @@ async function twoChildren({ browser, base, mock }) {
   await browser.waitUntil(async () => /\/parent\/messages\/new\/course\/3001\?recipient_uids=9301$/.test(await browser.getUrl()), {
     timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} compose page did not open`,
   });
-  const compose = await browser.execute(() => ({
-    to: document.querySelector('.to')?.textContent.trim(),
-    subject: document.querySelector('input[name="subject"]')?.value,
-    body: document.querySelector('textarea[name="body"]')?.value,
-  }));
-  assert.equal(compose.to, 'To: Ms. Park');
-  assert.match(compose.subject, /^Unit 2 Essay.* - marked missing$/);
-  assert.match(compose.body, /what Sam needs to do to turn it in\?\n\nSincerely,/);
+  // Read the compose page until its fields are filled in as expected.
+  let compose = null;
+  await browser.waitUntil(
+    async () => {
+      compose = await browser.execute(() => ({
+        to: document.querySelector('.to')?.textContent.trim(),
+        subject: document.querySelector('input[name="subject"]')?.value,
+        body: document.querySelector('textarea[name="body"]')?.value,
+      }));
+      return compose.to === 'To: Ms. Park' && /^Unit 2 Essay.* - marked missing$/.test(compose.subject || '')
+        && /what Sam needs to do to turn it in\?\n\nSincerely,/.test(compose.body || '');
+    },
+    { timeout: 15_000, interval: 250, timeoutMsg: () => `${WAIT_PREFIX} compose page not filled in as expected: ${JSON.stringify(compose)}` },
+  );
   assert.equal(posted, false, 'nothing sent');
   // The pick is remembered for that class and preselected next time.
   await browser.url(`${base}/home`);
@@ -171,7 +182,7 @@ async function dashboardAndPrint({ browser, base }) {
   await see(exactIn, true, 'Sam Rivera on the card', '.card', 'Sam Rivera');
   // Records, with its trophy heading.
   await see(textIn, '🏆', 'Records heading emoji', '.sec-h', 'Records', '.sec-emoji');
-  await see(count, 1, 'Highest class grade record', '.record', 'Highest class grade');
+  await see(shownCount, 1, 'Highest class grade record shown', '.record', 'Highest class grade');
   await pickTab(browser, 'Jamie');
   await see(exactIn, true, 'Jamie Rivera on the card', '.card', 'Jamie Rivera');
 
@@ -180,6 +191,7 @@ async function dashboardAndPrint({ browser, base }) {
   // a window needs the user's gesture.
   const dashboardWindow = await browser.getWindowHandle();
   const before = await browser.getWindowHandles();
+  await see(attr, 'Print on one page', 'Print button name', 'button[data-act="print"]', null, 'aria-label');
   await realClickDashboard(browser, 'button[data-act="print"]');
   await switchToNewWindow(browser, before);
   // The print page opens the print dialog by itself 300 ms after layout;

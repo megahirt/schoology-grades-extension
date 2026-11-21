@@ -2,11 +2,12 @@
 // (/__ext/popup/dashboard.html), as the Playwright original did in Chromium.
 // Ported from test/e2e/extension.spec.js "student persona: 1 Missing, no
 // verdict shown to students, quarter grades". See test/web/helpers.mjs.
+/* global shown */ // in page-side readers: see inDashboard (helpers.mjs)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  attr, attrIn, clickDashboard, count, countIn, expectDashboard, hoverDashboard, inDashboard, refreshNow, signIn, skipReason, text, textIn,
-  useMock, visible, withSession,
+  WAIT_PREFIX, attr, attrIn, clickDashboard, count, countIn, expectDashboard, hoverDashboard, inDashboard, refreshNow, shownCount, shownIn, signIn, skipReason, text,
+  textIn, useMock, visible, withSession,
 } from './helpers.mjs';
 
 
@@ -28,7 +29,7 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     assert.equal(await inDashboard(browser, (root, q) => q('*').filter((e) => !e.children.length && /^(NO-GO|GO)$/.test(e.textContent.trim())).length), 0, 'no GO/NO-GO text');
     assert.equal(await inDashboard(browser, count, '.card-head [role="img"][aria-label="NO-GO"], .card-head .pill'), 0, 'no verdict disc or pill');
     await see(visible, true, 'Missing · 1 shown', 'Missing · 1');
-    await see(count, 1, 'Persuasive Essay Draft Missing card', '.missing-card', 'Persuasive Essay Draft');
+    await see(shownCount, 1, 'Persuasive Essay Draft Missing card shown', '.missing-card', 'Persuasive Essay Draft');
     // Algebra 2 has nested quarters: Quarter 2 (68%) with Semester 1 (74%) beside it.
     await see(text, 'Q2', 'quarter column', '.class-cols .col-q');
     await see(text, 'Sem', 'semester column', '.class-cols .col-o');
@@ -39,7 +40,7 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     // The class name opens its grade chart; clicking again closes it.
     await clickDashboard(browser, 'button.class-toggle', { within: '.class', withinText: 'Algebra 2' });
     await see(attrIn, 'true', 'Algebra 2 expanded', '.class', 'Algebra 2', 'button.class-toggle', 'aria-expanded');
-    await see(countIn, 1, 'Algebra 2 chart', '.class', 'Algebra 2', 'svg.gchart');
+    await see(shownIn, 1, 'Algebra 2 chart shown', '.class', 'Algebra 2', 'svg.gchart');
     await see(countIn, 2, 'two graded Algebra 2 items', '.class', 'Algebra 2', 'svg.gchart .gc-dot');
     await see(countIn, 1, 'dashed passing line', '.class', 'Algebra 2', 'svg.gchart .gc-pass');
     await see(attrIn, `${base}/course/1001/student_grades`, 'chart link', '.class', 'Algebra 2', 'a.chart-link', 'href');
@@ -64,12 +65,12 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     await clickDashboard(browser, '.class-row', { within: '.class', withinText: 'American Literature' });
     await see((root, q) => {
       const wk = q('.class', 'American Literature').flatMap((c) => q('.wk', 'Persuasive Essay Draft', c))[0];
-      return Boolean(wk && wk.querySelector('[role="img"][aria-label="Missing"], img[alt="Missing"]'));
-    }, true, 'Missing icon on the essay in its class');
+      return shown(wk && wk.querySelector('[role="img"][aria-label="Missing"], img[alt="Missing"]'));
+    }, true, 'Missing icon shown on the essay in its class');
     await clickDashboard(browser, '.class-row', { within: '.class', withinText: 'American Literature' });
     await see(countIn, 0, 'Literature week list closed', '.class', 'American Literature', '.week-list');
     // Submitted, ungraded work waits on the teacher (no Undo: Schoology reported it).
-    await see(count, 1, 'Poetry Journal waiting', '.waiting', 'Poetry Journal');
+    await see(shownCount, 1, 'Poetry Journal waiting, shown', '.waiting', 'Poetry Journal');
     await see(text, (t) => t !== null && !/Submitted/.test(t), 'journal has no Submitted text', '.waiting', 'Poetry Journal');
     assert.equal(await inDashboard(browser, (root, q) => q('button', null, q('.waiting', 'Poetry Journal')[0]).filter((b) => /Undo/.test(b.getAttribute('aria-label') || b.textContent)).length), 0, 'no Undo on the journal');
     await see(countIn, 0, 'journal not marked Missing', '.waiting', 'Poetry Journal', '.missing-tag');
@@ -115,7 +116,7 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     // New since you last looked. The first look: nothing is news.
     await see(count, 0, 'nothing new on the first look', '.new-in, .new-cue');
     const seenKey = () => browser.execute(() => Object.keys(localStorage).find((k) => k.startsWith('sgd:seenItems')) || null);
-    await browser.waitUntil(seenKey, { timeout: 15_000, interval: 200, timeoutMsg: '[web-wait] no seenItems saved' });
+    await browser.waitUntil(seenKey, { timeout: 15_000, interval: 200, timeoutMsg: `${WAIT_PREFIX} no seenItems saved` });
     // Forget the Missing item and the good news, as if they had just appeared.
     // (Storage is the shim's localStorage; the page reloads right after.)
     await browser.execute(() => {
@@ -142,29 +143,24 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
           .flatMap((k) => Object.values(JSON.parse(localStorage.getItem(k))).flat());
         return keys.every((k) => saved.includes(k));
       }, shown),
-      { timeout: 15_000, interval: 200, timeoutMsg: `[web-wait] not all shown items saved as seen: ${JSON.stringify(shown)}` },
+      { timeout: 15_000, interval: 200, timeoutMsg: `${WAIT_PREFIX} not all shown items saved as seen: ${JSON.stringify(shown)}` },
     );
     await browser.refresh();
-    await see(count, 1, 'card after reload', '.card-name');
+    await see(shownCount, 1, 'card name shown after reload', '.card-name');
     await see(count, 0, 'nothing new after seeing it', '.new-in, .new-cue');
     await browser.execute(() => window.scrollTo(0, 0));
     // Dev builds: "Replay animations" plays them all again on request.
     await clickDashboard(browser, 'button', { hasText: 'Replay animations' });
     await see(count, 1, 'replayed Missing fade-in', '.missing-card.new-in');
     await inDashboard(browser, (root) => root.querySelector('[data-cue]').scrollIntoView({ block: 'center' }));
-    await see((root) => {
-      const e = root.querySelector('.new-cue');
-      if (!e) return false;
-      const r = e.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    }, true, 'replayed celebration visible');
+    await see((root) => shown(root.querySelector('.new-cue')), true, 'replayed celebration shown');
     await browser.execute(() => window.scrollTo(0, 0));
 
     // Each section heading carries its emoji.
-    await see(countIn, 1, 'Missing heading icon', '.sec-h', 'Missing', 'img.missing-icon');
+    await see(shownIn, 1, 'Missing heading icon shown', '.sec-h', 'Missing', 'img.missing-icon');
     await see(textIn, '🏛️', 'Classes heading emoji', '.sec-h', 'Classes', '.sec-emoji');
     // Header: the extension's logo beside the title.
-    await see(count, 1, 'header logo', '.head-row img.head-logo');
+    await see(shownCount, 1, 'header logo shown', '.head-row img.head-logo');
     // Footer: a small About link to the promo site, in a new tab.
     await see(text, 'About', 'About link', '.credit .about-link');
     await see(attr, 'https://schoology.hirtfamily.net/', 'About href', '.credit .about-link', null, 'href');
