@@ -57,7 +57,7 @@ Grades Dashboard is an independent project. It is not made, endorsed or supporte
 | Small promo tile | `promo-small-440x280.png` |
 | Marquee promo tile (optional) | `promo-marquee-1400x560.png` |
 | Official URL | none (needs a verified domain; skip) |
-| Homepage URL | https://megahirt.github.io/schoology-grades-extension/ |
+| Homepage URL | https://schoology.hirtfamily.net/ |
 | Support URL | https://github.com/megahirt/schoology-grades-extension/issues |
 | Mature content | No |
 
@@ -119,7 +119,7 @@ https://app.schoology.com/* and https://schoology.npchristian.org/* : the extens
   - I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
   - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** https://megahirt.github.io/schoology-grades-extension/privacy.html
+**Privacy policy URL:** https://schoology.hirtfamily.net/privacy.html
 
 ## Distribution tab
 

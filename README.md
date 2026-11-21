@@ -8,14 +8,14 @@
 
 [![CI](https://github.com/megahirt/schoology-grades-extension/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/megahirt/schoology-grades-extension/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/megahirt/schoology-grades-extension?sort=semver&label=release)](https://github.com/megahirt/schoology-grades-extension/releases/latest)
-[![Website](https://img.shields.io/badge/website-online-2e7d4f)](https://megahirt.github.io/schoology-grades-extension/)
+[![Website](https://img.shields.io/badge/website-online-2e7d4f)](https://schoology.hirtfamily.net/)
 [![License: MIT](https://img.shields.io/github/license/megahirt/schoology-grades-extension)](LICENSE)
 <br>
 ![Safari](https://img.shields.io/badge/Safari-Mac%20%26%20iPhone-006CFF?logo=safari&logoColor=white)
 ![Chrome](https://img.shields.io/badge/Chrome-supported-4285F4?logo=googlechrome&logoColor=white)
 ![Edge](https://img.shields.io/badge/Edge-supported-0078D7?logo=microsoftedge&logoColor=white)
 ![Firefox](https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white)
-[![Privacy: no data collected](https://img.shields.io/badge/privacy-no%20data%20collected-2e7d4f)](https://megahirt.github.io/schoology-grades-extension/privacy.html)
+[![Privacy: no data collected](https://img.shields.io/badge/privacy-no%20data%20collected-2e7d4f)](https://schoology.hirtfamily.net/privacy.html)
 
 <img src="site/img/desktop-hero.png" width="820" alt="Schoology's grades page for a Biology class, with the Grades Dashboard panel on the right: Sam has 1 missing assignment, 4 due soon, and 13 of 16 assignments done this week.">
 
@@ -37,14 +37,14 @@ shows what's missing, what's due soon, and how each class is going.
 
 Everything stays on your device. There's no account to create, no server,
 and your Schoology password is never stored.
-[Privacy policy](https://megahirt.github.io/schoology-grades-extension/privacy.html).
+[Privacy policy](https://schoology.hirtfamily.net/privacy.html).
 
 ## Get it
 
 It's on the
 [Chrome Web Store](https://chromewebstore.google.com/detail/grades-dashboard-for-scho/nglbmnaepjadllenolmliglnonjkdhjp),
 which works for Chrome and Edge. Safari and Firefox listings are on the
-way. The [website](https://megahirt.github.io/schoology-grades-extension/#get-it)
+way. The [website](https://schoology.hirtfamily.net/#get-it)
 always has the current links.
 
 ## For developers
@@ -53,7 +53,7 @@ Building, testing and releasing: [DEVELOPER.md](DEVELOPER.md).
 
 ## About
 
-[Visit the website](https://megahirt.github.io/schoology-grades-extension/) ·
+[Visit the website](https://schoology.hirtfamily.net/) ·
 [Send feedback](mailto:gradesdashboard@hirtfamily.net?subject=Homework%20Dashboard%20feedback)
 
 Made with ❤️ for North Point Christian families by Chris Hirt.
