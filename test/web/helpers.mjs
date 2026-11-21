@@ -9,7 +9,7 @@
 // One browser session per test file. A session/driver error (never a failed
 // assertion) is retried once in a fresh session, and the retry is logged.
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -24,6 +24,20 @@ export const BROWSER = process.env.BROWSER || 'chrome';
 // half-applied update and hangs at start under geckodriver.
 const BROWSER_VERSION = process.env.BROWSER_VERSION || '';
 export const HAS_WEB_BUILD = existsSync(path.join(WEB_EXT, 'background.js'));
+
+// The DEV footer's build stamp of dist-web/ ("11/21 19:48", formatted as
+// dashboard-view.js does). A panel with another stamp is a real extension
+// loaded in the browser (e.g. a Safari temporary extension), whose content
+// script also runs on localhost and replaces the web build's panel.
+function webBuildStamp() {
+  try {
+    const v = JSON.parse(readFileSync(path.join(WEB_EXT, 'manifest.json'), 'utf8')).version_name || '';
+    return v.includes('-dev.') ? v.split('-dev.')[1].replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2}).*$/, '$2/$3 $4:$5') : '';
+  } catch {
+    return '';
+  }
+}
+const WEB_STAMP = HAS_WEB_BUILD ? webBuildStamp() : '';
 
 // false, or why this suite can't run here (for node:test's `skip`).
 export function skipReason() {
@@ -45,6 +59,11 @@ export function capabilitiesFor(browser) {
   }
 }
 
+// Every wait in this suite puts this prefix on its timeout message, so its
+// timeouts are never mistaken for driver errors (the message may quote panel
+// text, which could contain anything).
+export const WAIT_PREFIX = '[web-wait]';
+
 // A driver/session problem (worth one retry in a fresh session), as opposed
 // to a failed assertion or a waitUntil timeout (a real failure: retrying it
 // would hide a browser bug).
@@ -59,7 +78,8 @@ const SESSION_ERROR = [
 export function isSessionError(err) {
   if (!err || typeof err !== 'object') return false;
   if (err.name === 'AssertionError' || err.code === 'ERR_ASSERTION') return false;
-  if (/waitUntil condition timed out/i.test(String(err.message))) return false;
+  const message = String(err.message || '');
+  if (message.includes(WAIT_PREFIX) || /waitUntil condition timed out/i.test(message)) return false;
   if (/^(SessionNotCreatedError|InvalidSessionIdError)$/.test(err.name || '')) return true;
   const text = `${err.message || ''} ${err.code || ''} ${err.cause?.message || ''} ${err.cause?.code || ''}`;
   return SESSION_ERROR.some((re) => re.test(text));
@@ -74,14 +94,23 @@ async function safariRunning() {
   }
 }
 
-// safaridriver can't attach to a Safari the user started: sessions time out
-// until that Safari quits. Quit it and wait (up to 20 s) for it to exit.
+// safaridriver can't attach to a Safari the user started: new sessions time
+// out while connecting to it. Only that error, with a Safari running, is a
+// reason to quit Safari; any other session error just retries.
+const SAFARI_CONNECT_TIMEOUT = [/timed out while connecting to a Safari instance/i, /Request timed out!/i];
+export function shouldQuitSafari(err, safariIsRunning) {
+  if (!safariIsRunning || !isSessionError(err)) return false;
+  const text = `${err.message || ''} ${err.cause?.message || ''}`;
+  return SAFARI_CONNECT_TIMEOUT.some((re) => re.test(text));
+}
+
+// Quit Safari and wait (up to 20 s) for it to exit.
 async function quitSafari() {
-  if (!(await safariRunning())) return;
   await run('osascript', ['-e', 'quit app "Safari"']).catch(() => {});
   const until = Date.now() + 20_000;
   while (Date.now() < until && (await safariRunning())) await new Promise((r) => setTimeout(r, 500));
-  console.log('[web] quit Safari so safaridriver can start its own');
+  if (await safariRunning()) console.log('[web] WARNING: asked Safari to quit, but it is still running after 20 s; retrying anyway');
+  else console.log('[web] quit Safari so safaridriver can start its own');
 }
 
 async function attempt(fn, opts) {
@@ -94,7 +123,8 @@ async function attempt(fn, opts) {
   let browser;
   try {
     // No retries inside webdriverio: withSession's one logged retry is the
-    // only one, and a hung session start fails within a minute.
+    // only one, and a hung session start fails within a minute. Note that
+    // connectionRetryTimeout also caps EVERY WebDriver command at 60 s.
     try {
       browser = await remote({
         logLevel: 'error',
@@ -123,7 +153,7 @@ export async function withSession(fn, opts = {}) {
   } catch (err) {
     if (!isSessionError(err)) throw err;
     console.log(`[web] session error, retrying once: ${err.message}`);
-    if (BROWSER === 'safari') await quitSafari();
+    if (BROWSER === 'safari' && shouldQuitSafari(err, await safariRunning())) await quitSafari();
     await attempt(fn, opts);
   }
 }
@@ -139,7 +169,7 @@ export async function signIn(browser, base, persona) {
   });
   await browser.waitUntil(async () => (await browser.getUrl()) === `${base}/home`, {
     timeout: 15_000,
-    timeoutMsg: `sign-in as ${persona} did not reach ${base}/home`,
+    timeoutMsg: `${WAIT_PREFIX} sign-in as ${persona} did not reach ${base}/home`,
   });
 }
 
@@ -186,15 +216,43 @@ export function clickInPanel(browser, re) {
   );
 }
 
+// The timeout message waitForPanel throws.
+export const waitMessage = (message, text) => `${WAIT_PREFIX} ${message}; panel text: ${text}`;
+
+// Each student card's verdict, in order: the NO-GO disc's aria-label
+// ("NO-GO"), the UNKNOWN pill, "GO" for a card in the GO tone (the product
+// shows no badge for GO, the quiet default), or "" for a card without a
+// verdict (verdicts off). Read from the DOM, not innerText, which differs
+// between browsers for the SVG disc.
+export function panelVerdicts(browser) {
+  return browser.execute(() => {
+    const sheet = document.getElementById('sgd-panel-host')?.shadowRoot?.querySelector('.sheet');
+    if (!sheet) return [];
+    return [...sheet.querySelectorAll('.card')].map((card) => {
+      const disc = card.querySelector('.card-head [role="img"][aria-label]');
+      if (disc) return disc.getAttribute('aria-label');
+      const pill = card.querySelector('.card-head .pill');
+      if (pill) return pill.textContent.trim();
+      return card.classList.contains('go') ? 'GO' : '';
+    });
+  });
+}
+
 // Wait until predicate(panelText) is true; returns that text.
 export async function waitForPanel(browser, predicate, { timeout = 30_000, message } = {}) {
   let text = null;
   await browser.waitUntil(
     async () => {
       text = await panelText(browser);
+      const stamp = text && / · built (\d\d\/\d\d \d\d:\d\d) UTC/.exec(text)?.[1];
+      if (stamp && WEB_STAMP && stamp !== WEB_STAMP) {
+        throw new Error(`${WAIT_PREFIX} the panel is from another build (built ${stamp} UTC, dist-web/ is ${WEB_STAMP}): ` +
+          'an extension loaded in this browser runs on localhost too. Remove it (Safari: quit Safari, which drops temporary extensions) and run again.');
+      }
       return Boolean(await predicate(text));
     },
-    { timeout, interval: 250, timeoutMsg: `${message || 'panel condition not met'}; panel text: ${text}` },
+    // A function, so the message quotes the panel text at the timeout.
+    { timeout, interval: 250, timeoutMsg: () => waitMessage(message || 'panel condition not met', text) },
   );
   return text;
 }
