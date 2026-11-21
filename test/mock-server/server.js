@@ -95,10 +95,26 @@ const STUDENT = {
     course('1003', 'United States History: Section 2', 95, [
       { id: '5201', title: 'Unit 3 Test', kind: 'assessment', due: '10/23/26 11:59pm', score: 95, max: 100 },
       { id: '5202', title: 'Map Project', kind: 'assignment', due: '10/16/26 11:59pm', letter: 'A' },
+      // Past due, no grade, nothing submitted. Their own pages differ
+      // (ASSIGNMENT_PAGES): the field trip form is handed in on paper (no
+      // Submissions box), so it isn't Overdue; the notes are.
+      { id: '5203', title: 'Field Trip Form', kind: 'assignment', due: '11/10/26 11:59pm' },
+      { id: '5204', title: 'Primary Source Notes', kind: 'assignment', due: '11/11/26 11:59pm' },
     ]),
     { id: '1004', title: 'Advisory 11: Section 1', courseGrade: null, periods: [] },
   ],
 };
+
+// Assignment pages (/assignment/<id>/info), as live Schoology draws them
+// (extension/src/assignment-page.js): 'none' has no Submissions box (it
+// can't be submitted online), 'box' an empty one, 'submitted' lists work.
+const ASSIGNMENT_PAGES = { 5203: 'none', 5204: 'box' };
+function assignmentPage(id, kind) {
+  const box = kind === 'none' ? '' : '<div class="drop-items"><div class="right-block-big-wrapper drop-item-display-own"><h3 class="h3-med-flat">Submissions</h3><div class="right-block-big">' +
+    (kind === 'submitted' ? `<div id="dropbox-revisions" class="dropbox-revisions"><ul><li><a href="/assignment/${id}/dropbox/view/1?revision=1" class="dropbox-view-link">Assignment submitted</a></li></ul></div>` : `<form action="/assignment/${id}/info" method="post"></form>`) +
+    '</div></div></div>';
+  return renderPage('Assignment', `<div class="assignment-details"><p>Due date and instructions.</p></div>${box}`);
+}
 
 // A second student, for signing out and in as someone else.
 const STUDENT2 = { name: 'Riley Student', courses: STUDENT.courses.filter((c) => c.id === '1001' || c.id === '1003') };
@@ -262,6 +278,13 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
       // The second student (test data only): same routes, own name and classes.
       const STUDENT_DATA = who === 'student2' && !showcase ? STUDENT2 : STUDENT_DATA_ALL;
 
+      // An assignment's own page: /assignment/<id> goes to /assignment/<id>/info.
+      const assignment = pathname.match(/^\/assignment\/(\d+)(\/info)?$/);
+      if (assignment && ASSIGNMENT_PAGES[assignment[1]]) {
+        if (!assignment[2]) redirect(res, `/assignment/${assignment[1]}/info`);
+        else sendHtml(res, 200, assignmentPage(assignment[1], ASSIGNMENT_PAGES[assignment[1]]));
+        return;
+      }
       if (pathname === '/home') {
         if (persona === 'parent') {
           sendHtml(res, 200, renderPage('Home', '<p>Parent home</p>'));

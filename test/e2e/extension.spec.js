@@ -849,6 +849,27 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('Overdue leaves out work its own page says can\'t be submitted online', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      const overdue = panel.locator('.overdue-list');
+      await expect(overdue).toContainText('Primary Source Notes', { timeout: 30000 });
+      await expect(overdue).not.toContainText('Field Trip Form');
+      const known = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('noSubmissions@'))?.[1]);
+      expect(Object.keys(known || {})).toEqual(['5203']);
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('a parent opening a child\'s class page doesn\'t start a refresh', async () => {
     // Schoology names the child as the page's user there, not the parent.
     const userDataDir = freshUserDataDir();

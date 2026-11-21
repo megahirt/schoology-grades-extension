@@ -27,6 +27,7 @@
 // not Missing) and /home/feed (submission events only).
 
 import { parseGradesHtml } from './parser.js';
+import { checkOverdueWork } from './assignment-page.js';
 import { summarizeStudent, DEFAULT_SETTINGS } from './rules.js';
 
 const DEFAULT_BASE_URL = 'https://app.schoology.com';
@@ -249,7 +250,7 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
   }
 
   // Student flow (UNVERIFIED live — see header).
-  async function fetchStudentDashboard({ turnedInIds } = {}) {
+  async function fetchStudentDashboard({ turnedInIds, noSubmissions } = {}) {
     const updatedAt = new Date().toISOString();
     const home = await fetchPage(`${base}/home`);
     if (!home.loggedIn) {
@@ -289,6 +290,9 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
     if (courses.length === 0) {
       return { courses: [], studentName, parseWarnings: [...parseWarnings, 'No grades found for this account'], source, updatedAt, fetchedUrls, error: 'NO_GRADES' };
     }
+    // Work that would be Overdue: its own page says whether it can be
+    // submitted at all, or was turned in (assignment-page.js).
+    await checkOverdueWork(courses, { fetchPage, known: noSubmissions || {} });
     const summary = summarizeStudent(courses, DEFAULT_SETTINGS, turnedInIds);
     return { courses, studentName, summary, parseWarnings, source, updatedAt, fetchedUrls };
   }
@@ -300,7 +304,7 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
   // child is restored at the end.
   // onProgress({ done, total, label }) is called before each child and once
   // at the end (done === total), so the UI can show a progress bar.
-  async function fetchParentDashboards({ turnedInIdsByStudent, onProgress } = {}) {
+  async function fetchParentDashboards({ turnedInIdsByStudent, onProgress, noSubmissions } = {}) {
     const updatedAt = new Date().toISOString();
     const info = await getParentInfo();
     if (info.children.length === 0) return [];
@@ -353,6 +357,11 @@ export function createClient({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch } =
                 : c));
               source.gradesReport = true;
               source.attribution = 'view-child-confirmed';
+              // Work that would be Overdue: its own page says whether it can
+              // be submitted at all, or was turned in (assignment-page.js).
+              // The links name this child, so they view as this child.
+              progress(index, `Checking ${child.name.split(' ')[0]}’s overdue work`);
+              await checkOverdueWork(courses, { fetchPage, known: noSubmissions || {} });
             }
           }
         }

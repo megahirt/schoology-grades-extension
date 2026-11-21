@@ -146,8 +146,11 @@ async function refreshGrades(site, progress = () => {}) {
   const markedDone = (await getMarkedDone(scope)) || {};
 
   if (account.type === 'parent') {
+    // Assignments found to take no submissions (assignment-page.js).
+    const noSubmissions = (await storageGet('noSubmissions', {}, scope)) || {};
     const dashboards = await client.fetchParentDashboards({
       turnedInIdsByStudent: turnedIn,
+      noSubmissions,
       // +1: the account check above counts as the first step.
       onProgress: ({ done, total, label }) => progress({ done: done + 1, total: total + 1, label }),
     });
@@ -163,6 +166,7 @@ async function refreshGrades(site, progress = () => {}) {
       }
       byUid[d.studentUid] = { ...d, summary, updatedAt: new Date().toISOString() };
     }
+    await storageSet('noSubmissions', noSubmissions, scope);
     if (Object.keys(byUid).length > 0) await setDashboards(byUid, scope);
     return { ok: true, accountType: 'parent', students: Object.keys(byUid) };
   }
@@ -170,7 +174,9 @@ async function refreshGrades(site, progress = () => {}) {
   // A student account.
   {
     progress({ done: 1, total: 2, label: 'Reading your grades' });
-    const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self });
+    const noSubmissions = (await storageGet('noSubmissions', {}, scope)) || {};
+    const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self, noSubmissions });
+    await storageSet('noSubmissions', noSubmissions, scope);
     if (result.error === 'LOGGED_OUT') {
       // Signed out between the account check and the grades page.
       await setUser({ ...((await getUser(site)) || { uid, name: null }), signedOut: true, checkedAt: new Date().toISOString() }, site);

@@ -112,7 +112,8 @@ export function weekState(a, marks = {}, now = Date.now()) {
   if (id !== null && sets.done.has(id)) return 'done';
   if (a.status === 'missing' || a.status === 'incomplete') return 'missing';
   const t = Date.parse(a.due || '');
-  if (!Number.isNaN(t) && t <= now) return 'overdue';
+  // Can't be submitted in Schoology: still to be graded, not Overdue.
+  if (!Number.isNaN(t) && t <= now && a.noSubmissions !== true) return 'overdue';
   return 'open';
 }
 
