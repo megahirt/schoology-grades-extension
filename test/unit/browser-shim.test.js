@@ -172,6 +172,17 @@ describe('tabs, runtime, permissions', () => {
     expect(opened).toEqual(['http://a/', '/__ext/options/options.html']);
   });
 
+  it('tabs.update navigates in both argument forms', async () => {
+    const bus = getBus({});
+    const urls = [];
+    const loc = { ...location, assign: (u) => urls.push(u), reload() {} };
+    const shim = createBrowserShim({ role: 'page', bus, storage: fakeStorage(), manifest, location: loc, open() {} });
+    await shim.tabs.update({ url: 'http://a/' });
+    await shim.tabs.update(1, { url: 'http://b/' });
+    await shim.tabs.update(1, {});
+    expect(urls).toEqual(['http://a/', 'http://b/']);
+  });
+
   it('no-op APIs exist', async () => {
     const { page } = setup();
     const noop = () => {};

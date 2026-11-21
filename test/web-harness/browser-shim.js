@@ -140,7 +140,11 @@ export function createBrowserShim({ role, bus, storage, manifest, location, open
       query: async () => [TAB(location)],
       getCurrent: async () => TAB(location),
       create: async ({ url } = {}) => { open(url); },
-      update: async (_id, props = {}) => { if (props.url) location.assign(props.url); },
+      // Both forms are in use: update({ url }) and update(tabId, { url }).
+      update: async (idOrProps, maybeProps) => {
+        const props = (typeof idOrProps === 'object' && idOrProps !== null ? idOrProps : maybeProps) || {};
+        if (props.url) location.assign(props.url);
+      },
       reload: async () => { location.reload(); },
       remove: async () => {},
     },
