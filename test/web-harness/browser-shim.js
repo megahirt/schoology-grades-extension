@@ -184,6 +184,11 @@ if (typeof __WEB_ROLE__ !== 'undefined' && typeof window !== 'undefined') {
     open: (u) => window.open(u, '_blank'),
   });
   window.addEventListener('storage', (ev) => handleStorageEvent(bus, ev));
+  // storage.js reads browser.storage from the global, which every real
+  // browser running the extension provides. Both bundles share this global,
+  // so the first one's shim is it; storage behaves the same in either role
+  // (one localStorage, one bus).
+  globalThis.browser ??= shim;
 }
 
 export default shim;
