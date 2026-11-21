@@ -17,9 +17,9 @@ Connect when you paste; Apple changes them.
 | Age rating | Answer "None" to every question (rating 4+) |
 | Copyright | 2026 Chris Hirt |
 | Price | Free |
-| Privacy policy URL | https://megahirt.github.io/schoology-grades-extension/privacy.html |
+| Privacy policy URL | https://schoology.hirtfamily.net/privacy.html |
 | Support URL | https://github.com/megahirt/schoology-grades-extension/issues |
-| Marketing URL | https://megahirt.github.io/schoology-grades-extension/ |
+| Marketing URL | https://schoology.hirtfamily.net/ |
 
 ## Version information
 

@@ -39,7 +39,7 @@ not a local build. Edge takes this ZIP as is.
 | Field | Value |
 |---|---|
 | Category | Education (or the closest one offered) |
-| Website | https://megahirt.github.io/schoology-grades-extension/ |
+| Website | https://schoology.hirtfamily.net/ |
 | Support contact | https://github.com/megahirt/schoology-grades-extension/issues |
 | Mature content | No (leave unticked) |
 
@@ -88,7 +88,7 @@ device, tick personally identifiable information (student names) and
 website content (grades). Tick the certifications that you don't sell or
 transfer user data.
 
-**Privacy policy URL:** https://megahirt.github.io/schoology-grades-extension/privacy.html
+**Privacy policy URL:** https://schoology.hirtfamily.net/privacy.html
 
 ## 5. Store listings (English, United States)
 

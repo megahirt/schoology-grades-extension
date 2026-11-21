@@ -83,7 +83,7 @@ Grades Dashboard is an independent project. It is not made, endorsed or supporte
 ```
 
 **Privacy policy:** tick "This add-on has a privacy policy" and paste the
-text of <https://megahirt.github.io/schoology-grades-extension/privacy.html>
+text of <https://schoology.hirtfamily.net/privacy.html>
 (source: `docs/privacy.md`). Mozilla requires one only when data leaves the
 device, and none does, but the other stores have ours and it costs nothing
 to show it here too.

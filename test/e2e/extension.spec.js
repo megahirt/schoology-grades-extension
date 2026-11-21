@@ -429,7 +429,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // Footer: a small About link to the promo site, in a new tab.
       const about = popup.locator('.credit .about-link');
       await expect(about).toHaveText('About');
-      await expect(about).toHaveAttribute('href', 'https://megahirt.github.io/schoology-grades-extension/');
+      await expect(about).toHaveAttribute('href', 'https://schoology.hirtfamily.net/');
       await expect(about).toHaveAttribute('target', '_blank');
       await popup.close();
     } finally {
@@ -572,7 +572,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       }
       // The School address section is gone; About links the website and two ways to say thanks.
       await expect(opts.getByRole('heading', { name: 'School address', exact: true })).toHaveCount(0);
-      await expect(opts.getByRole('link', { name: 'Visit the website' })).toHaveAttribute('href', 'https://megahirt.github.io/schoology-grades-extension/');
+      await expect(opts.getByRole('link', { name: 'Visit the website' })).toHaveAttribute('href', 'https://schoology.hirtfamily.net/');
       // The thanks box starts closed; opening it shows the two links.
       await expect(opts.getByRole('link', { name: 'Support our mission work' })).toBeHidden();
       await opts.getByText('Has Grades Dashboard helped your family?').click();

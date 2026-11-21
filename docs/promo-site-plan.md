@@ -173,8 +173,8 @@ already holds developer notes that shouldn't be published, a `gh-pages`
 branch drifts from the code, and eight pages don't need a generator.
 
 One-time step for Chris: GitHub → repo **Settings → Pages → Source: GitHub
-Actions**. The site will then be at
-`https://megahirt.github.io/schoology-grades-extension/`.
+Actions**, and set the custom domain to `schoology.hirtfamily.net`. The site will then be at
+`https://schoology.hirtfamily.net/`.
 
 ## Not in v1 (later)
 
