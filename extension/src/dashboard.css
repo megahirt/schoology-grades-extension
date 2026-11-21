@@ -19,6 +19,16 @@
 /* Header */
 .sgd .head { flex: 0 0 auto; padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line-2); }
 .sgd .head-row { display: flex; align-items: center; gap: 10px; }
+.sgd .head-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
+/* Phones: the greeting and Updated time get the whole first row (beside the
+   ×), and the buttons move to a row of their own under them. .phone is the
+   in-page panel on a phone (panel.js); the width is the dashboard page. */
+.phone .sgd .head-row { flex-wrap: wrap; row-gap: 12px; }
+.phone .sgd .head-actions { flex-basis: 100%; }
+@media (max-width: 480px) {
+  .sgd .head-row { flex-wrap: wrap; row-gap: 12px; }
+  .sgd .head-actions { flex-basis: 100%; }
+}
 .sgd .head-logo { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 8px; display: block; }
 /* A holiday picture: the same 36 px tile with a hat or prop above or beside
    it, so it's taller and wider; raised so the tile sits where the logo does. */

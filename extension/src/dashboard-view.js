@@ -1239,13 +1239,15 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const holidaySrc = holiday ? await holidayIconSrc(browser, holiday.slug) : null;
     let header = `<header class="head">${siteSwitch && !demo ? await siteSwitchHtml() : ''}<div class="head-row">${headLogoHtml(holiday, holidaySrc)}<div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
+      // On phones these move to their own row under the greeting (dashboard.css).
+      '<div class="head-actions">' +
       (running
         ? `<button class="icon-btn busy" type="button" data-act="refresh" disabled aria-label="Refreshing grades" title="Refreshing grades">${ICON.spinner}</button>`
         : `<button class="icon-btn" type="button" data-act="refresh" aria-label="Refresh grades" title="Refresh grades">${ICON.refresh}</button>`) +
       (current ? `<button class="icon-btn" type="button" data-act="share" aria-label="${SHARE_LABEL}" title="${SHARE_LABEL}">${shareIcon()}</button>` : '') +
       (current ? `<button class="icon-btn" type="button" data-act="print" aria-label="${PRINT_LABEL}" title="${PRINT_LABEL}">${ICON.printer}</button>` : '') +
       `<button class="icon-btn" type="button" data-act="options" aria-label="Settings" title="Settings">${ICON.cog}</button>` +
-      '</div>';
+      '</div></div>';
     // Close (the panel only) stays on screen while the header scrolls away:
     // beside the child tabs when there are any, else pinned to the corner.
     const closeBtn = onClose
