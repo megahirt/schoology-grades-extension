@@ -65,7 +65,7 @@ async function deliver(listeners, message, sender) {
   return undefined;
 }
 
-export function createBrowserShim({ role, bus, storage, manifest, location, open }) {
+export function createBrowserShim({ role, bus, storage, manifest, location, open, close = () => {} }) {
   const other = role === 'background' ? 'page' : 'background';
   const sender = () => ({ tab: { id: 1, index: 0, url: location.href } });
 
@@ -146,7 +146,11 @@ export function createBrowserShim({ role, bus, storage, manifest, location, open
         if (props.url) location.assign(props.url);
       },
       reload: async () => { location.reload(); },
-      remove: async () => {},
+      // Removing this page's own tab (getCurrent's id) closes the page, as
+      // chrome.tabs.remove(me.id) does; any other id is not a page here.
+      remove: async (ids) => {
+        if ([].concat(ids).includes(TAB(location).id)) close();
+      },
     },
     permissions: {
       contains: async () => true,
@@ -182,6 +186,7 @@ if (typeof __WEB_ROLE__ !== 'undefined' && typeof window !== 'undefined') {
     manifest: __WEB_MANIFEST__,
     location,
     open: (u) => window.open(u, '_blank'),
+    close: () => window.close(),
   });
   window.addEventListener('storage', (ev) => handleStorageEvent(bus, ev));
   // storage.js reads browser.storage from the global, which every real

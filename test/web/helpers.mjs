@@ -327,8 +327,10 @@ export function requestsTo(mock, pathPrefix) {
 // call shown(el), defined beside it:
 //   shown(el): el is shown, as Playwright's toBeVisible means it: a
 //   non-empty box (getBoundingClientRect width and height > 0; this is 0
-//   under any display:none ancestor), and computed visibility is not
-//   'hidden' or 'collapse'.
+//   under any display:none ancestor), computed visibility is not
+//   'hidden' or 'collapse', and el.checkVisibility() (where the browser
+//   has it) is true, as Playwright checks: content inside a closed
+//   <details> keeps a box in Chrome but is not shown.
 // On an extension page (/__ext/…) a #sgd-panel-host is the panel of an
 // extension loaded in the browser (e.g. a Safari temporary extension, whose
 // content script runs on localhost too): that fails at once, since it would
@@ -340,7 +342,7 @@ export function inDashboard(browser, fn, ...args) {
       'const root = document.getElementById("sgd-panel-host")?.shadowRoot?.querySelector(".sheet") || document;' +
       'const q = (sel, has, scope = root) => [...scope.querySelectorAll(sel)].filter((e) => has == null || (e.textContent || "").includes(has));' +
       'const shown = (e) => { if (!e) return false; const r = e.getBoundingClientRect(); const v = getComputedStyle(e).visibility;' +
-      ' return r.width > 0 && r.height > 0 && v !== "hidden" && v !== "collapse"; };' +
+      ' return r.width > 0 && r.height > 0 && v !== "hidden" && v !== "collapse" && (!e.checkVisibility || e.checkVisibility()); };' +
       `return (${fn})(root, q, ...arguments);`,
     ...args,
   );
@@ -469,11 +471,19 @@ async function bringToFront(browser) {
 // navigatesTo (a RegExp for the URL): the click follows a link in this tab,
 // so the page that saw the click is gone: reaching that URL is the proof,
 // and the function waits for it.
-export async function realClickDashboard(browser, selector, { hasText = null, navigatesTo = null } = {}) {
+// reloads: the click reloads this page (same URL), which likewise ends the
+// page that saw the click: a mark left in the page before the click being
+// gone is the proof, and the function waits for it.
+export async function realClickDashboard(browser, selector, { hasText = null, navigatesTo = null, reloads = false } = {}) {
   let seen = null;
-  const arrived = async () => Boolean(navigatesTo && navigatesTo.test(await browser.getUrl()));
+  const arrived = async () => {
+    if (navigatesTo) return navigatesTo.test(await browser.getUrl());
+    if (reloads) return browser.execute(() => !window.__sgdBeforeReload).catch(() => false);
+    return false;
+  };
   // Already there: reaching it would prove nothing about the click.
-  if (await arrived()) throw new Error(`${WAIT_PREFIX} the page is already at ${navigatesTo} before clicking ${selector}`);
+  if (navigatesTo && await arrived()) throw new Error(`${WAIT_PREFIX} the page is already at ${navigatesTo} before clicking ${selector}`);
+  if (reloads) await browser.execute(() => { window.__sgdBeforeReload = true; });
   for (let attempt = 1; attempt <= 3; attempt++) {
     await bringToFront(browser);
     const { x, y } = await pointIn(browser, selector, hasText, 0.5, 0.5);
@@ -495,9 +505,9 @@ export async function realClickDashboard(browser, selector, { hasText = null, na
     ).catch(() => {});
     if (await arrived()) return;
     if (seen && seen.some((c) => c.trusted && c.hit)) {
-      if (!navigatesTo) return;
+      if (!navigatesTo && !reloads) return;
       await browser.waitUntil(arrived, {
-        timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} a real click reached ${selector}, but the page did not go to ${navigatesTo}`,
+        timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} a real click reached ${selector}, but the page did not ${navigatesTo ? `go to ${navigatesTo}` : 'reload'}`,
       });
       return;
     }

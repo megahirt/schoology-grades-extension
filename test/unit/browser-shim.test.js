@@ -183,6 +183,17 @@ describe('tabs, runtime, permissions', () => {
     expect(urls).toEqual(['http://a/', 'http://b/']);
   });
 
+  it('tabs.remove closes the page only for its own tab id', async () => {
+    let closed = 0;
+    const shim = createBrowserShim({ role: 'page', bus: getBus({}), storage: fakeStorage(), manifest, location, open() {}, close: () => { closed += 1; } });
+    await shim.tabs.remove(2);
+    await shim.tabs.remove(undefined);
+    expect(closed).toBe(0);
+    await shim.tabs.remove((await shim.tabs.getCurrent()).id);
+    await shim.tabs.remove([1]);
+    expect(closed).toBe(2);
+  });
+
   it('no-op APIs exist', async () => {
     const { page } = setup();
     const noop = () => {};
@@ -194,7 +205,6 @@ describe('tabs, runtime, permissions', () => {
     page.runtime.onStartup.addListener(noop);
     page.permissions.onAdded.addListener(noop);
     page.permissions.onRemoved.addListener(noop);
-    await page.tabs.remove(1);
     await page.tabs.reload();
     expect(await page.tabs.getCurrent()).toEqual({ id: 1, index: 0, active: true, url: location.href });
   });
