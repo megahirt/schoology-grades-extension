@@ -115,7 +115,10 @@ async function quitSafari() {
 
 async function attempt(fn, opts) {
   const { remote } = await import('webdriverio');
-  const capabilities = { ...capabilitiesFor(BROWSER), ...(BROWSER_VERSION && { browserVersion: BROWSER_VERSION }) };
+  // WebDriver classic in every browser (Safari has nothing else): with
+  // WebDriver BiDi, webdriverio's execute never answers in a window the page
+  // opened (window.open, as the print page is), seen in Chrome.
+  const capabilities = { 'wdio:enforceWebDriverClassic': true, ...capabilitiesFor(BROWSER), ...(BROWSER_VERSION && { browserVersion: BROWSER_VERSION }) };
   const mock = await startServer(0, { webExt: WEB_EXT, delayMs: opts.delayMs || 0 });
   // Use localhost (not 127.0.0.1): the DEV build's host permission and
   // content-script match are for localhost.
@@ -264,4 +267,187 @@ export function requestsTo(mock, pathPrefix) {
     if ((req.url || '').startsWith(pathPrefix)) n += 1;
   });
   return { count: () => n };
+}
+
+// ---- The dashboard, in the panel or on a page of its own ----
+//
+// The functions below work on "the dashboard": the panel's sheet on a mock
+// Schoology page, or else the document (the dashboard page
+// /__ext/popup/dashboard.html and the print page).
+
+// Runs `fn(root, q, ...args)` in the page and returns its result (a Promise
+// is awaited). root is the dashboard; q(selector, hasText?, scope = root)
+// lists the elements matching selector whose textContent contains hasText.
+// fn is sent as source: it can't use anything from this file.
+export function inDashboard(browser, fn, ...args) {
+  return browser.execute(
+    'const root = document.getElementById("sgd-panel-host")?.shadowRoot?.querySelector(".sheet") || document;' +
+      'const q = (sel, has, scope = root) => [...scope.querySelectorAll(sel)].filter((e) => has == null || (e.textContent || "").includes(has));' +
+      `return (${fn})(root, q, ...arguments);`,
+    ...args,
+  );
+}
+
+const show = (v) => (v instanceof RegExp ? String(v) : typeof v === 'function' ? 'a match' : JSON.stringify(v));
+const matches = (expected, v) =>
+  typeof expected === 'function' ? Boolean(expected(v))
+    : expected instanceof RegExp ? typeof v === 'string' && expected.test(v)
+      : JSON.stringify(v) === JSON.stringify(expected);
+
+// Readers for inDashboard / expectDashboard (run in the page as
+// (root, q, ...args); self-contained, since they are sent as source).
+export const text = (root, q, sel, has) => { const e = q(sel, has)[0]; return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+export const count = (root, q, sel, has) => q(sel, has).length;
+export const attr = (root, q, sel, has, name) => q(sel, has)[0]?.getAttribute(name) ?? null;
+// Some shown element's text contains s (Playwright's getByText(s) ...
+// toBeVisible). textContent, not innerText: innerText applies CSS
+// text-transform (section headings are upper case).
+export const visible = (root, q, s) => {
+  const norm = (e) => (e.textContent || '').replace(/\s+/g, ' ');
+  const hits = q('*').filter((e) => norm(e).includes(s) && ![...e.children].some((c) => norm(c).includes(s)));
+  return hits.some((e) => e.getClientRects().length > 0);
+};
+// Within the first `outer` with outerHas: `inner`'s text (or null).
+export const textIn = (root, q, outer, outerHas, inner) => {
+  const o = q(outer, outerHas)[0];
+  const e = o && o.querySelector(inner);
+  return e ? e.textContent.replace(/\s+/g, ' ').trim() : null;
+};
+export const countIn = (root, q, outer, outerHas, inner) => { const o = q(outer, outerHas)[0]; return o ? o.querySelectorAll(inner).length : -1; };
+export const attrIn = (root, q, outer, outerHas, inner, name) => q(outer, outerHas)[0]?.querySelector(inner)?.getAttribute(name) ?? null;
+
+// Wait until read(root, q, ...args) (run by inDashboard) gives `expected`: a
+// value (compared as JSON), a RegExp (for a string) or a predicate. Returns
+// the value read. The timeout message quotes the last value.
+export async function expectDashboard(browser, read, expected, message, { args = [], timeout = 15_000 } = {}) {
+  let last;
+  await browser.waitUntil(
+    async () => {
+      last = await inDashboard(browser, read, ...args);
+      return matches(expected, last);
+    },
+    { timeout, interval: 200, timeoutMsg: () => `${WAIT_PREFIX} ${message}: expected ${show(expected)}, got ${JSON.stringify(last)}` },
+  );
+  return last;
+}
+
+// Click (element.click()) the first `selector` in the dashboard whose text
+// contains hasText, or whose aria-label matches `label` (a RegExp), waiting
+// for it to appear.
+export async function clickDashboard(browser, selector, { hasText = null, label = null, within = null, withinText = null } = {}) {
+  await expectDashboard(
+    browser,
+    (root, q, sel, has, src, flags, w, wHas) => {
+      const scopes = w ? q(w, wHas) : [root];
+      const re = src == null ? null : new RegExp(src, flags);
+      const el = scopes.flatMap((s) => q(sel, has, s)).find((e) => !re || re.test(e.getAttribute('aria-label') || e.textContent || ''));
+      el?.click();
+      return Boolean(el);
+    },
+    true,
+    `no ${selector}${hasText ? ` with "${hasText}"` : ''}${label ? ` labelled ${label}` : ''}${within ? ` in ${within}${withinText ? ` "${withinText}"` : ''}` : ''} to click`,
+    { args: [selector, hasText, label?.source ?? null, label?.flags ?? '', within, withinText] },
+  );
+}
+
+// The viewport point at (fx, fy) (fractions of its box) of the first
+// `selector` in the dashboard with hasText, scrolled into view first.
+async function pointIn(browser, selector, hasText, fx, fy) {
+  const box = await expectDashboard(
+    browser,
+    (root, q, sel, has) => {
+      const el = q(sel, has)[0];
+      if (!el) return null;
+      el.scrollIntoView({ block: 'center' });
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    },
+    (b) => b && b.w > 0 && b.h > 0,
+    `no visible ${selector}${hasText ? ` with "${hasText}"` : ''}`,
+    { args: [selector, hasText] },
+  );
+  return { x: Math.round(box.x + box.w * fx), y: Math.round(box.y + box.h * fy) };
+}
+
+// Move the real pointer over the first `selector` (at fx, fy of its box).
+export async function hoverDashboard(browser, selector, { hasText = null, fx = 0.5, fy = 0.5 } = {}) {
+  const { x, y } = await pointIn(browser, selector, hasText, fx, fy);
+  await browser.action('pointer').move({ x, y, origin: 'viewport' }).perform();
+}
+
+// A real (trusted) pointer click on the first `selector`: for what needs a
+// user's click, such as opening a window.
+export async function realClickDashboard(browser, selector, { hasText = null } = {}) {
+  const { x, y } = await pointIn(browser, selector, hasText, 0.5, 0.5);
+  await browser.action('pointer').move({ x, y, origin: 'viewport' }).down().up().perform();
+}
+
+// Write extension storage through the page's own browser.storage (the
+// shim), so its onChanged listeners fire as they do for chrome.storage.
+export function updateSettings(browser, patch) {
+  return browser.execute(async (p) => {
+    const { settings = {} } = await globalThis.browser.storage.local.get('settings');
+    await globalThis.browser.storage.local.set({ settings: { ...settings, ...p } });
+  }, patch);
+}
+
+// A refresh of `site` finished after `since` (page clock, ms) and the
+// dashboard's button is enabled ("Refresh grades") again.
+function refreshDoneSince(browser, site, since) {
+  return inDashboard(
+    browser,
+    (root, q, s, after) => {
+      let state = null;
+      try {
+        state = JSON.parse(localStorage.getItem(`sgd:refreshState@${s}`));
+      } catch {}
+      const btn = root.querySelector('button[data-act="refresh"]');
+      return Boolean(state && !state.running && Date.parse(state.finishedAt) >= after
+        && btn && !btn.disabled && btn.getAttribute('aria-label') === 'Refresh grades');
+    },
+    site,
+    since,
+  );
+}
+
+// Press the dashboard's Refresh button and wait until that refresh has
+// finished and the button is enabled again. A refresh already running (the
+// panel's automatic one on page load) is waited out first: the button is
+// "Refreshing grades" (disabled) meanwhile. beforeClick() runs just before
+// the click.
+export async function refreshNow(browser, base, { beforeClick = () => {}, timeout = 30_000 } = {}) {
+  let clickedAt = 0;
+  await browser.waitUntil(
+    async () => {
+      beforeClick();
+      clickedAt = await browser.execute(() => Date.now());
+      return inDashboard(browser, (root) => {
+        const btn = root.querySelector('button[data-act="refresh"]');
+        if (!btn || btn.disabled || btn.getAttribute('aria-label') !== 'Refresh grades') return false;
+        btn.click();
+        return true;
+      });
+    },
+    { timeout, interval: 250, timeoutMsg: `${WAIT_PREFIX} no enabled Refresh grades button in the dashboard` },
+  );
+  await browser.waitUntil(() => refreshDoneSince(browser, base, clickedAt), {
+    timeout,
+    interval: 250,
+    timeoutMsg: `${WAIT_PREFIX} the clicked refresh did not finish`,
+  });
+}
+
+// Switch to the window opened after `before` (getWindowHandles), waiting for
+// it; returns its handle.
+export async function switchToNewWindow(browser, before, { timeout = 15_000 } = {}) {
+  let handle = null;
+  await browser.waitUntil(
+    async () => {
+      handle = (await browser.getWindowHandles()).find((h) => !before.includes(h)) || null;
+      return Boolean(handle);
+    },
+    { timeout, interval: 250, timeoutMsg: `${WAIT_PREFIX} no new window opened` },
+  );
+  await browser.switchToWindow(handle);
+  return handle;
 }
