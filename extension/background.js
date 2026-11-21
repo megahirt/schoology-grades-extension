@@ -319,6 +319,11 @@ async function handlePageUser(message, sender) {
   const uid = message.uid ? String(message.uid) : null;
   if (!uid) return { ok: true };
   if (before && before.uid === uid && !before.signedOut) return { ok: true };
+  // A parent on one child's page: Schoology's page names the child it is
+  // showing as the user, not the parent who is signed in. Still the same
+  // account, so nothing changes (otherwise every click to a child's class
+  // would start a full refresh).
+  if (before && before.uid && !before.signedOut && uid in ((await getDashboards(site)) || {})) return { ok: true, child: true };
   const same = before && before.uid === uid;
   await setUser({ uid, name: same ? before.name : null, type: same ? before.type : null, signedOut: false, checkedAt: now }, site);
   // A refresh already running checks who is signed in first, so it only has

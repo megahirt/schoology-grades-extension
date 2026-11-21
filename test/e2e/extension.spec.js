@@ -849,6 +849,37 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  test('a parent opening a child\'s class page doesn\'t start a refresh', async () => {
+    // Schoology names the child as the page's user there, not the parent.
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'parent');
+      await configureExtension(context, extensionId, worker);
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 30000 });
+      await expect(panel.locator('.refresh-line, .refreshing')).toHaveCount(0, { timeout: 30000 });
+      const state = () => worker.evaluate(async () => {
+        const all = await chrome.storage.local.get(null);
+        const pick = (p) => Object.entries(all).find(([k]) => k.startsWith(p))?.[1] || {};
+        return { started: pick('refreshState@').startedAt, uid: pick('user@').uid };
+      });
+      const before = await state();
+      const preview = await panel.locator('a[href*="/preview/"]').first().getAttribute('href');
+      expect(preview).toBeTruthy();
+      await page.goto(new URL(preview, mockBase).href);
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(2000);
+      expect(await state()).toEqual(before);
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('refreshes by itself when a Schoology page loads, with banner, progress and a disabled button', async () => {
     // A slow mock (like real Schoology) so the in-progress state is visible.
     const slow = await startServer(0, { delayMs: 700 });

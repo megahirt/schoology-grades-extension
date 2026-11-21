@@ -306,6 +306,8 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
         const previewUid = (coursePage[2].match(/^preview\/(\d+)\/parent$/) || [])[1];
         const previewChild = persona === 'parent' && previewUid && PARENT_DATA.children.find((c) => c.uid === previewUid);
         const courseHeaders = previewChild ? { 'set-cookie': `mock-view-child=${previewChild.uid}; Path=/` } : {};
+        // ...and, as on Schoology, the page then names that child as the user.
+        if (previewChild) res.mockUserUid = previewChild.uid;
         sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">${admins.length} Admin${admins.length > 1 ? 's' : ''}</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3><div class='picture_block clearfix'>${pictures}</div>`), courseHeaders);
         return;
       }
