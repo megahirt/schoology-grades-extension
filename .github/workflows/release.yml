@@ -159,7 +159,7 @@ jobs:
           - \`schoology-grades-extension-$VERSION-source.zip\`: the source at this tag (for Mozilla's review of the Firefox version).
           - \`SHA256SUMS.txt\`: checksums.
 
-          Store versions follow after review; see https://megahirt.github.io/schoology-grades-extension/"
+          Store versions follow after review; see https://schoology.hirtfamily.net/"
 
       - name: Redeploy the site with the new version
         run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main

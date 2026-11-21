@@ -152,7 +152,7 @@ describe('signed out of Schoology', () => {
 describe('footer', () => {
   it('has an About link to the promo site, opening in a new tab', async () => {
     const { ABOUT_URL } = await import('../../extension/src/dashboard-view.js');
-    expect(ABOUT_URL).toBe('https://megahirt.github.io/schoology-grades-extension/');
+    expect(ABOUT_URL).toBe('https://schoology.hirtfamily.net/');
   });
 });
 

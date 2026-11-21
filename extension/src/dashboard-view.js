@@ -723,7 +723,7 @@ function renderRecords(records, showGrades, now) {
 
 export const FEEDBACK_EMAIL = 'gradesdashboard@hirtfamily.net';
 // The promo site (footer "About" link).
-export const ABOUT_URL = 'https://megahirt.github.io/schoology-grades-extension/';
+export const ABOUT_URL = 'https://schoology.hirtfamily.net/';
 export const COFFEE_URL = 'https://buymeacoffee.com/megahirt';
 
 // "Send feedback": the family's own mail app, with the version and browser

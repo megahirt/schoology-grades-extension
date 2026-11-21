@@ -4,7 +4,7 @@
 # (newest vX.Y.Z tag) into site/links.js, which shows it on every page.
 # Runs when site/ changes on main, by hand, or from release.yml after a new
 # release. One-time setup: repo Settings → Pages → Source: "GitHub Actions".
-# The site is then at https://megahirt.github.io/schoology-grades-extension/
+# Custom domain (Settings → Pages): the site is at https://schoology.hirtfamily.net/
 #
 # Screenshots in site/img/ are made on a Mac with `npm run site:screenshots`
 # and committed; this workflow does not regenerate them.
