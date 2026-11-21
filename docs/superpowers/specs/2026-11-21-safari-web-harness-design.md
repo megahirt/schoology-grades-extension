@@ -1,4 +1,4 @@
-# Safari tests via a web-app build — design
+# One feature test suite for Safari, Chrome and Firefox (web-app build) — design
 
 Date: 2026-11-21. Status: draft for Chris's approval (builder check done).
 
@@ -19,6 +19,8 @@ impossible as an extension, a plain web-app version is fine.
   Safari, against the mock Schoology server.
 - Cover the features the Chromium/Firefox e2e suite covers, wherever they
   don't depend on extension-only APIs.
+- **Each scenario written once** (decided by Chris): one feature suite runs
+  in Safari, Chrome and Firefox. No scenario exists in two test tools.
 - No clicks or settings changes: `npm run test:safari` locally (with
   "Allow remote automation" on, already true on Chris's Mac), and a CI job
   on a GitHub `macos-26` runner (free: the repo is public).
@@ -41,6 +43,10 @@ impossible as an extension, a plain web-app version is fine.
 - A second copy of the UI. The web build bundles the same source files.
 - Flaky tests. Real Safari has one automation window at a time; tests run
   one after another.
+- Duplicated tests: the same scenario kept in both Playwright and
+  webdriverio.
+- Losing coverage during the move: nothing is deleted from the Playwright
+  spec until the new suite covers it in Chrome and Firefox.
 
 ## Approaches considered
 
@@ -51,9 +57,19 @@ impossible as an extension, a plain web-app version is fine.
    Kept only as the manual smoke test.
 2. **Web-app build, tests in Playwright WebKit.** Cheap and reuses the
    Playwright style, but it is not Safari. Rejected by Chris.
-3. **Web-app build, tests in real Safari via webdriverio + safaridriver**
-   (chosen). Real Safari, fully automated, free CI minutes. Costs: a new
-   test suite (WebDriver, not Playwright), macOS-only, serial.
+3. **Web-app build, Safari-only webdriverio suite next to the Playwright
+   suite.** Real Safari, but every feature scenario would exist twice.
+   Rejected by Chris for the duplication.
+4. **Scenarios written once against a small helper API, with a Playwright
+   adapter and a webdriverio adapter.** Less churn, but the two tools'
+   waiting models differ, so the adapter layer becomes its own thing to
+   maintain and every test is limited to what both share.
+5. **One webdriverio feature suite on the web build, in Safari, Chrome and
+   Firefox; Playwright kept only for extension-only wiring** (chosen by
+   Chris). Each scenario once; Safari gets the same feature coverage as
+   the others. Costs: a one-time move of most of the Playwright spec;
+   Chrome/Firefox feature tests run on the web build, so the slim
+   Playwright suite must still prove the real extension is wired up.
 
 ## Design
 
@@ -114,16 +130,24 @@ Tests set `settings.schoologyBase` to the mock origin through storage
 (`localStorage`, via `execute()`), like the Playwright suite does through
 `chrome.storage`.
 
-### 3. Tests: `test/safari/*.safari.mjs`, `npm run test:safari`
+### 3. Feature suite: `test/web/*.web.mjs`, in three browsers
 
-- `node --test` + webdriverio (`browserName: 'safari'`), one Safari session
-  per file, files run one at a time (`--test-concurrency=1`).
+- One suite, `node --test` + webdriverio. `BROWSER=safari|chrome|firefox`
+  picks the browser (webdriverio downloads chromedriver/geckodriver and
+  Chrome for Testing itself; Safari uses the system `safaridriver`).
+  Chrome and Firefox run headless; Safari can't.
+- Scripts: `npm run test:web` (Chrome, the local default, like
+  `--project=chromium` today), `npm run test:web:firefox`,
+  `npm run test:safari`.
+
+- One browser session per file, files run one at a time
+  (`--test-concurrency=1`; needed for Safari, kept for all for sameness).
 - A small helper module (`test/safari/helpers.mjs`): start the mock server
   with the web app on an ephemeral port, sign in as a persona (submit the
   form from the page), set storage, read the panel's open shadow root
   (`sgd-panel-host`), click by role/text inside it, wait for text.
 - Each test starts clean: `localStorage.clear()` and the mock's `/logout`.
-- **Scenarios**, ported from `test/e2e/extension.spec.js` (same mock data,
+- **Scenarios moved here** from `test/e2e/extension.spec.js` (same mock data,
   same assertions where they apply):
   1. Student: 1 Missing, no verdict for students, quarter grades.
   2. Parent: two child dashboards, Sam NO-GO, Jamie GO, submitted work
@@ -141,9 +165,9 @@ Tests set `settings.schoologyBase` to the mock origin through storage
      dashboard.
   8. Grade chart and records render (the parts most likely to differ by
      engine: SVG, `Intl` dates, CSS).
-- Skipped (not faked) when not on macOS or `dist-web/` is missing, like
-  the Firefox tests.
-- **Starting Safari (decided by Chris: quit it for him).** safaridriver can't
+- Skipped (not faked) when `dist-web/` is missing, or for Safari when not
+  on macOS.
+- **Starting Safari (decided by Chris: quit it for him; Safari only).** safaridriver can't
   attach to a Safari the user opened (sessions time out). The helper first
   tries a session; if Safari is running and the session times out, it quits
   Safari gracefully (`osascript -e 'quit app "Safari"'`, which keeps
@@ -158,10 +182,45 @@ Tests set `settings.schoologyBase` to the mock origin through storage
   session itself fails (driver/connection errors only, never a failed
   assertion). A retry is logged so flakiness is visible.
 
+### 3b. What stays in Playwright (`test/e2e/extension.spec.js`)
+
+Only what needs the real extension, still in Chromium and Firefox:
+
+- **Extension wiring smoke** (new, replaces the feature depth of the moved
+  tests): load the DEV extension, sign in to the mock as the parent,
+  refresh through the service worker, and see the parent dashboard both
+  on the extension's dashboard page and in the in-page panel the content
+  script mounts. Proves the manifest, content script, background worker,
+  `chrome.storage` and messaging are wired.
+- "Background requests signed out / fail (as in Safari): reads through the
+  open Schoology page" (both cases). Needs a real service worker.
+- "Toolbar popup: only the Schoology addresses, as links".
+- Per-site/per-person storage *as the extension stores it* stays covered by
+  the wiring smoke reading back `chrome.storage`; the detailed per-person
+  scenario moves to the feature suite.
+
+Everything else in the spec moves to section 3: student persona, parent
+persona, per-person data and signed-out banner, settings page, Clear data
+and demo mode, panel on a narrow screen, panel open/close/remembered,
+auto-refresh on page load.
+
+### 3c. Order of the move (no gap in coverage)
+
+1. Web build + shim + mock-server routes; the Safari smoke scenario passes
+   in Safari and Chrome.
+2. Port each scenario to `test/web/`, green in all three browsers.
+3. Add the Playwright wiring smoke; then delete the moved tests from the
+   Playwright spec in the same change that makes their web versions part
+   of CI.
+
 ### 4. CI: a `safari` job in `.github/workflows/ci.yml`
 
-A separate job `safari`, `runs-on: macos-26`; `npm ci`;
-`npm run build:web`; `npm run test:safari`; job timeout 20 minutes.
+- The existing `test` job (ubuntu) also builds `dist-web/` and runs the
+  feature suite in Chrome and Firefox (`npm run test:web` and
+  `test:web:firefox`), next to the slimmer Playwright suite. It stays the
+  required `test` check.
+- A separate job `safari`, `runs-on: macos-26`; `npm ci`;
+  `npm run build:web`; `npm run test:safari`; job timeout 20 minutes.
 safaridriver and "Allow remote automation" are already enabled in that
 image (`install-safari.sh` in actions/runner-images); a
 `sudo safaridriver --enable` step is harmless and keeps the job
@@ -175,7 +234,8 @@ point, not silently.
 
 ### 5. Docs
 
-`test/README.md`: a "Safari (web app)" section: what it covers, what it
+`test/README.md`: the two suites (features on the web build in three
+browsers; extension wiring in Playwright) and a "Safari" section: what it covers, what it
 can't (the extension-only list above), how to run locally, and the shim's
 limits. The existing extension smoke-test section stays, marked as the
 manual extension check.
@@ -184,6 +244,8 @@ manual extension check.
 
 - Fully automated Safari coverage is the goal; the web-app route is fine.
 - Real Safari only, no Playwright WebKit. macOS CI minutes are free here.
+- No duplicated tests: one feature suite for all three browsers (approach
+  5); Playwright keeps only extension wiring.
 
 - `npm run test:safari` quits a user-opened Safari and carries on (above).
 - The Safari job is a required check from day one (above).
@@ -207,6 +269,8 @@ manual extension check.
 
 - `node:test` rather than the WDIO test runner (one less framework; the
   smoke test already uses it).
+- `test/safari/smoke.safari.mjs` (manual, extension loaded by hand) stays
+  as the only Safari check of the real extension.
 - The bus/role design for the shim (vs. running the background in a
   SharedWorker, which would need IndexedDB instead of `localStorage` and
   more shim code).
