@@ -170,6 +170,13 @@ read-only):
   warnings) and matched Schoology's Missing flags exactly.
 - `/iapi/parent/overdue_submissions` turned out unreliable for Missing
   work, so it isn't used.
+- Overdue (2026-11-21): work that is past due with no grade and nothing
+  submitted gets its own assignment page read during a refresh
+  (`src/assignment-page.js`). No Submissions box (classic page) or
+  `"hasSubmissionsEnabled":false` (newer page) means it can't be submitted
+  online, so it isn't Overdue; a box listing turned-in work counts as
+  submitted. Tests and pages it doesn't recognize stay Overdue. "Can't be
+  submitted" is remembered per assignment for a week (`noSubmissions`).
 
 Not yet checked live: the fetch from the extension's own service worker,
 Safari, and student accounts. Details:
