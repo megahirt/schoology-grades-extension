@@ -55,7 +55,7 @@ const TOOLBAR_POPUP = MANIFEST.action?.default_popup || 'popup/popup.html';
 
 let mock;
 let mockBase; // http://localhost:<port> — the DEV build's host permission is
-// http://localhost:*/*, which does NOT match 127.0.0.1, so the extension
+// http://localhost/*, which does NOT match 127.0.0.1, so the extension
 // must be pointed at the localhost hostname (same loopback interface).
 
 // The mock server runs once for the whole file; each test gets a fresh

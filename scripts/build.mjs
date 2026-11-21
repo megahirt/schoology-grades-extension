@@ -2,7 +2,7 @@
 // Bundles the extension with esbuild into dist/ and copies static assets.
 //   --dev : shows a "Data: Real Schoology / Mock server" switch in the
 //           dashboard footer (default: real Schoology), adds
-//           http://localhost:*/* to host_permissions (mock server for
+//           http://localhost/* to host_permissions (mock server for
 //           Playwright e2e) and renames the extension "Grades Dashboard
 //           (Dev)". Prod builds NEVER contain localhost permissions.
 //   --firefox : writes a Firefox build to dist-firefox/ instead (combine
@@ -131,9 +131,11 @@ async function main() {
     // Build stamp, so a running dev build can be identified (version_name is
     // display-only; Chrome and Safari keep using `version`).
     manifest.version_name = `${manifest.version}-dev.${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;
-    manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost:*/*'];
+    // No port in the pattern: Safari ignores patterns with one, and without
+    // one it matches every port in every browser.
+    manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost/*'];
     // Run the content script (grades scrape + panel) on the mock server too.
-    for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost:*/*'];
+    for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost/*'];
   }
   if (isFirefox) manifest = forFirefox(manifest);
   if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;
@@ -158,7 +160,7 @@ async function main() {
   if (isDev) await writeFile(`${distDir}.build-done`, `${new Date().toISOString()}\n`);
 
   console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''}${isSafari ? ' Safari' : ''} extension ${manifest.version} -> ${distDir}`);
-  if (isDev) console.log('Dev build includes http://localhost:*/* host permission.');
+  if (isDev) console.log('Dev build includes http://localhost/* host permission.');
 }
 
 main().catch((err) => {

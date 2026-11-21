@@ -8,7 +8,8 @@
     "@playwright/test": "^1.49.0",
     "esbuild": "^0.24.0",
     "vitest": "^2.1.8",
-    "web-ext": "10.8.0"
+    "web-ext": "10.8.0",
+    "webdriverio": "^9.32.0"
   },
   "name": "schoology-grades-extension",
   "private": true,
@@ -29,7 +30,8 @@
     "school-hosts": "node scripts/find-schoology-hosts.mjs",
     "store:assets": "node scripts/store-assets.mjs",
     "appstore:assets": "node scripts/appstore-assets.mjs",
-    "holiday:icons": "node scripts/holiday-icons.mjs"
+    "holiday:icons": "node scripts/holiday-icons.mjs",
+    "test:e2e:safari": "node --test test/safari/smoke.safari.mjs"
   },
   "type": "module",
   "version": "0.0.0"

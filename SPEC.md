@@ -303,7 +303,7 @@ requests `{ credentials: 'include' }`; endpoints verified live 2026-11-06):
   from Schoology (initials when there is none).
 - `scripts/build.mjs` — `node scripts/build.mjs [--dev]`: bundles `src/*.js`
   with esbuild into `dist/`, copies manifest/popup/options/content. `--dev`
-  adds `http://localhost:*/*` to host_permissions and renames the extension
+  adds `http://localhost/*` to host_permissions and renames the extension
   "(Dev)" so Playwright e2e can point it at the mock server. Prod build must
   NOT contain localhost permissions.
 

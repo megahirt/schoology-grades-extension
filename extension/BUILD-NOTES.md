@@ -77,7 +77,7 @@ REST API/OAuth — auth is the user's logged-in browser session cookies.
 - `scripts/build.mjs` — `node scripts/build.mjs [--dev]`; esbuild-bundles
   background, content, popup, options into `dist/`, copies manifest,
   HTML/CSS, icons, demo-data.json. `--dev` adds
-  `http://localhost:*/*` and renames the extension "(Dev)"; prod never
+  `http://localhost/*` and renames the extension "(Dev)"; prod never
   contains localhost permissions.
 
 ## Verification done
@@ -86,7 +86,7 @@ REST API/OAuth — auth is the user's logged-in browser session cookies.
   name "Schoology Dashboard", host_permissions only
   `https://*.schoology.com/*` (no localhost).
 - `npm run build:dev` — succeeds; name "Schoology Dashboard (Dev)",
-  host_permissions add `http://localhost:*/*`.
+  host_permissions add `http://localhost/*`.
 - `npm run lint` (`node --check` on the six source files) — clean.
 - `node --check` on all four `dist/` bundles — clean.
 - Node smoke test of the pure modules against the SPEC fixture HTML:

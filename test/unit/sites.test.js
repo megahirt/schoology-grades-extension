@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { isSchoologySite, siteForPage, SCHOOLOGY_MATCHES } from '../../extension/src/sites.js';
+import { isSchoologySite, siteForPage, SCHOOLOGY_MATCHES, originPattern } from '../../extension/src/sites.js';
 
 describe('Schoology sites', () => {
   it('app.schoology.com and the school\'s own Schoology address', () => {
@@ -40,5 +40,14 @@ describe('siteForPage', () => {
     expect(siteForPage(`${APP}/home`, 'http://localhost:8123')).toBe('other'); // each site has its own data
     expect(siteForPage('http://localhost:9999/home', APP)).toBe('ignore');
     expect(siteForPage('http://localhost:8123/home', 'http://localhost:8123')).toBe('same');
+  });
+});
+
+describe('originPattern', () => {
+  it('is the site with any path', () => {
+    expect(originPattern('https://schoology.example.org')).toBe('https://schoology.example.org/*');
+  });
+  it('never names a port (Safari ignores patterns with one)', () => {
+    expect(originPattern('http://localhost:8123')).toBe('http://localhost/*');
   });
 });

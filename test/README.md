@@ -9,8 +9,9 @@ All commands run from the repo root.
 
 > **Browsers:** the e2e tests run in **Chromium and Firefox** via
 > Playwright, locally and in CI. Safari can't be driven by Playwright
-> (its WebKit is not Safari and can't load Safari Web Extensions), so the
-> Safari build is checked by hand (see "Safari" below).
+> (its WebKit is not Safari and can't load Safari Web Extensions); one
+> smoke test runs in real Safari through safaridriver, locally, after a
+> one-time setup (see "Safari" below).
 
 ## Run everything
 
@@ -19,6 +20,7 @@ npm test          # unit tests (vitest, test/unit/)
 npm run build:dev && npm run build:firefox   # the two DEV builds the e2e tests load
 npm run test:e2e  # Playwright e2e (test/e2e/), Chromium + Firefox
 npx playwright test --project=firefox   # one browser only
+SAFARI_E2E=1 npm run test:e2e:safari   # Safari smoke test (macOS, one-time setup: see "Safari")
 npm run mock-server   # start the mock Schoology server alone (port 8123)
 MOCK_DELAY_MS=700 npm run mock-server   # slow answers, to see the refresh banner
 ```
@@ -84,7 +86,7 @@ passes and proves the harness works.
 ## E2E tests (`test/e2e/extension.spec.js`, Playwright — `npm run test:e2e`)
 
 1. Build the DEV builds first: `npm run build:dev` (produces `dist/` with
-   `http://localhost:*/*` host permissions for the mock server) and
+   `http://localhost/*` host permissions for the mock server) and
    `npm run build:firefox` (`dist-firefox/`: the same, with a Firefox
    add-on id, an event-page background and `http://localhost/*`, since
    Firefox match patterns can't name a port).
@@ -121,15 +123,86 @@ npx playwright install --no-shell chromium firefox
 
 ### Safari
 
-Safari can't run these tests automatically yet. Playwright's WebKit is
-not Safari and can't load Safari Web Extensions. Safari's own WebDriver
-(`safaridriver`, which on Safari 27 also speaks WebDriver BiDi) needs
-"Allow remote automation" turned on in Safari's Developer settings
-(or `safaridriver --enable`, which asks for the Mac password) before any
-session can start, and whether it can install an unpacked extension is
-still to be checked. Until then, check Safari by hand: Safari → Develop →
-Web Extension Developer → Add Temporary Extension…, pick `dist/`, and
-allow it on Schoology.
+Playwright can't drive Safari: its WebKit is not Safari and can't load
+Safari Web Extensions. Instead there is one **smoke test** in real Safari,
+driven by Safari's own WebDriver (`safaridriver`) through webdriverio:
+`test/safari/smoke.safari.mjs`. It signs in to the mock server as the
+parent, presses Refresh in the in-page panel and checks that the panel shows
+both children (Sam Rivera NO-GO, Jamie), "Data: Mock server" and no
+"Please log in" banner. It also checks that the refresh really read the mock
+server, so a dashboard left over from an earlier run can't pass it. It is
+skipped unless `SAFARI_E2E=1` on macOS.
+
+```sh
+npm run build:dev
+SAFARI_E2E=1 npm run test:e2e:safari   # stop `npm run mock-server` first: it uses port 8123
+```
+
+**What works (checked 2026-11-21, Safari 27.2, macOS 27.2):**
+
+- `safaridriver` sessions work once Safari's Settings → Developer →
+  "Allow remote automation and external agents" is on.
+- An extension that is already loaded in Safari (App Store build or a
+  temporary one) **also runs in the automation window**. The content script
+  runs, the panel's shadow root is open, and the test reads it with
+  `execute()`.
+- WebDriver BiDi works only with the capability
+  `'safari:experimentalWebSocketUrl': true` (`webSocketUrl: true` alone gives
+  no socket). The test doesn't need BiDi.
+
+**What doesn't:**
+
+- safaridriver **can't install an extension**. BiDi
+  `webExtension.install` answers "unknown command - 'webExtension' domain
+  was not found". So the extension must be loaded in Safari by hand first.
+- safaridriver **can't attach to a Safari you started yourself**. Every
+  new session times out ("timed out while connecting to a Safari instance")
+  and Safari only comes to the front. Quit Safari and let safaridriver
+  start it. Sessions keep working against that Safari, also after you load a
+  temporary extension in it. After clicking "Stop Session" on an automation
+  window's lock dialog, that Safari refused new sessions until it was quit.
+- You can't use the automation window while a session runs (Safari shows
+  "This Safari window is remotely controlled…"). Use a normal window for
+  setup clicks.
+- Safari **ignores match patterns with a port** (`http://localhost:*/*`
+  matched nothing, so the DEV build never ran on the mock server in Safari).
+  The DEV build now uses `http://localhost/*`, which matches every port in
+  Chrome, Firefox and Safari. For the same reason `originPattern()`
+  (`extension/src/sites.js`) drops the port when the background looks for
+  an open mock tab (`browser.tabs.query`). Without that, Safari's
+  "read through the open page" fallback (`page-fetch.js`) found no tab and
+  the panel said "Please log in" on the mock server.
+
+**Local setup, once per Safari launch:**
+
+1. Quit Safari. Run the test once (it fails); Safari is now started by
+   safaridriver. Leave it running.
+2. Safari Settings → Developer: "Allow remote automation" and
+   "Allow unsigned extensions" on, then **Add Temporary Extension…** and
+   pick `dist/` (Cmd+Shift+G to type the path; Cmd+Shift+. shows hidden
+   folders such as `.claude`). Turn the App Store build off in
+   Settings → Extensions so the two don't both run.
+3. In a normal window open `http://localhost:8123/login` (with
+   `npm run mock-server` running) and allow the DEV extension on localhost.
+   Stop the mock server again.
+4. `SAFARI_E2E=1 npm run test:e2e:safari`. After a rebuild, remove and
+   re-add the temporary extension (and allow localhost again).
+
+**CI (not set up yet):** GitHub's `macos-26` and `macos-15` images ship
+Safari 27.2 with `safaridriver --enable` and "Allow remote automation"
+already done in the image (`images/macos/scripts/build/install-safari.sh`
+in actions/runner-images). The image also gives `osascript` and `/bin/bash`
+Accessibility and Apple Events rights to System Events and Safari. A Safari
+job would need to load `dist/` without hands: UI-script Safari Settings
+(Developer → Allow unsigned extensions, Add Temporary Extension…, then the
+file dialog), allow localhost, then run the test. Not tried yet: whether
+"Allow unsigned extensions" asks for a password on the runner, and whether
+the per-site allow can be scripted. The other route is building the Xcode
+wrapper (`npm run build:safari`) from the DEV build, signed, and opening it
+once. Enabling it in Settings → Extensions still needs a click.
+
+Without the test, check Safari by hand: Settings → Developer →
+Add Temporary Extension…, pick `dist/`, and allow it on Schoology.
 
 Playwright 1.49 headless launches use the headless shell; if that download
 fails but the full Chromium build is present, `playwright.config.js` falls
@@ -170,5 +243,5 @@ Playwright's `chromium.connectOverCDP('http://127.0.0.1:9333')` can attach to
 the same window. Each launch clears the profile's cached extension service
 worker (Chromium otherwise kept running a stale background script) and checks
 that the running build matches the new one; the DEV row shows the build time.
-Safari still needs its own manual check.
+For Safari see "Safari" above (smoke test + manual check).
 
