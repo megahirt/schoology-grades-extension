@@ -314,6 +314,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // The class's highest score sits under its chart.
       await expect(algebra.locator('.class-best')).toContainText('Highest score');
       // Desktop hover shows the nearest assignment: date, title and its grade.
+      // Scrolled into view first: in Firefox's panel a lower chart can sit
+      // under the footer.
+      await algebra.locator('svg.gchart').scrollIntoViewIfNeeded();
       const box = await algebra.locator('svg.gchart .gc-hit').boundingBox();
       await popup.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2);
       await expect(algebra.locator('svg.gchart .gc-hover')).toHaveAttribute('visibility', 'visible');
