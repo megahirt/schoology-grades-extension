@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -7,11 +7,16 @@ import { startServer } from '../mock-server/server.js';
 
 const FAKE_BG = 'console.log("fake background");\n';
 let dir;
+let secret;
+const SECRET_BODY = 'sentinel outside dist-web';
 let web;
 let plain;
 
 beforeAll(async () => {
   dir = mkdtempSync(path.join(tmpdir(), 'dist-web-'));
+  // Outside the build dir, so only the path guard keeps it from being served.
+  secret = path.join(path.dirname(dir), `secret-${path.basename(dir)}.js`);
+  writeFileSync(secret, SECRET_BODY);
   mkdirSync(path.join(dir, 'popup'));
   writeFileSync(path.join(dir, 'background.js'), FAKE_BG);
   writeFileSync(path.join(dir, 'content.js'), 'console.log("fake content");\n');
@@ -20,13 +25,18 @@ beforeAll(async () => {
   plain = await startServer(0);
 });
 afterAll(async () => {
+  rmSync(secret, { force: true });
   await web.close();
   await plain.close();
 });
 
 // fetch() tidies `..` away before sending; this sends the path as written.
-const rawStatus = (port, rawPath) => new Promise((resolve, reject) => {
-  http.get({ host: '127.0.0.1', port, path: rawPath }, (res) => { res.resume(); resolve(res.statusCode); }).on('error', reject);
+const rawGet = (port, rawPath) => new Promise((resolve, reject) => {
+  http.get({ host: '127.0.0.1', port, path: rawPath }, (res) => {
+    let body = '';
+    res.on('data', (c) => { body += c; });
+    res.on('end', () => resolve({ status: res.statusCode, body }));
+  }).on('error', reject);
 });
 
 describe('mock server with a web build of the extension', () => {
@@ -42,9 +52,16 @@ describe('mock server with a web build of the extension', () => {
   });
 
   it('refuses paths outside dist-web', async () => {
-    for (const p of ['/__ext/../package.json', '/__ext/%2e%2e/package.json']) {
-      expect(await rawStatus(web.port, p)).toBe(404);
+    const name = path.basename(secret);
+    // Sanity: the sentinel really is where `..` from the build dir leads.
+    expect(path.resolve(dir, '..', name)).toBe(secret);
+    for (const p of [`/__ext/../${name}`, `/__ext/%2e%2e/${name}`, `/__ext/%2e%2e%2f${name}`, `/__ext/..%5c${name}`, `/__ext/..\\${name}`]) {
+      expect(await rawGet(web.port, p), p).toEqual({ status: 404, body: expect.not.stringContaining(SECRET_BODY) });
     }
+  });
+
+  it('answers 404 to a malformed escape under /__ext', async () => {
+    expect((await rawGet(web.port, '/__ext/%zz.js')).status).toBe(404);
   });
 
   it('injects the two scripts into mock pages', async () => {

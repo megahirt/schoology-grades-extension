@@ -180,7 +180,9 @@ const EXT_TYPES = {
   '.png': 'image/png', '.map': 'application/json',
 };
 // GET /__ext/<path>: a file of the web build, never one outside it.
-async function sendExtFile(res, webExt, rel) {
+async function sendExtFile(res, webExt, rawRel) {
+  let rel;
+  try { rel = decodeURIComponent(rawRel); } catch { return send(res, 404, 'text/plain', 'Not found'); }
   const type = EXT_TYPES[path.extname(rel)];
   const file = path.resolve(webExt, rel);
   if (!type || rel.split(/[\\/]/).includes('..') || !file.startsWith(path.resolve(webExt) + path.sep)) return send(res, 404, 'text/plain', 'Not found');
@@ -244,7 +246,7 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now(), 
       // Judged on the path as sent: URL parsing would tidy `/__ext/../x` into `/x`.
       const rawPath = req.url.split('?')[0];
       if (webExt && req.method === 'GET' && rawPath.startsWith('/__ext/')) {
-        await sendExtFile(res, webExt, decodeURIComponent(rawPath.slice('/__ext/'.length)));
+        await sendExtFile(res, webExt, rawPath.slice('/__ext/'.length));
         return;
       }
       const cookies = parseCookies(req);
