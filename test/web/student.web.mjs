@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WAIT_PREFIX, attr, attrIn, clickDashboard, count, countIn, expectDashboard, hoverDashboard, inDashboard, refreshNow, shownCount, shownIn, signIn, skipReason, text,
+  WAIT_PREFIX, attr, attrIn, clickDashboard, count, countIn, expectDashboard, hoverDashboard, inDashboard, refreshNow, shownCount, shownIn, shownText, signIn, skipReason, text,
   textIn, useMock, visible, withSession,
 } from './helpers.mjs';
 
@@ -22,7 +22,7 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     // Alex Student's data: Algebra 2 at 68% (below 75) is a low class, and
     // American Literature has 1 Missing item. The student's name comes from
     // the home page (data-user-name).
-    await see(text, 'Hi, Alex', 'heading', 'h1, h2, h3, [role="heading"]', 'Hi, Alex');
+    await see(shownText, 'Hi, Alex', 'heading shown', 'h1, h2, h3, [role="heading"]', 'Hi, Alex');
     // The same card as parents get, without the GO/NO-GO verdict (parents only).
     await see(text, 'Alex Student', 'card name', '.card .card-name');
     await see(text, /^1\s*Missing$/, 'Missing stat', '.card .stat', 'Missing');
@@ -135,15 +135,15 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     await inDashboard(browser, (root) => root.querySelector('[data-cue]').scrollIntoView({ block: 'center' }));
     await see(count, 1, 'one celebration', '.new-cue');
     // Seen now (once that's saved): nothing is news on the next look.
-    const shown = await inDashboard(browser, (root) => [...root.querySelectorAll('[data-new]')].map((el) => el.dataset.new));
+    const newKeys = await inDashboard(browser, (root) => [...root.querySelectorAll('[data-new]')].map((el) => el.dataset.new));
     await inDashboard(browser, (root) => [...root.querySelectorAll('[data-new]')].pop().scrollIntoView({ block: 'center' }));
     await browser.waitUntil(
       () => browser.execute((keys) => {
         const saved = Object.keys(localStorage).filter((k) => k.startsWith('sgd:seenItems'))
           .flatMap((k) => Object.values(JSON.parse(localStorage.getItem(k))).flat());
         return keys.every((k) => saved.includes(k));
-      }, shown),
-      { timeout: 15_000, interval: 200, timeoutMsg: `${WAIT_PREFIX} not all shown items saved as seen: ${JSON.stringify(shown)}` },
+      }, newKeys),
+      { timeout: 15_000, interval: 200, timeoutMsg: `${WAIT_PREFIX} not all shown items saved as seen: ${JSON.stringify(newKeys)}` },
     );
     await browser.refresh();
     await see(shownCount, 1, 'card name shown after reload', '.card-name');

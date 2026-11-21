@@ -321,6 +321,8 @@ export const visible = (root, q, s) => {
   const hits = q('*').filter((e) => norm(e).includes(s) && ![...e.children].some((c) => norm(c).includes(s)));
   return hits.some((e) => shown(e));
 };
+// The text of the first shown `sel` with `has` (or null).
+export const shownText = (root, q, sel, has) => { const e = q(sel, has).find((x) => shown(x)); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
 // How many `sel` with `has` are shown (see shown() at inDashboard).
 export const shownCount = (root, q, sel, has) => q(sel, has).filter((e) => shown(e)).length;
 // How many `inner` in the first `outer` with outerHas are shown (-1: no outer).
@@ -398,9 +400,35 @@ export async function hoverDashboard(browser, selector, { hasText = null, fx = 0
 
 // A real (trusted) pointer click on the first `selector`: for what needs a
 // user's click, such as opening a window.
+// It waits until a trusted click reached that element, and fails (with
+// what was seen) if a click landed elsewhere. Safari sometimes delivers no
+// click at all for the pointer action (no click event in the page, seen
+// after other sessions' work in the same Safari): then, and only then, the
+// click is sent again (at most 3 times, logged), since nothing happened.
 export async function realClickDashboard(browser, selector, { hasText = null } = {}) {
-  const { x, y } = await pointIn(browser, selector, hasText, 0.5, 0.5);
-  await browser.action('pointer').move({ x, y, origin: 'viewport' }).down().up().perform();
+  let seen = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { x, y } = await pointIn(browser, selector, hasText, 0.5, 0.5);
+    await inDashboard(browser, (root, q, sel) => {
+      window.__sgdRealClick = [];
+      document.addEventListener('click', (e) => {
+        const hit = e.composedPath().find((el) => el instanceof Element && el.matches(sel));
+        window.__sgdRealClick.push({ trusted: e.isTrusted, hit: Boolean(hit) });
+      }, { capture: true, once: true });
+    }, selector);
+    await browser.action('pointer').move({ x, y, origin: 'viewport' }).down().up().perform();
+    await browser.waitUntil(
+      async () => {
+        seen = await browser.execute(() => window.__sgdRealClick || null);
+        return Boolean(seen && seen.length);
+      },
+      { timeout: 3_000, interval: 100 },
+    ).catch(() => {});
+    if (seen && seen.some((c) => c.trusted && c.hit)) return;
+    if (seen && seen.length) break;
+    console.log(`[web] the click at ${x},${y} on ${selector} produced no click event (attempt ${attempt}); clicking again`);
+  }
+  throw new Error(`${WAIT_PREFIX} a real click did not reach ${selector}: clicks seen ${JSON.stringify(seen)}`);
 }
 
 // Write extension storage through the page's own browser.storage (the

@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   WAIT_PREFIX, attr, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
-  refreshNow, shownCount, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, withSession,
+  refreshNow, shownCount, shownText, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, withSession,
 } from './helpers.mjs';
 
 // The tab for `name` is selected.
@@ -202,7 +202,7 @@ async function dashboardAndPrint({ browser, base }) {
   });
   await see(text, 'Jamie Rivera', 'print name', '.p-name');
   await see(text, 'GO', 'print verdict', '.p-verdict');
-  await see(text, 'Missing · 1', 'print Missing heading', 'h2', 'Missing');
+  await see(shownText, 'Missing · 1', 'print Missing heading shown', 'h2', 'Missing');
   const fit = await browser.execute(() => ({ h: document.getElementById('sheet').getBoundingClientRect().height, fit: document.body.dataset.fit }));
   assert.ok(fit.fit, 'fitted to one page');
   assert.ok(fit.h <= 979 + 1, `one Letter page high: ${fit.h}`);
