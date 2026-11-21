@@ -7,12 +7,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   WAIT_PREFIX, attr, attrIn, clickDashboard, count, countIn, expectDashboard, hoverDashboard, inDashboard, refreshNow, shownCount, shownIn, shownText, signIn, skipReason, text,
-  textIn, useMock, visible, withSession,
+  textIn, freshStart, useMock, visible, withSession,
 } from './helpers.mjs';
 
 
 test('student persona: 1 Missing, no verdict shown to students, quarter grades', { skip: skipReason(), timeout: 240_000 }, async () => {
   await withSession(async ({ browser, base }) => {
+    await freshStart({ browser, base });
     const see = (read, expected, message, ...args) => expectDashboard(browser, read, expected, message, { args });
     await signIn(browser, base, 'student');
     await useMock(browser, base);

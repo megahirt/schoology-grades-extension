@@ -113,8 +113,8 @@ few tests of the real extension's wiring. Details: [test/README.md](test/README.
 
 CI ([`ci.yml`](.github/workflows/ci.yml)) runs the lint, builds and tests
 on every push and pull request: job `test` on Linux (Chromium, Chrome and
-Firefox), job `safari` on macOS (the feature suite in Safari). `main` requires the CI `test` check, and PRs auto-merge once it
-passes.
+Firefox), job `safari` on macOS (the feature suite in Safari). `main`
+requires the CI `test` check, and PRs auto-merge once it passes.
 
 Site screenshots: `npm run build:dev && npm run site:screenshots` (on a
 Mac), then commit `site/img/`.

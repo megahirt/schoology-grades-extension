@@ -33,9 +33,9 @@
     "appstore:assets": "node scripts/appstore-assets.mjs",
     "holiday:icons": "node scripts/holiday-icons.mjs",
     "test:e2e:safari": "node --test test/safari/smoke.safari.mjs",
-    "test:web": "BROWSER=chrome node --test --test-concurrency=1 'test/web/*.web.mjs'",
-    "test:web:firefox": "BROWSER=firefox node --test --test-concurrency=1 'test/web/*.web.mjs'",
-    "test:safari": "BROWSER=safari node --test --test-concurrency=1 'test/web/*.web.mjs'"
+    "test:web": "BROWSER=chrome node --test --test-force-exit --test-concurrency=1 'test/web/*.web.mjs'",
+    "test:web:firefox": "BROWSER=firefox node --test --test-force-exit --test-concurrency=1 'test/web/*.web.mjs'",
+    "test:safari": "BROWSER=safari node --test --test-force-exit --test-concurrency=1 'test/web/*.web.mjs'"
   },
   "type": "module",
   "version": "0.0.0"

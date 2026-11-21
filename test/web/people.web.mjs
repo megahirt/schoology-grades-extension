@@ -18,12 +18,13 @@
 //   panel.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WAIT_PREFIX, count, expectDashboard, refreshNow, shownText, signIn, skipReason, text, useMock, visible, waitForPanel, withSession } from './helpers.mjs';
+import { WAIT_PREFIX, count, expectDashboard, refreshNow, shownText, signIn, skipReason, text, freshStart, useMock, visible, waitForPanel, withSession } from './helpers.mjs';
 
 const HEADING = 'h1, h2, h3, [role="heading"]';
 
 test('each person signed in on a site has their own data; signed out shows the old data with a banner', { skip: skipReason(), timeout: 240_000 }, async () => {
   await withSession(async ({ browser, base }) => {
+    await freshStart({ browser, base });
     const see = (read, expected, message, { args = [], timeout } = {}) => expectDashboard(browser, read, expected, message, { args, ...(timeout && { timeout }) });
     const site = base;
     // Storage as the extension keeps it (the shim: localStorage, sgd:<key>).

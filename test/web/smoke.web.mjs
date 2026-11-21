@@ -3,10 +3,11 @@
 // Firefox or Safari (BROWSER=…). See test/web/helpers.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { panelVerdicts, refreshNow, requestsTo, signIn, skipReason, useMock, waitForPanel, withSession } from './helpers.mjs';
+import { panelVerdicts, refreshNow, requestsTo, signIn, skipReason, freshStart, useMock, waitForPanel, withSession } from './helpers.mjs';
 
 test('parent dashboard in the panel', { skip: skipReason(), timeout: 180_000 }, async () => {
   await withSession(async ({ browser, base, mock }) => {
+    await freshStart({ browser, base });
     await signIn(browser, base, 'parent');
     await useMock(browser, base);
     await browser.url(`${base}/home`);

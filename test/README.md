@@ -32,6 +32,7 @@ npm run build:dev && npm run build:firefox   # the two DEV builds Playwright loa
 npm run test:e2e  # extension wiring (test/e2e/), Chromium + Firefox
 npx playwright test --project=chromium   # one browser only
 SAFARI_E2E=1 npm run test:e2e:safari   # manual check of the real extension in Safari (see below)
+MOCK_WEB_EXT=1 npm run mock-server   # the mock serving dist-web/ under /__ext/
 npm run mock-server   # start the mock Schoology server alone (port 8123)
 MOCK_DELAY_MS=700 npm run mock-server   # slow answers, to see the refresh banner
 ```
@@ -158,6 +159,9 @@ automation", and run `sudo safaridriver --enable`. Then:
   server) gets only the content script. The refresh tests use it for a
   second page opened while a refresh runs, so it doesn't start a refresh of
   its own.
+- The web build's background dies when its page navigates away, so a
+  refresh cut short can leave `refreshState.running = true` until the stuck
+  timeout (the real extension never does this).
 - The hidden-tab fallback (`refresh-via-hidden-tab`) is not exercised.
 - Extension plumbing is out of scope: permissions, content-script
   registration, the background's cookies, the toolbar popup. Playwright

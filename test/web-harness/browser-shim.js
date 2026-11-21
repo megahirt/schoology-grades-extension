@@ -54,13 +54,16 @@ export function handleStorageEvent(bus, ev) {
 
 // The first listener that returns something other than undefined decides the
 // answer; a Promise counts as an answer. No listeners at all is an error.
+// Real extension messaging serializes both ways; so does the shim.
+const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+
 async function deliver(listeners, message, sender) {
   if (!listeners.length) {
     throw new Error('Could not establish connection. Receiving end does not exist.');
   }
   for (const fn of [...listeners]) {
-    const result = fn(message, sender);
-    if (result !== undefined) return result;
+    const result = fn(clone(message), sender);
+    if (result !== undefined) return clone(await result);
   }
   return undefined;
 }
@@ -129,7 +132,7 @@ export function createBrowserShim({ role, bus, storage, manifest, location, open
     runtime: {
       sendMessage: (message) => deliver(bus.listeners[other], message, sender()),
       onMessage: event(bus.listeners[role]),
-      getURL: (p) => '/__ext/' + p,
+      getURL: (p) => location.origin + '/__ext/' + p,
       getManifest: () => manifest,
       openOptionsPage: async () => { open('/__ext/options/options.html'); },
       onInstalled: noopEvent(),

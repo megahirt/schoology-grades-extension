@@ -3,7 +3,7 @@
 // session) and which are real failures (never retried).
 import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
-import { WAIT_PREFIX, capabilitiesFor, isSessionError, readyWindow, scenarioOutcome, sessionSuite, shouldQuitSafari, waitMessage } from '../web/helpers.mjs';
+import { rerunWarning, WAIT_PREFIX, capabilitiesFor, isSessionError, readyWindow, scenarioOutcome, sessionSuite, shouldQuitSafari, waitMessage } from '../web/helpers.mjs';
 
 describe('isSessionError', () => {
   it('is true for session and driver errors', () => {
@@ -169,5 +169,12 @@ describe('readyWindow', () => {
     const e = new Error('no such window');
     expect(isSessionError(e)).toBe(false);
     expect(isSessionError(Object.assign(new Error(`Could not create a session: ${e.message}`), { name: 'SessionNotCreatedError', cause: e }))).toBe(true);
+  });
+});
+
+describe('rerunWarning', () => {
+  it('is an Actions warning annotation only inside Actions', () => {
+    expect(rerunWarning(undefined, '/x/a.web.mjs', 'boom')).toBeNull();
+    expect(rerunWarning('true', '/x/a.web.mjs', 'a\nb 100%')).toBe('::warning title=web suite rerun::a.web.mjs: a%0Ab 100%25');
   });
 });

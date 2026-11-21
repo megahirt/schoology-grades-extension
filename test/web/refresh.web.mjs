@@ -20,7 +20,7 @@
 /* global shown */ // in page-side readers: see inDashboard (helpers.mjs)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WAIT_PREFIX, expectDashboard, inDashboard, requestsTo, signIn, skipReason, useMock, visible, waitForPanel, withSession } from './helpers.mjs';
+import { WAIT_PREFIX, expectDashboard, inDashboard, requestsTo, freshStart, signIn, skipReason, useMock, visible, waitForPanel, withSession } from './helpers.mjs';
 
 // The refreshState of `site` as stored (the shim keeps storage in localStorage).
 const refreshState = (browser, site) => browser.execute((s) => {
@@ -53,6 +53,7 @@ test('refreshes by itself when a Schoology page loads, with banner, progress and
   // A slow mock (like real Schoology) so the in-progress state is visible.
   await withSession(async ({ browser, base, mock }) => {
     const see = (read, expected, message, opts = {}) => expectDashboard(browser, read, expected, message, opts);
+    await freshStart({ browser, base });
     await signIn(browser, base, 'parent');
     // Point the extension at the mock from a page that never refreshes by
     // itself (the dashboard page), so the first Schoology page load below is

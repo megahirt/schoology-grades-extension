@@ -111,7 +111,7 @@ export function shouldQuitSafari(err, safariIsRunning) {
 
 // Quit Safari and wait (up to 20 s) for it to exit.
 async function quitSafari() {
-  await run('osascript', ['-e', 'quit app "Safari"']).catch(() => {});
+  await run('osascript', ['-e', 'quit app "Safari"'], { timeout: 10_000 }).catch(() => {});
   const until = Date.now() + 20_000;
   while (Date.now() < until && (await safariRunning())) await new Promise((r) => setTimeout(r, 500));
   if (await safariRunning()) console.log('[web] WARNING: asked Safari to quit, but it is still running after 20 s; retrying anyway');
@@ -167,6 +167,14 @@ async function attempt(fn, opts, n) {
   }
 }
 
+// The GitHub Actions annotation for a rerun (shown on the PR's checks page,
+// so a rerun is visible on a green check), or null outside Actions.
+export function rerunWarning(inActions, file, message) {
+  if (!inActions) return null;
+  const esc = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  return `::warning title=web suite rerun::${esc(`${path.basename(file || 'web suite')}: ${message}`)}`;
+}
+
 // Start the mock (serving dist-web/), open a browser session, run
 // fn({ browser, base, mock, attempt }), and always close both. attempt is 1,
 // or 2 on the one retry. opts.delayMs delays the mock's grade answers.
@@ -176,6 +184,8 @@ export async function withSession(fn, opts = {}) {
   } catch (err) {
     if (!isSessionError(err)) throw err;
     console.log(`[web] session error, retrying once: ${err.message}`);
+    const warning = rerunWarning(process.env.GITHUB_ACTIONS, process.argv[1], err.message);
+    if (warning) console.log(warning);
     if (BROWSER === 'safari' && shouldQuitSafari(err, await safariRunning())) await quitSafari();
     await attempt(fn, opts, 2);
   }
@@ -471,7 +481,7 @@ async function bringToFront(browser) {
   const front = () => browser.execute(() => document.hasFocus() && document.visibilityState === 'visible');
   if (await front()) return;
   await browser.switchToWindow(await browser.getWindowHandle());
-  if (!(await front())) await run('osascript', ['-e', 'tell application "Safari" to activate']).catch(() => {});
+  if (!(await front())) await run('osascript', ['-e', 'tell application "Safari" to activate'], { timeout: 10_000 }).catch(() => {});
   await browser.waitUntil(front, { timeout: 5_000, interval: 100 }).catch(() => {});
   console.log(`[web] the browser window was not in front; brought it forward (${(await front()) ? 'now in front' : 'still not in front'})`);
 }

@@ -137,6 +137,19 @@ describe('messaging', () => {
     expect(sender.tab).toEqual({ id: 1, index: 0, url: location.href });
   });
 
+  it('messages and answers are serialized, not shared by reference', async () => {
+    const { page, background } = setup();
+    const received = [];
+    const answer = { n: 1 };
+    background.runtime.onMessage.addListener((m) => { received.push(m); return Promise.resolve(answer); });
+    const msg = { a: { b: 1 }, skip: undefined };
+    const got = await page.runtime.sendMessage(msg);
+    expect(received[0]).toEqual({ a: { b: 1 } });
+    expect(received[0]).not.toBe(msg);
+    expect(got).toEqual(answer);
+    expect(got).not.toBe(answer);
+  });
+
   it('tabs.sendMessage reaches page listeners', async () => {
     const { page, background } = setup();
     let got;
@@ -156,7 +169,7 @@ describe('tabs, runtime, permissions', () => {
 
   it('getURL, getManifest, permissions', async () => {
     const { page } = setup();
-    expect(page.runtime.getURL('icons/x.png')).toBe('/__ext/icons/x.png');
+    expect(page.runtime.getURL('icons/x.png')).toBe(location.origin + '/__ext/icons/x.png');
     expect(page.runtime.getManifest()).toBe(manifest);
     expect(await page.permissions.contains({ origins: ['x'] })).toBe(true);
     expect(await page.permissions.getAll()).toEqual({

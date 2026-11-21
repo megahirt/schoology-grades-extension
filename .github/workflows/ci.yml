@@ -17,6 +17,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -69,7 +70,7 @@ jobs:
 
       # BROWSER_VERSION=stable: webdriverio downloads the current stable
       # Firefox (and geckodriver) instead of using the runner's own copy, so
-      # the browser is the same known build every run and never mid-update.
+      # the browser is a clean, current stable build and never mid-update.
       - name: Feature suite (web build, Firefox)
         run: npm run test:web:firefox
         env:
