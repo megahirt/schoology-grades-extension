@@ -1,5 +1,8 @@
-// Safari smoke test: the DEV build's in-page panel on the mock Schoology
-// server, in real Safari, driven by safaridriver (WebDriver) via webdriverio.
+// Manual extension check: the real DEV build's in-page panel on the mock
+// Schoology server, in real Safari, driven by safaridriver (WebDriver) via
+// webdriverio. Run by hand after loading the extension in Safari; not in CI.
+// The features themselves run in Safari in the web feature suite
+// (test/web/, `npm run test:safari`), which needs no extension loaded.
 //
 //   npm run build:dev && SAFARI_E2E=1 npm run test:e2e:safari
 //

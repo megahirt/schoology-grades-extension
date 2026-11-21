@@ -1,9 +1,12 @@
 # CI — Grades Dashboard for Schoology (Safari-first, Chrome second)
 #
-# Runs on every push and pull request: lint, unit tests, both builds
-# (prod + dev + Firefox dev), then the Playwright end-to-end tests against
-# the mock Schoology server in Chromium and Firefox. The live probe against real Schoology is NOT part
-# of CI — it needs a logged-in browser session; see test/probe/.
+# Runs on every push and pull request. Job `test` (the required check):
+# lint, unit tests, the builds (prod, dev, Firefox dev, web), the Playwright
+# extension-wiring tests in Chromium and Firefox, then the web feature suite
+# (test/web/) in Chrome and Firefox. Job `safari`: the same web feature suite
+# in Safari on a macOS runner. All of it runs against the mock Schoology
+# server. The live probe against real Schoology is NOT part of CI — it needs
+# a logged-in browser session; see test/probe/. See test/README.md.
 
 name: CI
 
@@ -44,6 +47,10 @@ jobs:
       - name: Build (Firefox dev, mock-server build)
         run: npm run build:firefox
 
+      # dist-web/: the extension's code as a web app, for the feature suite.
+      - name: Build (web, for the feature suite)
+        run: npm run build:web
+
       # --no-shell: skip Chrome's headless shell, which cannot load
       # extensions (the e2e tests use full Chromium via channel 'chromium').
       # Firefox is Playwright's own build; the add-on is installed over
@@ -52,5 +59,48 @@ jobs:
       - name: Install Playwright Chromium and Firefox
         run: npx playwright install --with-deps --no-shell chromium firefox
 
-      - name: End-to-end tests (Chromium and Firefox)
+      - name: Extension wiring tests (Playwright, Chromium and Firefox)
         run: npm run test:e2e
+
+      # webdriverio uses the runner's Chrome (headless) and fetches a
+      # matching chromedriver.
+      - name: Feature suite (web build, Chrome)
+        run: npm run test:web
+
+      # BROWSER_VERSION=stable: webdriverio downloads the current stable
+      # Firefox (and geckodriver) instead of using the runner's own copy, so
+      # the browser is the same known build every run and never mid-update.
+      - name: Feature suite (web build, Firefox)
+        run: npm run test:web:firefox
+        env:
+          BROWSER_VERSION: stable
+
+  # The feature suite in real Safari. The macOS image ships Safari with
+  # "Allow remote automation" on; `safaridriver --enable` is the one setup
+  # step. There is no user Safari on the runner, so the suite's "quit a
+  # Safari you started" and "bring Safari to the front" steps do nothing
+  # harmful here.
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enable safaridriver
+        run: sudo safaridriver --enable
+
+      - name: Build (web, for the feature suite)
+        run: npm run build:web
+
+      - name: Feature suite (web build, Safari)
+        run: npm run test:safari
