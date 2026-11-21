@@ -288,6 +288,8 @@ jobs:
       - name: Check out
         if: steps.amo.outputs.configured == 'true'
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # with the annotated tag, for its message
 
       - name: Set up Node 24
         if: steps.amo.outputs.configured == 'true'
@@ -313,14 +315,23 @@ jobs:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         # --approval-timeout 0: submit and finish; don't wait for the review.
+        # Release notes = the tag's message if it is an annotated tag
+        # (git tag -a v1.5.0 -m "…"), the same text as the App Store's
+        # What's New; otherwise a line pointing at the GitHub release.
         run: |
           mkdir -p amo-package
           unzip -q "out/schoology-grades-extension-${VERSION}-firefox.zip" -d amo-package
+          NOTES=""
+          if [ "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag ]; then
+            NOTES="$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents)' | sed '/-----BEGIN PGP SIGNATURE-----/,$d')"
+          fi
+          NOTES="$NOTES" node scripts/amo-metadata.mjs > amo-metadata.json
           npx web-ext sign \
             --source-dir amo-package \
             --artifacts-dir amo-artifacts \
             --channel listed \
             --upload-source-code "out/schoology-grades-extension-${VERSION}-source.zip" \
+            --amo-metadata amo-metadata.json \
             --approval-timeout 0 \
             --no-input
 
