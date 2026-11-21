@@ -4,14 +4,15 @@
 // shrunk to fit (fitToOnePage).
 //
 // Same data and rules as the dashboard (rules.js summarizeStudent):
-//   - Missing, Overdue and Due soon, leaving out what the student marked;
+//   - Missing, Overdue and Due soon, leaving out what the student marked,
+//     each with an empty box to tick off with a pencil;
 //   - Classes, with grades only where the dashboard shows grades
-//     (Settings → who sees grades);
+//     (Settings → who sees grades); Recent low grades; Doing well;
 //   - the GO/NO-GO verdict only for a parent with the badge turned on.
 
-import { summarizeStudent, assignmentPercent } from './rules.js';
+import { summarizeStudent } from './rules.js';
 import { cleanCourseNames } from './names.js';
-import { escapeHtml, dueLabel, updatedLabel, ptsText, byPointsDesc, gradeColumns, visibleCourses, isPartial } from './dashboard-view.js';
+import { escapeHtml, dueLabel, updatedLabel, ptsText, byPointsDesc, gradeColumns, visibleCourses, isPartial, gradeText, SECTION_EMOJI } from './dashboard-view.js';
 
 // Letter paper, with 0.4 in margins, in CSS pixels (96 per inch).
 export const PAGE = { width: Math.round(7.7 * 96), height: Math.round(10.2 * 96) };
@@ -31,42 +32,81 @@ body { font: 12px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
   .paper { margin: 0; width: auto; min-height: 0; padding: 0; box-shadow: none; }
   .sheet { break-inside: avoid; }
 }
-.p-head { display: flex; align-items: flex-end; gap: 12px; padding-bottom: 8px; border-bottom: 2px solid #111827; }
+.p-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #f6f7f9; }
+.p-head.go { background: #eef7f1; } .p-head.nogo { background: #fbefed; } .p-head.unknown { background: #fff4db; }
 .p-head .grow { flex: 1 1 auto; min-width: 0; }
 .p-name { font-size: 22px; font-weight: 800; line-height: 1.15; }
 .p-meta { color: #5f6b7a; margin-top: 2px; }
 .p-brand { color: #5f6b7a; font-size: 11px; text-align: right; }
+.p-brand b { color: #1d4ed8; }
 .p-verdict { font-size: 14px; font-weight: 800; padding: 3px 10px; border-radius: 999px; color: #fff; }
 .p-verdict.go { background: #1b7a3e; } .p-verdict.nogo { background: #b42318; } .p-verdict.unknown { background: #f2b84b; color: #3d2c00; }
-.p-stats { display: flex; gap: 18px; margin: 10px 0 4px; }
-.p-stat b { font-size: 18px; margin-right: 4px; }
+.p-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.p-stat { display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
+.p-stat b { font-size: 16px; }
+.p-stat.missing { background: #fdf6f5; border-color: #f1d4cf; }
+.p-stat.overdue { background: #fdf8ec; border-color: #f3dfb4; }
+.p-stat.due { background: #f3f6fe; border-color: #c7d4f5; }
+.p-stat.well { background: #eef7f1; border-color: #b9dcc5; }
 .p-stat.bad b { color: #b42318; }
+.p-stat .e { font-size: 12px; }
+.missing-icon { width: 14px; height: 12px; vertical-align: -1px; }
 .p-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
-.p-sec { margin-top: 12px; break-inside: avoid; }
-.p-sec h2 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #d3d7dc; padding-bottom: 2px; }
-.p-sec ul { list-style: none; margin: 0; padding: 0; }
-.p-sec li { padding: 3px 0; border-bottom: 1px dotted #e5e7eb; }
-.p-sec li.more { color: #5f6b7a; font-style: italic; border-bottom: none; }
+.p-sec { margin-top: 12px; break-inside: avoid; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+.p-sec h2 { display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px 10px; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: #3b4652; background: #f6f7f9; border-bottom: 1px solid #e5e7eb; }
+.p-sec h2 .e { font-size: 14px; letter-spacing: 0; }
+.p-sec h2 .missing-icon { width: 16px; height: 14px; }
+.p-sec.missing { border-color: #f1d4cf; } .p-sec.missing h2 { background: #fbefed; border-color: #f1d4cf; color: #8f1c13; }
+.p-sec.overdue { border-color: #f3dfb4; } .p-sec.overdue h2 { background: #fdf3dc; border-color: #f3dfb4; color: #7a4b00; }
+.p-sec.due { border-color: #c7d4f5; } .p-sec.due h2 { background: #e8eefc; border-color: #c7d4f5; color: #1e3a8a; }
+.p-sec.well { border-color: #b9dcc5; } .p-sec.well h2 { background: #eef7f1; border-color: #b9dcc5; color: #14592d; }
+.p-sec.low { border-color: #f1d4cf; } .p-sec.low h2 { background: #fdf6f5; border-color: #f1d4cf; color: #8f1c13; }
+.p-sec.classes h2 { background: #f1f3f6; }
+.p-sec > ul, .p-sec > .p-none { margin: 0; padding: 4px 10px 5px; }
+.p-sec > table { width: calc(100% - 20px); margin: 3px 10px 5px; }
+.p-sec ul { list-style: none; }
+.p-sec li { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; border-bottom: 1px dotted #e5e7eb; }
+.p-sec li:last-child { border-bottom: none; }
+.p-sec li.more { display: block; color: #5f6b7a; font-style: italic; }
+.p-sec li .grow { flex: 1 1 auto; min-width: 0; }
+.p-box { flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px; border: 1.5px solid #4b5563; border-radius: 3px; background: #fff; }
+.p-g { flex: 0 0 auto; font-weight: 700; color: #1b7a3e; white-space: nowrap; }
+.p-sec.low .p-g { color: #b42318; }
 .p-t { font-weight: 600; }
 .p-s { color: #5f6b7a; font-size: 11px; }
 .p-none { color: #5f6b7a; }
-table { width: 100%; border-collapse: collapse; }
+table { border-collapse: collapse; }
 th { text-align: left; font-size: 11px; color: #5f6b7a; font-weight: 600; padding: 2px 4px 2px 0; }
 td { padding: 3px 4px 3px 0; border-bottom: 1px dotted #e5e7eb; vertical-align: top; }
 td.n, th.n { text-align: right; white-space: nowrap; }
 td.low { color: #b42318; font-weight: 700; }
 .p-foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #d3d7dc; color: #5f6b7a; font-size: 10px; }
+.p-foot b { color: #1d4ed8; }
 `;
 
 function pct(n) {
   return typeof n === 'number' ? `${Math.round(n)}%` : '–';
 }
 
-function list(title, items, key) {
+// One colored section, like the dashboard's: `key` picks the color (CSS
+// .p-sec.<key>) and the heading's emoji/icon; `check` puts an empty box in
+// front of each item to tick off with a pencil; an item's `grade` shows at
+// the right.
+const EMOJI = { missing: SECTION_EMOJI.missing, overdue: SECTION_EMOJI.overdue, due: SECTION_EMOJI.due, well: SECTION_EMOJI.doingWell, low: SECTION_EMOJI.notSoGood, classes: SECTION_EMOJI.classes };
+
+function heading(title, key) {
+  // EMOJI holds trusted markup (an emoji, or the Missing icon <img>).
+  return `<h2><span class="e" aria-hidden="true">${EMOJI[key] || ''}</span>${escapeHtml(title)}</h2>`;
+}
+
+function list(title, items, key, { check = false, count = true } = {}) {
+  const li = (it) => '<li>' + (check ? '<span class="p-box" aria-hidden="true"></span>' : '') +
+    `<div class="grow"><span class="p-t">${escapeHtml(it.title)}</span>${it.sub ? `<div class="p-s">${escapeHtml(it.sub)}</div>` : ''}</div>` +
+    (it.grade ? `<span class="p-g">${escapeHtml(it.grade)}</span>` : '') + '</li>';
   const body = items.length
-    ? `<ul data-list="${key}" data-total="${items.length}">${items.map((it) => `<li><span class="p-t">${escapeHtml(it.title)}</span>${it.sub ? `<div class="p-s">${escapeHtml(it.sub)}</div>` : ''}</li>`).join('')}</ul>`
+    ? `<ul data-list="${key}" data-total="${items.length}">${items.map(li).join('')}</ul>`
     : '<p class="p-none">None</p>';
-  return `<section class="p-sec"><h2>${escapeHtml(title)} · ${items.length}</h2>${body}</section>`;
+  return `<section class="p-sec ${key}">${heading(count ? `${title} · ${items.length}` : title, key)}${body}</section>`;
 }
 
 // renderPrintSheet({ d, settings, marks, isParentView, now }) -> HTML for one
@@ -92,19 +132,21 @@ export function renderPrintSheet({ d, settings, marks = {}, isParentView = false
   const printed = new Date(now).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const updated = d.updatedAt ? updatedLabel(d.updatedAt).replace(/^Updated/, 'grades updated') : 'not updated yet';
 
-  let html = '<header class="p-head"><div class="grow">' +
+  const tone = verdict === 'GO' ? ' go' : verdict === 'NO-GO' ? ' nogo' : verdict ? ' unknown' : '';
+  let html = `<header class="p-head${tone}"><div class="grow">` +
     `<div class="p-name">${escapeHtml(d.studentName || 'Student')}</div>` +
     `<div class="p-meta">Printed ${escapeHtml(printed)} · ${escapeHtml(updated)}</div></div>` +
     (verdict ? `<span class="p-verdict ${verdict === 'GO' ? 'go' : verdict === 'NO-GO' ? 'nogo' : 'unknown'}">${verdict}</span>` : '') +
-    '<div class="p-brand">Grades Dashboard<br>for Schoology</div></header>';
+    '<div class="p-brand"><b>Grades Dashboard</b><br>for Schoology</div></header>';
   if (partial) html += '<p class="p-none">Only part of the grades loaded. Refresh the dashboard and print again for the full picture.</p>';
 
   const overdueCount = s.overdueItems.length;
+  const stat = (key, n, label, bad) => `<span class="p-stat ${key}${bad ? ' bad' : ''}"><span class="e" aria-hidden="true">${EMOJI[key]}</span><b>${n}</b>${label}</span>`;
   html += '<div class="p-stats">' +
-    `<span class="p-stat${s.missingCount >= settings.missingThreshold ? ' bad' : ''}"><b>${s.missingCount}</b>Missing</span>` +
-    `<span class="p-stat${overdueCount >= settings.overdueThreshold ? ' bad' : ''}"><b>${overdueCount}</b>Overdue</span>` +
-    `<span class="p-stat"><b>${s.dueToday.length + s.dueTomorrow.length}</b>Due today or tomorrow</span>` +
-    `<span class="p-stat"><b>${s.waiting.length}</b>Waiting on the teacher</span></div>`;
+    stat('missing', s.missingCount, 'Missing', s.missingCount >= settings.missingThreshold) +
+    stat('overdue', overdueCount, 'Overdue', overdueCount >= settings.overdueThreshold) +
+    stat('due', s.dueToday.length + s.dueTomorrow.length, 'Due today or tomorrow', false) +
+    stat('well', s.doingWell.length, 'Doing well', false) + '</div>';
 
   const missing = byPointsDesc(s.missingItems).map((a) => ({ title: a.title, sub: [a.courseName, dueLabel(a), ptsText(a)].filter(Boolean).join(' · ') }));
   const dueT = (a) => { const t = Date.parse(a.due || ''); return Number.isNaN(t) ? Infinity : t; };
@@ -129,25 +171,28 @@ export function renderPrintSheet({ d, settings, marks = {}, isParentView = false
       (showGrades ? `<td class="n${low(first)}">${pct(first)}</td>${cols.quarter && cols.overall ? `<td class="n${low(second)}">${pct(second)}</td>` : ''}` : '') +
       `<td class="n">${missingBy.get(c.name) || ''}</td></tr>`;
   });
-  const classes = '<section class="p-sec"><h2>Classes</h2>' + (rows.length
+  const classes = `<section class="p-sec classes">${heading('Classes', 'classes')}` + (rows.length
     ? '<table><thead><tr><th>Class</th>' +
       (showGrades ? `<th class="n">${escapeHtml(cols.quarter || 'Grade')}</th>${cols.quarter && cols.overall ? `<th class="n">${escapeHtml(cols.overall)}</th>` : ''}` : '') +
       `<th class="n">Missing</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
     : '<p class="p-none">No classes with grades yet.</p>') + '</section>';
 
-  // Recent low grades (rules.js notSoGood) only where grades show; then work
-  // turned in that the teacher hasn't graded yet.
+  // Recent low grades (rules.js notSoGood) only where grades show; then
+  // Doing well (B or better lately), most recent first, with the grade only
+  // where grades show, as on the dashboard.
   const lows = showGrades
-    ? s.notSoGood.map((a) => {
-      const p = assignmentPercent(a);
-      return { title: a.title, sub: [a.courseName, p !== null ? `${Math.round(p)}%` : a.letterGrade, dueLabel(a)].filter(Boolean).join(' · ') };
-    })
+    ? s.notSoGood.map((a) => ({ title: a.title, sub: [a.courseName, dueLabel(a)].filter(Boolean).join(' · '), grade: gradeText(a, settings) }))
     : [];
-  const waiting = [...s.waiting].sort((x, y) => dueT(y) - dueT(x)).map((a) => ({ title: a.title, sub: [a.courseName, dueLabel(a)].filter(Boolean).join(' · ') }));
+  const well = [...s.doingWell].sort((x, y) => dueT(y) - dueT(x)).map((a) => ({
+    title: a.title,
+    sub: [a.courseName, dueLabel(a)].filter(Boolean).join(' · '),
+    grade: showGrades ? gradeText(a, settings) : '',
+  }));
 
-  html += '<div class="p-cols"><div>' + list('Missing', missing, 'missing') + list('Overdue', overdue, 'overdue') + list('Due soon', due, 'due') + '</div>' +
-    `<div>${classes}${showGrades ? list('Recent low grades', lows, 'low') : ''}${list('Waiting on the teacher', waiting, 'waiting')}</div></div>`;
-  html += '<footer class="p-foot">Read from Schoology on this device by Grades Dashboard for Schoology. Check Schoology for the latest.</footer>';
+  const box = { check: true };
+  html += '<div class="p-cols"><div>' + list('Missing', missing, 'missing', box) + list('Overdue', overdue, 'overdue', box) + list('Due soon', due, 'due', box) + '</div>' +
+    `<div>${classes}${showGrades ? list('Recent low grades', lows, 'low') : ''}${list('Doing well', well, 'well')}</div></div>`;
+  html += '<footer class="p-foot">Read from Schoology on this device by <b>Grades Dashboard for Schoology</b>. Check Schoology for the latest.</footer>';
   return html;
 }
 

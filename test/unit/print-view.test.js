@@ -17,7 +17,10 @@ describe('print sheet', () => {
     expect(html).toContain('Persuasive Essay Draft');
     expect(html).toMatch(/<th class="n">Quarter 2<\/th>/);
     expect(html).toMatch(/<td class="n low">55%<\/td>/); // below the passing grade, in red
-    expect(html).toContain('Waiting on the teacher');
+    expect(html).not.toContain('Waiting on the teacher');
+    expect(html).toContain('<section class="p-sec well">');
+    expect(html).toMatch(/<section class="p-sec missing">.*?<span class="p-box"/);
+    expect(html).not.toMatch(/<section class="p-sec well">(?:(?!<\/section>).)*p-box/); // boxes only on work to do
   });
 
   it('shows no verdict to a student and no grades where grades are hidden', () => {
