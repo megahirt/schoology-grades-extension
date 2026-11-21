@@ -272,7 +272,7 @@ describe('classes: this week\'s work', () => {
     expect(html).toContain('data-aid="w3" data-new="missing:w3">');
     // A good grade in Doing well: the star. (Its own item, due two days
     // before now, so the test doesn't depend on the day or time zone it runs in.)
-    const good = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'g', name: 'Art', grade: 95, assignments: [{ id: 'g1', title: 'Sketch', status: 'graded', score: 10, maxPoints: 10, due: new Date(Date.now() - 2 * DAY).toISOString() }] }] }, 'u1',
+    const good = renderStudentBody({ studentName: 'Sam Rivera', courses: [{ id: 'g', name: 'Art', grade: 95, assignments: [{ id: 'g1', title: 'Sketch', status: 'graded', score: 10, maxPoints: 10, due: new Date(NOW - 2 * DAY).toISOString() }] }] }, 'u1',
       { ...DEFAULT_SETTINGS }, { turnedIn: [], done: [] }, { isParentView: false, now: NOW }).html;
     expect(good).toContain('<div class="row compact" data-new="grade:g1:10" data-cue="star">');
   });
