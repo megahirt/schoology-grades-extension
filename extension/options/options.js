@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS, hasGradeData } from '../src/rules.js';
 import { getSettings, setSettings, getDashboards, getAccount, getLiveTest, setSite, changedFor } from '../src/storage.js';
 import { loadDemo, initials, feedbackHref, ABOUT_URL, REAL_SCHOOLOGY, MOCK_SCHOOLOGY } from '../src/dashboard-view.js';
 import { holidayFor } from '../src/holidays.js';
+import { enterDemoMode, exitDemoMode, isDemoMode, hasNoSavedData } from '../src/demo-mode.js';
 import npcLogo from '../icons/npc_icon_tiny.png';
 
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
@@ -134,13 +135,51 @@ $('refresh-btn').addEventListener('click', async () => {
   await renderAccount();
 });
 
-$('clear-btn').addEventListener('click', async () => {
-  // eslint-disable-next-line no-alert
-  if (!window.confirm('Clear everything this extension saved in this browser: grades, records, the daily log, your turned-in and done marks, and your settings? This cannot be undone.')) return;
+// Clear data asks in the page itself: window.confirm closes at once in
+// some browsers (and in automated ones). Greyed out when nothing is saved;
+// then Show demo data is offered next to it (src/demo-mode.js).
+const confirmBox = $('clear-confirm');
+$('clear-btn').addEventListener('click', () => {
+  confirmBox.hidden = false;
+  $('clear-cancel').focus();
+});
+$('clear-cancel').addEventListener('click', () => {
+  confirmBox.hidden = true;
+  $('clear-btn').focus();
+});
+$('clear-yes').addEventListener('click', async () => {
   await browser.storage.local.clear();
   // Reload so every setting shows its default again.
   window.location.reload();
 });
+$('demo-mode-btn').addEventListener('click', async () => {
+  const btn = $('demo-mode-btn');
+  btn.disabled = true;
+  try {
+    await enterDemoMode(browser, { dev: IS_DEV });
+    $('clear-status').textContent = 'Demo mode is on. Schoology opens with the made-up students.';
+    // Show it where families see it: on Schoology, in a new tab.
+    await browser.tabs.create({ url: `${settings.schoologyBase || REAL_SCHOOLOGY}/` }).catch(() => {});
+  } catch (err) {
+    $('clear-status').textContent = `Could not load demo data: ${err.message || err}`;
+  }
+  btn.disabled = false;
+  await renderDataState();
+  await renderAccount();
+});
+$('demo-exit').addEventListener('click', async () => {
+  await exitDemoMode(browser);
+  window.location.reload();
+});
+
+async function renderDataState() {
+  const [empty, demo] = await Promise.all([hasNoSavedData(browser).catch(() => false), isDemoMode().catch(() => false)]);
+  $('clear-btn').disabled = empty;
+  $('clear-btn').title = empty ? 'Nothing is saved' : '';
+  if (empty) confirmBox.hidden = true;
+  $('demo-mode-btn').hidden = !empty;
+  $('demo-banner').hidden = !demo;
+}
 
 // --- Developer (dev builds only) ------------------------------------------------
 
@@ -233,10 +272,12 @@ async function init() {
   setupDev();
   setupMenu();
   await renderAccount();
+  await renderDataState();
   requestAnimationFrame(() => document.body.classList.add('ready'));
   // Keep the account box and class list current if a refresh finishes.
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
+    renderDataState();
     if ('settings' in changes) {
       const base = (changes.settings.newValue || {}).schoologyBase;
       if (base && base !== settings.schoologyBase) { settings = { ...settings, schoologyBase: base }; setSite(base); renderAccount(); }

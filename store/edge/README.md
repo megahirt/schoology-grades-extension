@@ -151,7 +151,7 @@ school grades
 Paste this when you click Publish, on the "Submit your extension" page:
 
 ```text
-The extension needs a Schoology account to show real grades. Without one, click the toolbar button, then "See a demo", then "Load demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button links to the Schoology pages where it appears.
+The extension needs a Schoology account to show real grades. Without one, click the toolbar button, then "See a demo", then "Show demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button links to the Schoology pages where it appears.
 ```
 
 For an update, add one line saying what changed (the GitHub Release notes

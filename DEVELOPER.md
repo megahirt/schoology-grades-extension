@@ -21,7 +21,7 @@ npm test            # unit tests
 ```
 
 Then load `dist/` in Chrome (see below), click the toolbar button, then
-**See a demo** and **Load demo data**. It loads made-up students, so you can see everything with
+**See a demo** and **Show demo data**. It loads made-up students, so you can see everything with
 no Schoology login.
 
 ## How it works
@@ -49,6 +49,11 @@ no Schoology login.
   never shown under the wrong child.
 - **GO / NO-GO** (parents only) uses simple rules you can change in
   Settings. Defaults: below 75% in a class, or 2+ Missing items, is NO-GO.
+- **Demo mode** (`extension/src/demo-mode.js`): while nothing is saved,
+  Settings → Privacy & data (and the dashboard page) offer **Show demo
+  data**. It fills every Schoology site with made-up students, and the
+  background reads nothing from Schoology until **Exit demo mode** in the
+  link at the bottom, which clears everything.
 - **Parser self-check:** if a page has grade rows but nothing parses, the
   dashboard says it couldn't read the grades (`PARSE_EMPTY`) instead of
   showing a green GO. The parser's header (`extension/src/parser-core.js`)

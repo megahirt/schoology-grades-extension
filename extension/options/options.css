@@ -102,3 +102,15 @@ a.link-btn { display: inline-flex; align-items: center; gap: 6px; text-decoratio
 .support .grow { flex: 1 1 260px; display: flex; flex-direction: column; gap: 6px; }
 @media (prefers-reduced-motion: reduce) { .support-chev { transition: none; } }
 .support-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+.clear-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.confirm { margin: 4px 0 8px; padding: 14px 16px; border: 1px solid #f1c4bd; border-radius: 10px; background: #fdf6f5; }
+.confirm p { margin: 0 0 12px; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.btn.danger-solid { border-color: var(--nogo); background: var(--nogo); color: #fff; }
+.btn.danger-solid:hover { background: #8f1c13; border-color: #8f1c13; }
+/* Demo mode (src/demo-mode.js): one centered "Exit demo mode" link at the very bottom. */
+body:has(.demo-banner:not([hidden])) { padding-bottom: 40px; }
+.demo-banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 8px 16px; background: #fff; border-top: 1px solid var(--line-2); font-size: 13px; text-align: center; }
+.demo-banner[hidden] { display: none; }
+.demo-exit { border: none; background: none; padding: 0; color: #1d4ed8; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }

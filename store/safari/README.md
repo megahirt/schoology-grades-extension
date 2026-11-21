@@ -126,7 +126,7 @@ Answer "None of the algorithms mentioned above".
 ```text
 Grades Dashboard is a Safari web extension. To use it: open the app once, turn the extension on in Safari > Settings > Extensions, and allow it on app.schoology.com.
 
-The extension shows a dashboard of a student's grades from Schoology (a school learning system by PowerSchool). It needs a Schoology parent or student account, which schools issue to their families; we cannot create a demo account. The toolbar button lists the Schoology addresses where the dashboard appears, and its "See a demo" link opens the dashboard with a "Load demo data" button that shows made-up students.
+The extension shows a dashboard of a student's grades from Schoology (a school learning system by PowerSchool). It needs a Schoology parent or student account, which schools issue to their families; we cannot create a demo account. The toolbar button lists the Schoology addresses where the dashboard appears, and its "See a demo" link opens the dashboard with a "Show demo data" button that shows made-up students.
 
 The extension only reads Schoology pages the signed-in user can already see. It stores everything in Safari's extension storage on the Mac and sends nothing anywhere. There is no server, no account and no analytics.
 
@@ -134,8 +134,10 @@ Screenshots in the listing use made-up students. Source code: https://github.com
 ```
 
 Apple often asks for a way to see the app working. Be ready to send a short
-screen recording, or ship a build with "Load demo data" (`node
-scripts/build-safari.mjs --dev` includes it; a release build does not).
+screen recording, or point the reviewer to demo mode: toolbar button → "See
+a demo" → "Show demo data", or Settings → Privacy & data → "Show demo data"
+(offered while nothing is saved). Schoology's pages then show made-up
+students, and nothing is read from Schoology until "Exit demo mode".
 
 ## Before you submit
 

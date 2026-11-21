@@ -2,7 +2,7 @@
 // page (src/panel.js), so the popup doesn't show it again: it lists the
 // Schoology addresses where the dashboard appears, as links, so someone on
 // another page can get there in one tap, and a quiet "See a demo" link to the
-// full dashboard page (popup/dashboard.html, with "Load demo data"). On a
+// full dashboard page (popup/dashboard.html, with "Show demo data"). On a
 // school's own Schoology address the extension doesn't cover yet, it also
 // offers to use it there.
 
@@ -78,7 +78,7 @@ async function showSchoolOffer(tab) {
 }
 
 drawSites();
-// The full dashboard on a page of its own, where "Load demo data" shows
+// The full dashboard on a page of its own, where "Show demo data" shows
 // made-up students (for anyone without Schoology, and store reviewers).
 document.getElementById('demo-link').addEventListener('click', (e) => {
   e.preventDefault();

@@ -621,12 +621,62 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
 
       // Clear data removes everything, settings included, and the page
       // shows the defaults again.
-      opts.once('dialog', (d) => d.accept());
       await opts.getByRole('button', { name: 'Clear data…' }).click();
+      await opts.getByRole('alertdialog').getByRole('button', { name: 'Clear data', exact: true }).click();
       await expect.poll(async () => Object.keys(await worker.evaluate(() => chrome.storage.local.get(null))).filter((k) => k !== 'settings')).toEqual([]);
       await expect(opts.locator('#doing-well-percent')).toHaveValue('80');
       // Close: the button closes the settings tab.
       await Promise.all([opts.waitForEvent('close'), opts.getByRole('button', { name: 'Close' }).click()]);
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
+  test('settings: Clear data asks in the page, greys out when empty; demo mode shows made-up students and reads nothing', async () => {
+    test.skip(isFirefox(), "Playwright's Firefox can't open moz-extension:// pages (the settings page).");
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    const stored = () => worker.evaluate(() => chrome.storage.local.get(null));
+    try {
+      // Something saved: Clear data is on and asks in the page (no window.confirm).
+      await worker.evaluate(async (base) => chrome.storage.local.set({ settings: { schoologyBase: base }, 'turnedIn@x': { a: 1 } }), mockBase);
+      const opts = await context.newPage();
+      let nativeDialog = false;
+      opts.on('dialog', (d) => { nativeDialog = true; d.dismiss(); });
+      await opts.goto(`chrome-extension://${extensionId}/${OPTIONS_PAGE}#privacy`);
+      const clear = opts.getByRole('button', { name: 'Clear data…' });
+      const demoBtn = opts.getByRole('button', { name: 'Show demo data' });
+      await expect(clear).toBeEnabled();
+      await expect(demoBtn).toBeHidden();
+      await clear.click();
+      const box = opts.getByRole('alertdialog');
+      await expect(box).toBeVisible();
+      await box.getByRole('button', { name: 'Cancel' }).click();
+      await expect(box).toBeHidden();
+      await clear.click();
+      await box.getByRole('button', { name: 'Clear data', exact: true }).click();
+      await expect(clear).toBeDisabled();
+      expect(nativeDialog).toBe(false);
+      expect(Object.keys(await stored())).toEqual([]);
+
+      // Nothing saved: Show demo data, which opens Schoology with the made-up family.
+      await worker.evaluate(async (base) => chrome.storage.local.set({ settings: { schoologyBase: base } }), mockBase);
+      await expect(demoBtn).toBeVisible();
+      const [page] = await Promise.all([context.waitForEvent('page'), demoBtn.click()]);
+      await expect(opts.getByRole('button', { name: 'Exit demo mode' })).toBeVisible();
+      await expect(clear).toBeEnabled();
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByRole('tab', { name: /Sam/ })).toBeVisible({ timeout: 15000 });
+      await expect(panel.locator('.demo-banner')).toHaveText('Exit demo mode');
+      // Nothing read from Schoology: no signed-in person, no refresh.
+      const keys = Object.keys(await stored());
+      expect(keys.filter((k) => k.startsWith('user@') || k.startsWith('refreshState@'))).toEqual([]);
+
+      // Exit demo mode: everything is cleared and the page reloads.
+      await Promise.all([page.waitForEvent('load'), panel.getByRole('button', { name: 'Exit demo mode' }).click()]);
+      await expect.poll(async () => (await stored()).demoMode ?? null).toBeNull();
+      await expect(page.locator('#sgd-panel-host .demo-banner')).toHaveCount(0);
     } finally {
       await context.close();
       rmSync(userDataDir, { recursive: true, force: true });
@@ -648,7 +698,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // "See a demo" opens the full dashboard page, where demo data loads.
       const [demo] = await Promise.all([context.waitForEvent('page'), popup.getByRole('link', { name: 'See a demo' }).click()]);
       await expect(demo).toHaveURL(/\/popup\/dashboard\.html$/);
-      await expect(demo.getByRole('button', { name: 'Load demo data' })).toBeVisible();
+      await expect(demo.getByRole('button', { name: 'Show demo data' })).toBeVisible();
     } finally {
       await context.close();
       rmSync(userDataDir, { recursive: true, force: true });

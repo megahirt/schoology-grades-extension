@@ -107,7 +107,18 @@
           <div class="strong">Clear all saved data</div>
           <div class="muted">Removes everything this extension saved in this browser: grades, records, the daily log, your turned-in and done marks, and your settings.</div>
         </div>
-        <button id="clear-btn" type="button" class="btn danger">Clear data…</button>
+        <div class="clear-actions">
+          <button id="demo-mode-btn" type="button" class="btn" hidden>Show demo data</button>
+          <button id="clear-btn" type="button" class="btn danger">Clear data…</button>
+        </div>
+      </div>
+      <!-- In-page confirm (not window.confirm, which some browsers close at once). -->
+      <div id="clear-confirm" class="confirm" role="alertdialog" aria-labelledby="clear-confirm-text" hidden>
+        <p id="clear-confirm-text"><b>Clear everything?</b> Grades, records, the daily log, your turned-in and done marks, and your settings are removed from this browser. This cannot be undone.</p>
+        <div class="confirm-actions">
+          <button id="clear-cancel" type="button" class="btn">Cancel</button>
+          <button id="clear-yes" type="button" class="btn danger-solid">Clear data</button>
+        </div>
       </div>
       <p id="clear-status" class="muted" role="status"></p>
     </section>
@@ -175,6 +186,7 @@
     </section>
   </main>
 </div>
+<div id="demo-banner" class="demo-banner" hidden><button id="demo-exit" type="button" class="demo-exit">Exit demo mode</button></div>
 <script src="options.js"></script>
 </body>
 </html>
