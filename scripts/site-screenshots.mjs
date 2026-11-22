@@ -338,6 +338,17 @@ try {
       await page.waitForTimeout(300);
       await save(page, 'parent-sam');
 
+      // Buttons pictured in RELEASE_NOTES.md (docs/release-notes/), with a
+      // little of the header around each.
+      for (const [act, name] of [['print', 'print-button']]) {
+        const b = await sheet.locator(`.head [data-act="${act}"]`).boundingBox();
+        const pad = 5;
+        const file = path.join(ROOT, 'docs', 'release-notes', `${name}.png`);
+        mkdirSync(path.dirname(file), { recursive: true });
+        await page.screenshot({ path: file, clip: { x: b.x - pad, y: b.y - pad, width: b.width + 2 * pad, height: b.height + 2 * pad } });
+        saved.push(file);
+      }
+
       // Sam's Records and Doing well, further down.
       await scrollTo(sheet.locator('h2', { hasText: 'Records' }));
       await page.waitForTimeout(300);

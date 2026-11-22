@@ -123,7 +123,27 @@ Mac), then commit `site/img/`.
 
 The version comes **only from the tag**. `extension/manifest.json` and
 `package.json` stay at `0.0.0`; the build writes the real version into each
-built manifest. To release, tag a commit on `main`:
+built manifest.
+
+**Release notes come first.** Write the version's section in
+[`RELEASE_NOTES.md`](RELEASE_NOTES.md) and commit it on `main` before
+tagging: a list of what's new (✨ New) and what's fixed (🛠️ Fixed), one line
+per item, each starting with an emoji, worded for families (no PR numbers or
+developer terms). A picture of a button can go inline,
+`![Print button](docs/release-notes/print-button.png)`; button pictures are
+made by `npm run site:screenshots`. That one section becomes:
+
+- the **What's new** note the extension shows once after it updates (in every
+  browser; the build bundles it, [`scripts/release-notes.mjs`](scripts/release-notes.mjs));
+- Safari's **What's New** in the App Store and Firefox's **release notes** on AMO
+  (plain text);
+- the top of the **GitHub Release**, followed by GitHub's list of merged PRs.
+
+Chrome and Edge have no per-version notes on their store pages; the What's
+new note in the extension covers them. A tag without notes for its version
+stops at the first step, and a release build without them fails.
+
+Then tag the commit on `main`:
 
 ```bash
 git checkout main && git pull
@@ -133,10 +153,12 @@ git push origin v1.4.0
 
 [`release.yml`](.github/workflows/release.yml) then:
 
-1. Checks the tag is `vX.Y.Z` and on `main`.
+1. Checks the tag is `vX.Y.Z`, on `main`, and that `RELEASE_NOTES.md` has
+   its section.
 2. Builds Chrome/Edge, Firefox and Safari ZIPs with that version, plus a
    ZIP of the source.
-3. Creates the GitHub Release (generated notes, ZIPs, checksums).
+3. Creates the GitHub Release (the release notes, ZIPs, checksums and the
+   merged PRs).
 4. Redeploys the site so it shows the new version.
 5. Runs the store uploads behind the `release` environment's approval gate.
    They skip until their secrets and upload steps exist. Chrome is

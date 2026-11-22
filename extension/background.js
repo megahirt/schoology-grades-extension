@@ -472,7 +472,14 @@ browser.permissions.onRemoved.addListener(() => {
 
 // --- Top-level listeners only ------------------------------------------------
 
-browser.runtime.onInstalled.addListener(async () => {
+browser.runtime.onInstalled.addListener(async (details) => {
+  // Updated to a new version: the dashboard shows What's new once, the next
+  // time it opens (dashboard-view.js). Not on a first install, and not when
+  // a dev build is reloaded at the same version.
+  const version = browser.runtime.getManifest().version;
+  if (details && details.reason === 'update' && details.previousVersion !== version) {
+    await storageSet('whatsNewPending', { version, from: details.previousVersion || null, at: new Date().toISOString() }).catch(() => {});
+  }
   await browser.alarms.create(ALARM_NAME, { periodInMinutes: REFRESH_PERIOD_MINUTES });
   await syncSchoolScripts(browser).catch(() => {});
   // Save the stored settings with any new defaults filled in (never the

@@ -28,6 +28,7 @@ import {
   setMarkedDone,
   storageGet,
   storageSet,
+  storageRemove,
   getSite,
   setSite,
   changedFor,
@@ -61,6 +62,10 @@ export const DASHBOARD_CSS = css;
 // between real Schoology (the default) and the local mock server
 // (`npm run mock-server`). Production builds never show it.
 const IS_DEV = typeof __DEV__ !== 'undefined' && __DEV__; // eslint-disable-line no-undef
+// The What's new note for this version (RELEASE_NOTES.md, bundled by
+// scripts/build.mjs): { version, sections: [{ title, items: [parts] }] },
+// or null (tests, builds without notes).
+const WHATS_NEW = typeof __WHATS_NEW__ !== 'undefined' ? __WHATS_NEW__ : null; // eslint-disable-line no-undef
 export { REAL_SCHOOLOGY } from './sites.js';
 import { REAL_SCHOOLOGY } from './sites.js';
 export const MOCK_SCHOOLOGY = 'http://localhost:8123';
@@ -971,7 +976,7 @@ async function toggleMark(get, set, uid, aid, on) {
 // siteSwitch (the toolbar popup): when more than one Schoology site has data
 // (a parent on app.schoology.com and a student on the school's address),
 // show a switch between them above the dashboard.
-export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose, openLinksInActiveTab = false, siteSwitch = false } = {}) {
+export function mountDashboard(container, { browser, showDemo = true, openOptions, onClose, openLinksInActiveTab = false, siteSwitch = false, whatsNew = WHATS_NEW } = {}) {
   const root = container.ownerDocument.createElement('div');
   root.className = 'sgd';
   container.replaceChildren(root);
@@ -990,6 +995,27 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       '<p id="sgd-mark-p">Marking something done doesn\'t submit it or turn it in for you. That\'s still your job.</p>' +
       '<div class="mark-foot"><label class="mark-skip"><input type="checkbox" id="sgd-mark-skip"> Do not show again</label>' +
       '<button class="btn primary" type="button" data-act="mark-ok">I understand</button></div></div></div>';
+  }
+  // What's new: shown once after the extension updates (background.js sets
+  // whatsNewPending on the update), until it's closed. Kept on this device
+  // for everyone using it, not per account.
+  let whatsNewShowing = false;
+  function whatsNewHtml() {
+    if (!whatsNewShowing || !whatsNew) return '';
+    const part = (p) => (p.t === 'img' ? `<img class="wn-img" src="${escapeHtml(p.src)}" alt="${escapeHtml(p.alt)}">`
+      : p.t === 'b' ? `<b>${escapeHtml(p.v)}</b>` : escapeHtml(p.v));
+    const secs = whatsNew.sections.map((sec) => `<h3 class="wn-h">${escapeHtml(sec.title)}</h3>` +
+      `<ul class="wn-list">${sec.items.map((parts) => `<li>${parts.map(part).join('')}</li>`).join('')}</ul>`).join('');
+    return '<div class="mark-notice wn-veil" data-act="whats-new-close">' +
+      '<div class="mark-box wn-box" role="dialog" aria-modal="true" aria-labelledby="sgd-wn-h">' +
+      `<div class="mark-h" id="sgd-wn-h">What's new in version ${escapeHtml(whatsNew.version)}</div>` +
+      `<div class="wn-body">${secs}</div>` +
+      '<div class="mark-foot wn-foot"><button class="btn primary" type="button" data-act="whats-new-ok">Got it</button></div></div></div>';
+  }
+  async function closeWhatsNew() {
+    whatsNewShowing = false;
+    await storageRemove('whatsNewPending').catch(() => {});
+    await render();
   }
   // New since this person last looked: an item not seen before fades in as
   // it scrolls into view, and counts as seen from then on. Good news (a good
@@ -1340,7 +1366,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
     const prevBody = root.querySelector('.body');
     const bodyTop = prevBody ? prevBody.scrollTop : 0;
     const pageTop = win ? win.scrollY : 0;
-    root.innerHTML = `<main class="body">${closePin}${header}${tabsBar}<div class="content">${body}</div></main>` + footer + markNoticeHtml();
+    root.innerHTML = `<main class="body">${closePin}${header}${tabsBar}<div class="content">${body}</div></main>` + footer + markNoticeHtml() + whatsNewHtml();
     const nextBody = root.querySelector('.body');
     if (nextBody && bodyTop) nextBody.scrollTop = bodyTop;
     if (win && pageTop && win.scrollY !== pageTop) win.scrollTo(win.scrollX, pageTop);
@@ -1571,6 +1597,11 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       if (root.querySelector('#sgd-mark-skip')?.checked) await storageSet('markNoticeSeen', true).catch(() => {});
       await applyMark(m.act, m.uid, m.aid);
       await render();
+    } else if (act === 'whats-new-ok') {
+      await closeWhatsNew();
+    } else if (act === 'whats-new-close') {
+      // Only a press on the dimmed area itself, not inside the box.
+      if (e.target === btn) await closeWhatsNew();
     } else if (act === 'mark-cancel') {
       // Only a press on the dimmed area itself, not inside the box.
       if (e.target === btn) { pendingMark = null; await render(); }
@@ -1685,6 +1716,14 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
   browser.storage.onChanged.addListener(onStorageChanged);
 
   render();
+  if (whatsNew) {
+    storageGet('whatsNewPending', null).then(async (pending) => {
+      if (!pending || !root.isConnected) return;
+      whatsNewShowing = true;
+      await render();
+      root.querySelector('.wn-box .btn')?.focus();
+    }).catch(() => {});
+  }
   return {
     render,
     destroy() {
