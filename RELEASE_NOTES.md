@@ -7,6 +7,17 @@ becomes the What's new note the extension shows once after updating, the
 App Store's What's New, the Firefox release notes and the top of the
 GitHub release. Format: `scripts/release-notes.mjs`.
 
+## 1.6.0 — November 21, 2026
+
+### ✨ New
+- 📰 **What's new:** after each update, a short note like this one shows what changed.
+- 📶 A thin bar under the tabs while grades refresh, instead of the big Refreshing box.
+
+### 🛠️ Fixed
+- 😬 Overdue leaves out work handed in on paper, and tests that can't be turned in online.
+- 👨‍👩‍👧 Opening a child's class page no longer starts a full refresh.
+- 📱 On phones, the header buttons get their own row under the greeting.
+
 ## 1.5.0 — November 21, 2026
 
 ### ✨ New

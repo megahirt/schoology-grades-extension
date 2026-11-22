@@ -357,8 +357,13 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // A list per section (New, Fixed), each item starting with its emoji.
       await expect(dialog.locator('.wn-h').first()).toHaveText('✨ New');
       await expect(dialog.locator('.wn-list li').first()).toHaveText(/^\p{Extended_Pictographic}/u);
-      // Pictures of buttons come along (data: URLs, nothing to fetch).
-      await expect(dialog.getByRole('img', { name: 'Print button' })).toHaveAttribute('src', /^data:image\/png;base64,/);
+      // Pictures of buttons, when this version's notes have any, come along
+      // as data: URLs (nothing to fetch). Which ones depends on the newest
+      // notes; release-notes.test.js covers reading them in.
+      const imgs = dialog.locator('img');
+      for (let i = 0, n = await imgs.count(); i < n; i++) {
+        await expect(imgs.nth(i)).toHaveAttribute('src', /^data:image\/(png|jpeg|svg\+xml);base64,/);
+      }
       // And a link to every release's notes on GitHub.
       await expect(dialog.getByRole('link', { name: 'All release notes' }))
         .toHaveAttribute('href', 'https://github.com/megahirt/schoology-grades-extension/blob/main/RELEASE_NOTES.md');
