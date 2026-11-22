@@ -732,6 +732,7 @@ function renderRecords(records, showGrades, now) {
 export const FEEDBACK_EMAIL = 'gradesdashboard@hirtfamily.net';
 // The promo site (footer "About" link).
 export const ABOUT_URL = 'https://schoology.hirtfamily.net/';
+export const RELEASE_NOTES_URL = 'https://github.com/megahirt/schoology-grades-extension/blob/main/RELEASE_NOTES.md';
 export const COFFEE_URL = 'https://buymeacoffee.com/megahirt';
 
 // "Send feedback": the family's own mail app, with the version and browser
@@ -1010,7 +1011,9 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       '<div class="mark-box wn-box" role="dialog" aria-modal="true" aria-labelledby="sgd-wn-h">' +
       `<div class="mark-h" id="sgd-wn-h">What's new in version ${escapeHtml(whatsNew.version)}</div>` +
       `<div class="wn-body">${secs}</div>` +
-      '<div class="mark-foot wn-foot"><button class="btn primary" type="button" data-act="whats-new-ok">Got it</button></div></div></div>';
+      '<div class="mark-foot wn-foot">' +
+      `<a class="about-link wn-all" href="${RELEASE_NOTES_URL}" target="_blank" rel="noopener">All release notes</a>` +
+      '<button class="btn primary" type="button" data-act="whats-new-ok">Got it</button></div></div></div>';
   }
   async function closeWhatsNew() {
     whatsNewShowing = false;

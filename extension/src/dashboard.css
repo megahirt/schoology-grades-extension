@@ -176,7 +176,8 @@
 .sgd .wn-list li { font-size: 13px; line-height: 1.4; color: var(--ink-2); }
 .sgd .wn-list b { color: var(--ink, #1f2937); }
 .sgd .wn-img { height: 1.9em; width: auto; vertical-align: middle; margin: -0.3em 1px; border-radius: 6px; }
-.sgd .wn-foot { justify-content: flex-end; }
+.sgd .wn-foot { justify-content: space-between; }
+.sgd .wn-all { font-size: 13px; }
 .sgd .row-grade { font-size: 13px; font-weight: 600; flex: 0 0 auto; }
 .sgd .bonus { font-size: 13px; flex: 0 0 auto; margin-right: 4px; }
 /* Compact one-line rows (Doing well): title (class) ... grade. */

@@ -359,6 +359,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(dialog.locator('.wn-list li').first()).toHaveText(/^\p{Extended_Pictographic}/u);
       // Pictures of buttons come along (data: URLs, nothing to fetch).
       await expect(dialog.getByRole('img', { name: 'Print button' })).toHaveAttribute('src', /^data:image\/png;base64,/);
+      // And a link to every release's notes on GitHub.
+      await expect(dialog.getByRole('link', { name: 'All release notes' }))
+        .toHaveAttribute('href', 'https://github.com/megahirt/schoology-grades-extension/blob/main/RELEASE_NOTES.md');
       await dialog.getByRole('button', { name: 'Got it' }).click();
       await expect(dialog).toHaveCount(0);
       expect(await worker.evaluate(async () => (await chrome.storage.local.get('whatsNewPending')).whatsNewPending ?? null)).toBe(null);
