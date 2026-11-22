@@ -340,6 +340,43 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
     }
   });
 
+  // After an update, background.js sets whatsNewPending; the dashboard then
+  // shows this version's notes from RELEASE_NOTES.md once (dev builds: the
+  // newest section), until Got it. Set directly here: an update can't be
+  // made to happen in a test.
+  test("What's new shows once after an update, from RELEASE_NOTES.md", async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      await worker.evaluate(() => chrome.storage.local.set({ whatsNewPending: { version: '9.9.9' } }));
+      const popup = await openPopup(context, extensionId);
+      const dialog = popup.getByRole('dialog', { name: /^What's new in version \d+\.\d+\.\d+$/ });
+      await expect(dialog).toBeVisible({ timeout: 15000 });
+      // A list per section (New, Fixed), each item starting with its emoji.
+      await expect(dialog.locator('.wn-h').first()).toHaveText('✨ New');
+      await expect(dialog.locator('.wn-list li').first()).toHaveText(/^\p{Extended_Pictographic}/u);
+      // Pictures of buttons come along (data: URLs, nothing to fetch).
+      await expect(dialog.getByRole('img', { name: 'Print button' })).toHaveAttribute('src', /^data:image\/png;base64,/);
+      // And a link to every release's notes on GitHub.
+      await expect(dialog.getByRole('link', { name: 'All release notes' }))
+        .toHaveAttribute('href', 'https://github.com/megahirt/schoology-grades-extension/blob/main/RELEASE_NOTES.md');
+      await dialog.getByRole('button', { name: 'Got it' }).click();
+      await expect(dialog).toHaveCount(0);
+      expect(await worker.evaluate(async () => (await chrome.storage.local.get('whatsNewPending')).whatsNewPending ?? null)).toBe(null);
+      await popup.close();
+      // Not again.
+      const again = await openPopup(context, extensionId);
+      await expect(again.locator('.card, .empty, .setup').first()).toBeVisible({ timeout: 15000 }).catch(() => {});
+      await expect(again.getByRole('dialog')).toHaveCount(0);
+      await again.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
   test('toolbar popup: only the Schoology addresses, as links, no second dashboard', async () => {
     test.skip(isFirefox(), "Playwright's Firefox can't open moz-extension:// pages (the popup).");
     const userDataDir = freshUserDataDir();

@@ -37,6 +37,7 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { forFirefox } from './manifest-firefox.mjs';
+import { NOTES_FILE, whatsNewFor } from './release-notes.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -124,6 +125,16 @@ async function main() {
     manifest.permissions = manifest.permissions.filter((p) => p !== 'scripting' && p !== 'activeTab');
   }
 
+  // The What's new note shown once after an update: this version's section
+  // of RELEASE_NOTES.md (dev builds: the newest section if this version has
+  // none). A release build without notes for its version fails here, so a
+  // release is never tagged before its notes are written.
+  const whatsNew = whatsNewFor(await readFile(NOTES_FILE, 'utf8'), manifest.version, { dev: isDev });
+  if (!whatsNew && !isDev && manifest.version !== '0.0.0') {
+    throw new Error(`RELEASE_NOTES.md has no section for ${manifest.version}. Write the release notes before tagging.`);
+  }
+
+  const DASHBOARD_ENTRIES = ['content', 'popup/dashboard'];
   const entries = {
     background: path.join(extDir, 'background.js'),
     content: path.join(extDir, 'content.js'),
@@ -144,6 +155,8 @@ async function main() {
       // __DEV__ turns on dev-only UI (the real/mock data source switch).
       define: {
         __DEV__: JSON.stringify(isDev),
+        // Only the bundles that draw the dashboard carry the notes.
+        __WHATS_NEW__: JSON.stringify(DASHBOARD_ENTRIES.includes(outName) ? whatsNew : null),
         ...(isWeb && {
           __WEB_ROLE__: JSON.stringify(outName === 'background' ? 'background' : 'page'),
           __WEB_MANIFEST__: JSON.stringify(manifest),

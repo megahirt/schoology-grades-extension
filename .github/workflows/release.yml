@@ -6,11 +6,19 @@
 # the GitHub Release is named after it, and the promo site is redeployed so
 # it shows the new version.
 #
-#   git checkout main && git pull
-#   git tag v1.4.0 && git push origin v1.4.0
+#   1. Write the "## 1.4.0" section of RELEASE_NOTES.md and commit it on main
+#      (a release without notes for its version stops at verify).
+#   2. git checkout main && git pull
+#      git tag v1.4.0 && git push origin v1.4.0
+#
+# That section is the release's text everywhere: the What's new note the
+# extension shows after updating (bundled by the build), the App Store's
+# What's New, the Firefox release notes, and the top of the GitHub Release
+# (followed by GitHub's list of merged PRs). scripts/release-notes.mjs.
 #
 # Jobs:
-#   1. verify  — tag is vX.Y.Z (no leading zeros) and its commit is on main.
+#   1. verify  — tag is vX.Y.Z (no leading zeros), its commit is on main,
+#                and RELEASE_NOTES.md has a section for the version.
 #   2. build   — lint + unit tests, then Chrome/Edge, Firefox and Safari
 #                builds stamped with the version, zipped, plus a ZIP of the
 #                source (Mozilla's reviewers rebuild from it), with SHA256SUMS.
@@ -66,6 +74,9 @@ jobs:
           fi
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "Releasing ${TAG#v} from $GITHUB_SHA"
+
+      - name: Check RELEASE_NOTES.md has this version's notes
+        run: node scripts/release-notes.mjs --version "${GITHUB_REF_NAME#v}" --format check
 
   build:
     runs-on: ubuntu-latest
@@ -138,6 +149,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.verify.outputs.version }}
     steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
       - name: Download release files
         uses: actions/download-artifact@v8
         with:
@@ -145,13 +159,17 @@ jobs:
           path: out
 
       - name: Create the GitHub Release
+        # The text: this version's release notes, the files, then GitHub's
+        # generated list of the merged PRs.
         run: |
           gh release create "$GITHUB_REF_NAME" out/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "v$VERSION" \
             --generate-notes \
-            --notes "Grades Dashboard for Schoology v$VERSION.
+            --notes "$(node scripts/release-notes.mjs --version "$VERSION" --format github)
+
+          ### Downloads
 
           - \`schoology-grades-extension-$VERSION-chrome.zip\`: Chrome and Edge (Load unpacked, or the store upload).
           - \`schoology-grades-extension-$VERSION-firefox.zip\`: Firefox.
@@ -313,14 +331,18 @@ jobs:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         # --approval-timeout 0: submit and finish; don't wait for the review.
+        # Release notes = this version's section of RELEASE_NOTES.md, as
+        # plain text (the same as the App Store's What's New).
         run: |
           mkdir -p amo-package
           unzip -q "out/schoology-grades-extension-${VERSION}-firefox.zip" -d amo-package
+          node scripts/release-notes.mjs --version "$VERSION" --format amo > amo-metadata.json
           npx web-ext sign \
             --source-dir amo-package \
             --artifacts-dir amo-artifacts \
             --channel listed \
             --upload-source-code "out/schoology-grades-extension-${VERSION}-source.zip" \
+            --amo-metadata amo-metadata.json \
             --approval-timeout 0 \
             --no-input
 
@@ -337,9 +359,8 @@ jobs:
     # submits version X.Y.Z for review. It is released automatically once
     # Apple approves it, so approving this job is the go-live decision.
     # Build number = run number x 100 + attempt, so re-running the job
-    # uploads a fresh build. "What's New" = the tag's message if
-    # it is an annotated tag (git tag -a v1.5.0 -m "…"), otherwise a line
-    # pointing at the GitHub release notes. Re-running the job after a
+    # uploads a fresh build. "What's New" = this version's section of
+    # RELEASE_NOTES.md, as plain text. Re-running the job after a
     # failure is safe. Needs the App Store Connect key and APPLE_TEAM_ID
     # (docs/safari.md, "Releases from GitHub Actions").
     runs-on: macos-26
@@ -394,7 +415,5 @@ jobs:
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
         run: |
-          if [ "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag ]; then
-            export WHATS_NEW="$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents)' | sed '/-----BEGIN PGP SIGNATURE-----/,$d')"
-          fi
+          export WHATS_NEW="$(node scripts/release-notes.mjs --version "$VERSION" --format plain)"
           node scripts/submit-appstore.mjs --version "$VERSION" --build "$BUILD_NUMBER"
