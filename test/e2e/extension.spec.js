@@ -417,7 +417,11 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       await expect(overdue).toContainText('Primary Source Notes', { timeout: 30000 });
       await expect(overdue).not.toContainText('Field Trip Form');
       const known = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('noSubmissions@'))?.[1]);
-      expect(Object.keys(known || {})).toEqual(['5203']);
+      // Each page's answer is kept: 5203 takes no submissions, 5204 goes in on Schoology (its badge).
+      expect(Object.keys(known || {}).sort()).toEqual(['5203', '5204']);
+      expect(known['5203'].via).toBeUndefined();
+      expect(known['5204'].via).toBe('schoology');
+      await expect(overdue.locator('.via-schoology')).toHaveCount(1);
       await page.close();
     } finally {
       await context.close();

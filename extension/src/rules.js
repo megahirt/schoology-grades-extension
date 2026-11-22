@@ -257,6 +257,17 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
         }
         continue;
       }
+      // Nothing to turn in online (paper or in-class work): never waiting on
+      // the teacher, even when marked. Before its due date it's in Due soon;
+      // after, it counts as done (rewards.js weekState: passed).
+      if (a.noSubmissions && a.submitted !== true) {
+        if (!dueValid) continue;
+        const end = a.due && /T/.test(String(a.due)) ? due : endOfDay(due);
+        if (end < now) continue;
+        if (due >= todayStart && due < tomorrowStart) dueToday.push(item);
+        else if (due >= tomorrowStart && due < dayAfterStart) dueTomorrow.push(item);
+        continue;
+      }
       if (a.submitted === true) {
         // Submitted, not graded yet: waiting on the teacher, not Due soon.
         waiting.push({ ...item, waitingReason: 'submitted' });
@@ -282,8 +293,6 @@ export function summarizeStudent(courses, settings, turnedInIdsArg, doneIdsArg) 
       if (!dueValid) continue;
       const dueEnd = a.due && /T/.test(String(a.due)) ? due : endOfDay(due);
       if (dueEnd < now) {
-        // Can't be submitted in Schoology (paper, in class): not Overdue.
-        if (a.noSubmissions) continue;
         const counts = a.status !== 'excused' && a.status !== 'incomplete';
         if (counts && !pastPeriod) overdueItems.push(item);
         continue;

@@ -394,3 +394,59 @@ describe('holiday logo in the header', () => {
     expect(headLogoHtml({ slug: 'christmas', name: 'Christmas', label: 'x' }, null)).toContain('class="head-logo"');
   });
 });
+
+describe('work with nothing to turn in online, and where work is turned in', () => {
+  // Made-up data. Wednesday noon, so this week has past and future days.
+  const WED = new Date(2026, 10, 18, 12, 0).getTime();
+  const day = (n, h = 23) => new Date(2026, 10, 18 + n, h, 59).toISOString();
+  const courses = [{
+    id: 'p', name: 'Science', grade: 90, assignments: [
+      { id: 'p1', title: 'Pond Lab', status: 'overdue', due: day(-1), noSubmissions: 'paper' },
+      { id: 'p2', title: 'Cell Quiz', status: 'overdue', due: day(-2), noSubmissions: 'page' },
+      { id: 'p3', title: 'Map Quiz', status: 'pending', due: day(1), noSubmissions: 'page' },
+      { id: 'p4', title: 'Worksheet', status: 'pending', due: day(1), via: 'schoology' },
+      { id: 'p5', title: 'Essay', status: 'pending', due: day(0), via: 'google' },
+      { id: 'p6', title: 'DM: Roots', status: 'pending', due: day(1), via: 'deltamath' },
+      { id: 'p7', title: 'Reading', status: 'overdue', due: day(-1), via: 'online' },
+    ],
+  }];
+  const render = (marks = { turnedIn: [], done: [] }, openClass = null) => renderStudentBody({ studentName: 'Sam Rivera', courses }, 'u1', { ...DEFAULT_SETTINGS }, marks, { isParentView: false, now: WED, openClass }).html;
+
+  it('past its due date it counts as done: in the progress bar (striped) and its class', () => {
+    const html = render();
+    expect(html).toMatch(/aria-label="2 of 7 assignments, [^:]+: 0 graded, 0 turned in, 2 done offline, 1 overdue, 4 remaining"/);
+    expect(html).toContain('<span class="wk-part passed" data-tip="2 done offline" style="flex-grow:2"></span>');
+    expect(html).toContain('<span class="week-label">2 of 7</span>');
+    const list = render(undefined, 'u1:p');
+    expect(list).toMatch(/class="wk-check on" type="button" disabled aria-label="Pond Lab: nothing to turn in online, counted as done"/);
+    expect(list).toMatch(/class="wk-title done">Pond Lab/);
+  });
+  it("isn't Overdue or waiting on the teacher, even when marked; before its due date it's in Due soon", () => {
+    const html = render({ turnedIn: [], done: ['p3'] });
+    const overdue = html.slice(html.indexOf('Overdue ·'), html.indexOf('Due soon ·'));
+    expect(overdue).toContain('Reading');
+    expect(overdue).not.toContain('Pond Lab');
+    expect(overdue).not.toContain('Cell Quiz');
+    expect(html).not.toContain('Submitted, not graded yet ·');
+    const due = html.slice(html.indexOf('Due soon ·'));
+    expect(due).toContain('Map Quiz');
+  });
+  it('a letter badge says where work is turned in; none when it isn\'t online', () => {
+    const html = render();
+    const due = html.slice(html.indexOf('Due soon ·'), html.indexOf('Classes'));
+    expect(due).toContain('<span class="via via-schoology" role="img" aria-label="Schoology assignment" title="Schoology assignment">S</span>');
+    expect(due).toContain('title="Google assignment">G</span>');
+    expect(due).toContain('title="DeltaMath assignment">Δ</span>');
+    const map = due.slice(due.indexOf('Map Quiz'), due.indexOf('</div></div>', due.indexOf('Map Quiz')));
+    expect(map).not.toContain('class="via');
+    expect(html).toMatch(/Reading[\s\S]*?title="Online assignment"><svg/);
+  });
+  it('Due soon: by day, online work first within a day, then by points', () => {
+    const html = render();
+    const due = html.slice(html.indexOf('Due soon ·'), html.indexOf('Classes'));
+    // Today: Essay. Tomorrow: Worksheet and DM: Roots (badges), then Map Quiz (none).
+    const order = ['Essay', 'Worksheet', 'DM: Roots', 'Map Quiz'].map((t) => due.indexOf(t));
+    expect(order.every((i) => i > 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+});

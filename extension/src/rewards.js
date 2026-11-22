@@ -97,6 +97,9 @@ function markSets(marks = {}) {
 //   submitted  Schoology shows a submission
 //   turnedIn / done   the family marked it (turned in, or done)
 //   missing    the teacher marked it Missing
+//   passed     past due, and it can't be turned in online (assignment-page.js:
+//              paper or in-class work): counted as done, unless the teacher
+//              marks it Missing
 //   overdue    past due with no grade, submission, mark or Missing mark: not
 //              done (it's in the Overdue section too), but not Missing
 //              either (only the teacher's mark makes work Missing)
@@ -112,13 +115,13 @@ export function weekState(a, marks = {}, now = Date.now()) {
   if (id !== null && sets.done.has(id)) return 'done';
   if (a.status === 'missing' || a.status === 'incomplete') return 'missing';
   const t = Date.parse(a.due || '');
-  // Can't be submitted in Schoology: still to be graded, not Overdue.
-  if (!Number.isNaN(t) && t <= now && !a.noSubmissions) return 'overdue';
+  if (!Number.isNaN(t) && t <= now) return a.noSubmissions ? 'passed' : 'overdue';
   return 'open';
 }
 
-// The states that count as done this week (graded or turned in).
-export const WEEK_DONE = new Set(['graded', 'submitted', 'turnedIn', 'done']);
+// The states that count as done this week (graded, turned in, or work
+// with nothing to turn in online whose due date has passed).
+export const WEEK_DONE = new Set(['graded', 'submitted', 'turnedIn', 'done', 'passed']);
 
 // classWeek(course, marks, now, carried) -> { items: [{ a, state }], total, done }:
 // one class's assignments due this week, plus `carried`: earlier work the
@@ -132,26 +135,29 @@ export function classWeek(course, marks = {}, now = Date.now(), carried = []) {
   return { items, total: items.length, done: items.filter((i) => WEEK_DONE.has(i.state)).length };
 }
 
-// weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted, missing }
+// weekProgress(courses, { turnedIn, done }, now) -> { total, graded, submitted, passed, missing }
 // total: everything due this week (Monday to Sunday), excused work left out.
 // graded: has a grade. submitted: not graded yet but counted as turned in
-// (weekState: submitted, or marked by the family). missing: teacher-marked Missing, not turned in. The class
-// bars add up to the same numbers.
+// (weekState: submitted, or marked by the family). passed: nothing to turn
+// in online, past due (counted as done). missing: teacher-marked Missing,
+// not turned in. The class bars add up to the same numbers.
 export function weekProgress(courses, marks = {}, now = Date.now()) {
   let total = 0;
   let graded = 0;
   let submitted = 0;
+  let passed = 0;
   let missing = 0;
   for (const c of courses || []) {
     const w = classWeek(c, marks, now);
     total += w.total;
     for (const { state } of w.items) {
       if (state === 'graded') graded += 1;
+      else if (state === 'passed') passed += 1;
       else if (WEEK_DONE.has(state)) submitted += 1;
       else if (state === 'missing') missing += 1;
     }
   }
-  return { total, graded, submitted, missing };
+  return { total, graded, submitted, passed, missing };
 }
 
 // classHighScore(course, now) -> { a, pct } for the class's highest-scoring
