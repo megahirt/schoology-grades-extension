@@ -613,3 +613,38 @@ export async function switchToNewWindow(browser, before, { timeout = 15_000 } = 
   await browser.switchToWindow(handle);
   return handle;
 }
+
+// TEMPORARY (CI diagnosis): Safari on the macos-26 runner answered "Could not
+// make the image" (canvas.toBlob gave null) where a Mac passes. On failure,
+// probes which step of screenshot.js's picture-making breaks and adds the
+// result to the error. Remove once the cause is fixed.
+export async function withImageProbe(browser, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    const probe = await browser.executeAsync((done) => {
+      const out = { ua: navigator.userAgent, dpr: devicePixelRatio };
+      const blobOf = (c) => new Promise((r) => { try { c.toBlob((b) => r(b ? b.size : null), 'image/png'); } catch (e) { r(`throw ${e.name}: ${e.message}`); } });
+      const urlLen = (c) => { try { return c.toDataURL('image/png').length; } catch (e) { return `throw ${e.name}`; } };
+      (async () => {
+        const small = document.createElement('canvas'); small.width = 10; small.height = 10;
+        out.small = await blobOf(small);
+        const sheet = document.getElementById('sgd-panel-host')?.shadowRoot?.querySelector('.sheet') || document.body;
+        const w = sheet.offsetWidth + 32; const h = (sheet.scrollHeight || sheet.offsetHeight) + 32;
+        out.size = [w * 2, h * 2];
+        const big = document.createElement('canvas'); big.width = w * 2; big.height = h * 2;
+        big.getContext('2d').fillRect(0, 0, 5, 5);
+        out.bigBlob = await blobOf(big); out.bigUrl = urlLen(big);
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><foreignObject x="0" y="0" width="40" height="20"><div xmlns="http://www.w3.org/1999/xhtml">hi</div></foreignObject></svg>';
+        const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        try { await img.decode(); out.decode = 'ok'; } catch (e) { out.decode = `${e.name}`; }
+        const c = document.createElement('canvas'); c.width = 80; c.height = 40;
+        const ctx = c.getContext('2d'); ctx.scale(2, 2);
+        try { ctx.drawImage(img, 0, 0); out.draw = 'ok'; } catch (e) { out.draw = `throw ${e.name}`; }
+        out.foBlob = await blobOf(c); out.foUrl = urlLen(c);
+      })().then(() => done(out), (e) => done({ ...out, probeError: String(e) }));
+    }).catch((e) => ({ probeFailed: String(e) }));
+    err.message = `${err.message} | image probe: ${JSON.stringify(probe)}`;
+    throw err;
+  }
+}

@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {
   WAIT_PREFIX, freshStart, attr, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
   refreshNow, shownCount, shownText, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, sessionSuite,
+  withImageProbe,
 } from './helpers.mjs';
 
 // The tab for `name` is selected.
@@ -107,7 +108,7 @@ async function twoChildren({ browser, base, mock }) {
   });
   const SHARE = /^Share a picture of the dashboard$/;
   await clickDashboard(browser, 'button', { label: SHARE });
-  await see(text, /Press Share again to send it\.$/, 'share needs a second press', '.status');
+  await withImageProbe(browser, () => see(text, /Press Share again to send it\.$/, 'share needs a second press', '.status'));
   await clickDashboard(browser, 'button', { label: SHARE });
   await see(text, /shared\.$/, 'shared', '.status');
   const shared = await browser.execute(() => window.__shared);

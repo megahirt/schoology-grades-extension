@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import {
   WAIT_PREFIX, freshStart, clickDashboard, count, expectDashboard, inDashboard, realClickDashboard, refreshNow, shownCount,
   signIn, skipReason, useMock, visible, waitForPanel, sessionSuite,
+  withImageProbe,
 } from './helpers.mjs';
 
 // The panel's widths, read from extension/src/panel.js (it can't be
@@ -130,7 +131,7 @@ async function openClosesRemembered({ browser, base }) {
   });
   // A real click, so the copy runs in a user gesture as it would for a person.
   await realClickDashboard(browser, 'button[aria-label="Share a picture of the dashboard"]');
-  await see(shownCount, 1, 'Copied button shown', 'button[aria-label="Copied"]');
+  await withImageProbe(browser, () => see(shownCount, 1, 'Copied button shown', 'button[aria-label="Copied"]'));
   let shot = null;
   await browser.waitUntil(async () => (shot = await browser.execute(() => window.__copied)) !== null, {
     timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} no picture was handed to the clipboard`,
