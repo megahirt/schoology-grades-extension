@@ -54,8 +54,21 @@ describe('weekProgress', () => {
         { id: 'a9', status: 'pending', due: d(10, 8) }, // Sunday 11:59 pm, still this week
       ],
     });
-    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 1, missing: 1 });
-    expect(weekProgress([c], { turnedIn: ['a3', 'a4'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3, missing: 1 });
+    expect(weekProgress([c], { turnedIn: [] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 1, passed: 0, missing: 1 });
+    expect(weekProgress([c], { turnedIn: ['a3', 'a4'] }, NOW)).toEqual({ total: 7, graded: 1, submitted: 3, passed: 0, missing: 1 });
+  });
+  it("work with nothing to turn in online counts as done once its due date passes, unless it's marked Missing", () => {
+    const c = course({
+      assignments: [
+        { id: 'p1', status: 'overdue', due: d(10, 4), noSubmissions: 'page' }, // past due: done
+        { id: 'p2', status: 'overdue', due: d(10, 5), noSubmissions: 'paper' }, // past due: done
+        { id: 'p3', status: 'pending', due: d(10, 7), noSubmissions: 'page' }, // not due yet: still to do
+        { id: 'p4', status: 'missing', due: d(10, 4), noSubmissions: 'paper' }, // the teacher's Missing mark wins
+        { id: 'p5', status: 'graded', score: 8, maxPoints: 10, due: d(10, 3), noSubmissions: 'paper' }, // graded later
+      ],
+    });
+    expect(classWeek(c, {}, NOW).items.map((i) => i.state)).toEqual(['graded', 'passed', 'missing', 'passed', 'open']);
+    expect(weekProgress([c], {}, NOW)).toEqual({ total: 5, graded: 1, submitted: 0, passed: 2, missing: 1 });
   });
   it('each class lists its own week, by due date, with where each item stands', () => {
     const c = course({

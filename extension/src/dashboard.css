@@ -329,6 +329,7 @@
 .sgd .wk-part::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
 .sgd .wk-part.graded { background: #1d4ed8; }
 .sgd .wk-part.turned-in { background: #93b4f5; }
+.sgd .wk-part.passed { background: repeating-linear-gradient(135deg, #93b4f5 0 3px, #c8d7fa 3px 6px); }
 .sgd .wk-part.missing { background: #ea580c; }
 .sgd .wk-part.overdue { background: #f2c14e; }
 .sgd .wk-part.left { background: #fff; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.10); }
@@ -400,3 +401,15 @@
 .sgd .demo-banner { position: sticky; bottom: 0; z-index: 7; padding: 7px 14px; background: #fff; border-top: 1px solid var(--line-2); font-size: 12px; text-align: center; }
 .sgd .demo-exit { border: none; background: none; padding: 0; color: #1d4ed8; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .sgd .demo-exit:hover { color: #1e40af; }
+
+/* Where an assignment is turned in: a gray letter in a white circle
+   (dashboard-view.js viaBadge). Not a logo. In Overdue and Due soon it has
+   its own fixed-width column by the right edge (.via-slot), so it lines up. */
+.sgd .via { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50%; box-sizing: border-box; background: #fff; border: 1px solid #cbd2db; color: #6b7280; font: 600 9.5px/1 system-ui, -apple-system, sans-serif; vertical-align: -3px; }
+.sgd .via-deltamath { font-size: 10px; }
+/* The normal arrow on hover (not the text cursor), and the letter can't be selected. */
+.sgd .via { cursor: default; user-select: none; -webkit-user-select: none; transition: background-color 0.12s, border-color 0.12s, color 0.12s; }
+/* A slight change on hover: there's a label, but nothing to click. */
+.sgd .via:hover { background: #f1f4f8; border-color: #aab4c1; color: #4b5563; }
+.sgd .via-slot { flex: 0 0 16px; display: inline-flex; justify-content: center; }
+.sgd .via-slot .via { margin-left: 0; }

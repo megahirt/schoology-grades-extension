@@ -12,7 +12,7 @@
 
 import { summarizeStudent } from './rules.js';
 import { cleanCourseNames } from './names.js';
-import { escapeHtml, dueLabel, updatedLabel, ptsText, byPointsDesc, gradeColumns, visibleCourses, isPartial, gradeText, SECTION_EMOJI, ABOUT_URL } from './dashboard-view.js';
+import { escapeHtml, dueLabel, updatedLabel, ptsText, byPointsDesc, dueSoonOrder, gradeColumns, visibleCourses, isPartial, gradeText, SECTION_EMOJI, ABOUT_URL } from './dashboard-view.js';
 
 // Letter paper, with 0.4 in margins, in CSS pixels (96 per inch).
 export const PAGE = { width: Math.round(7.7 * 96), height: Math.round(10.2 * 96) };
@@ -155,8 +155,8 @@ export function renderPrintSheet({ d, settings, marks = {}, isParentView = false
   const dueT = (a) => { const t = Date.parse(a.due || ''); return Number.isNaN(t) ? Infinity : t; };
   const overdue = [...s.overdueItems].sort((x, y) => dueT(x) - dueT(y)).map((a) => ({ title: a.title, sub: [a.courseName, dueLabel(a)].filter(Boolean).join(' · ') }));
   const due = [
-    ...byPointsDesc(s.dueToday).map((a) => ({ title: a.title, sub: [a.courseName, 'Today', ptsText(a)].filter(Boolean).join(' · ') })),
-    ...byPointsDesc(s.dueTomorrow).map((a) => ({ title: a.title, sub: [a.courseName, 'Tomorrow', ptsText(a)].filter(Boolean).join(' · ') })),
+    ...dueSoonOrder(s.dueToday).map((a) => ({ title: a.title, sub: [a.courseName, 'Today', ptsText(a)].filter(Boolean).join(' · ') })),
+    ...dueSoonOrder(s.dueTomorrow).map((a) => ({ title: a.title, sub: [a.courseName, 'Tomorrow', ptsText(a)].filter(Boolean).join(' · ') })),
   ];
 
   // Classes: every class with grade data; the quarter grade first when there

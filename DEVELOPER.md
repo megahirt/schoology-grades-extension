@@ -228,6 +228,14 @@ read-only):
   online, so it isn't Overdue; a box listing turned-in work counts as
   submitted. Tests and pages it doesn't recognize stay Overdue. "Can't be
   submitted" is remembered per assignment for a week (`noSubmissions`).
+- Paper work and badges (2026-11-22): paper assignments are decided one at
+  a time, never per class. Past its due date, a paper assignment counts as
+  done ("done offline" in the week bar) unless the teacher marks it
+  Missing. Work due today or tomorrow has its page read too, for the badge
+  saying where it's turned in: S (Schoology), G (Google), Δ (DeltaMath, an
+  outside tool titled "DM:" or "Deltamath"), or a globe (another online
+  tool). Parents get a 403 on an outside tool's launch page; the address
+  alone says it's online.
 
 Not yet checked live: the fetch from the extension's own service worker,
 Safari, and student accounts. Details:
