@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import {
   WAIT_PREFIX, freshStart, attr, attrIn, clickDashboard, count, expectDashboard, inDashboard, panelVerdicts, realClickDashboard,
   refreshNow, shownCount, shownText, signIn, skipReason, switchToNewWindow, text, textIn, updateSettings, useMock, visible, waitForPanel, sessionSuite,
-  withImageProbe,
+  pictureLimit,
 } from './helpers.mjs';
 
 // The tab for `name` is selected.
@@ -107,14 +107,20 @@ async function twoChildren({ browser, base, mock }) {
     };
   });
   const SHARE = /^Share a picture of the dashboard$/;
+  const pictureSkip = await pictureLimit(browser);
   await clickDashboard(browser, 'button', { label: SHARE });
-  await withImageProbe(browser, () => see(text, /Press Share again to send it\.$/, 'share needs a second press', '.status'));
-  await clickDashboard(browser, 'button', { label: SHARE });
-  await see(text, /shared\.$/, 'shared', '.status');
-  const shared = await browser.execute(() => window.__shared);
-  assert.equal(shared.length, 1, `one share: ${JSON.stringify(shared)}`);
-  assert.equal(shared[0].length, 1, `one file: ${JSON.stringify(shared)}`);
-  assert.match(shared[0][0], /^grades-dashboard-jamie-\d{4}-\d{2}-\d{2}\.png image\/png$/);
+  if (pictureSkip) {
+    // See pictureLimit (helpers.mjs): the product says so plainly.
+    await see(text, /^Couldn’t make the picture/, 'picture failure message', '.status');
+  } else {
+    await see(text, /Press Share again to send it\.$/, 'share needs a second press', '.status');
+    await clickDashboard(browser, 'button', { label: SHARE });
+    await see(text, /shared\.$/, 'shared', '.status');
+    const shared = await browser.execute(() => window.__shared);
+    assert.equal(shared.length, 1, `one share: ${JSON.stringify(shared)}`);
+    assert.equal(shared[0].length, 1, `one file: ${JSON.stringify(shared)}`);
+    assert.match(shared[0][0], /^grades-dashboard-jamie-\d{4}-\d{2}-\d{2}\.png image\/png$/);
+  }
   // Shared "07" prefixes are dropped from class names.
   await see((root, q) => q('.class .class-name').map((e) => e.textContent.trim()), ['English', 'Math'], 'Jamie class names');
   // The picked child is remembered: a page load stays on Jamie.
@@ -204,8 +210,12 @@ async function dashboardAndPrint({ browser, base }) {
   await see(text, 'Jamie Rivera', 'print name', '.p-name');
   await see(text, 'GO', 'print verdict', '.p-verdict');
   await see(shownText, 'Missing · 1', 'print Missing heading shown', 'h2', 'Missing');
-  const fit = await browser.execute(() => ({ h: document.getElementById('sheet').getBoundingClientRect().height, fit: document.body.dataset.fit }));
-  assert.ok(fit.fit, 'fitted to one page');
+  // The page fits itself to one sheet just after it renders (data-fit).
+  let fit = null;
+  await browser.waitUntil(async () => {
+    fit = await browser.execute(() => ({ h: document.getElementById('sheet').getBoundingClientRect().height, fit: document.body.dataset.fit || null }));
+    return Boolean(fit.fit);
+  }, { timeout: 10_000, interval: 200, timeoutMsg: () => `${WAIT_PREFIX} fitted to one page: ${JSON.stringify(fit)}` });
   assert.ok(fit.h <= 979 + 1, `one Letter page high: ${fit.h}`);
   await browser.closeWindow();
   await browser.switchToWindow(dashboardWindow);

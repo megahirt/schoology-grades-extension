@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  WAIT_PREFIX, freshStart, clickDashboard, count, expectDashboard, inDashboard, realClickDashboard, refreshNow, shownCount,
+  WAIT_PREFIX, freshStart, clickDashboard, text, count, expectDashboard, inDashboard, realClickDashboard, refreshNow, shownCount,
   signIn, skipReason, useMock, visible, waitForPanel, sessionSuite,
-  withImageProbe,
+  pictureLimit,
 } from './helpers.mjs';
 
 // The panel's widths, read from extension/src/panel.js (it can't be
@@ -129,18 +129,24 @@ async function openClosesRemembered({ browser, base }) {
       window.__copied = { type: blob.type, w: bmp.width, h: bmp.height };
     };
   });
+  const pictureSkip = await pictureLimit(browser);
   // A real click, so the copy runs in a user gesture as it would for a person.
   await realClickDashboard(browser, 'button[aria-label="Share a picture of the dashboard"]');
-  await withImageProbe(browser, () => see(shownCount, 1, 'Copied button shown', 'button[aria-label="Copied"]'));
-  let shot = null;
-  await browser.waitUntil(async () => (shot = await browser.execute(() => window.__copied)) !== null, {
-    timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} no picture was handed to the clipboard`,
-  });
-  assert.equal(shot.type, 'image/png');
-  // The panel width plus a 16px margin each side, at 2×.
-  assert.ok(Math.abs(shot.w - (PANEL_WIDTH + 2 * 16) * 2) <= 4, `picture width ${shot.w}`);
-  const bodyHeight = await inDashboard(browser, (root) => root.querySelector('main.body').clientHeight);
-  assert.ok(shot.h / 2 > bodyHeight, `the whole dashboard (${shot.h / 2} px), not just what's on screen (${bodyHeight} px)`);
+  if (pictureSkip) {
+    // See pictureLimit (helpers.mjs): the product says so plainly.
+    await see(text, /^Couldn’t make the picture/, 'picture failure message', '.status');
+  } else {
+    await see(shownCount, 1, 'Copied button shown', 'button[aria-label="Copied"]');
+    let shot = null;
+    await browser.waitUntil(async () => (shot = await browser.execute(() => window.__copied)) !== null, {
+      timeout: 15_000, interval: 250, timeoutMsg: `${WAIT_PREFIX} no picture was handed to the clipboard`,
+    });
+    assert.equal(shot.type, 'image/png');
+    // The panel width plus a 16px margin each side, at 2×.
+    assert.ok(Math.abs(shot.w - (PANEL_WIDTH + 2 * 16) * 2) <= 4, `picture width ${shot.w}`);
+    const bodyHeight = await inDashboard(browser, (root) => root.querySelector('main.body').clientHeight);
+    assert.ok(shot.h / 2 > bodyHeight, `the whole dashboard (${shot.h / 2} px), not just what's on screen (${bodyHeight} px)`);
+  }
 
   // Wide window (Schoology's 980 px + the 437 px panel fit): the panel
   // docks beside Schoology, which narrows to the space left, no shadow.
