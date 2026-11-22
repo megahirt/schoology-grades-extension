@@ -1,0 +1,55 @@
+# Store status — can we release? Asks the Chrome Web Store, Firefox Add-ons
+# and the App Store whether an earlier version is still in review (or
+# approved and not out yet). Fails (red) while one is, so a release waits
+# for it; nothing is cancelled or changed. Edge can't be asked (its API has
+# no status): check Partner Center before clicking Publish there.
+#
+#   gh workflow run store-status.yml --ref main [-f version=1.6.0]
+#
+# The release workflow runs the same check (its `stores` job) before
+# publishing anything. Uses the store keys in the `release` environment, so
+# each run waits for the owner's approval, and that environment must allow
+# main (Settings → Environments → release → Deployment branches and tags).
+# scripts/store-status.mjs.
+
+name: Store status
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version about to be released (optional: it doesn't count as busy if already submitted)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Ask each store whether a review is in progress
+        env:
+          VERSION: ${{ inputs.version }}
+          CWS_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ vars.EDGE_CLIENT_ID }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
+        run: node scripts/store-status.mjs ${VERSION:+--version "$VERSION"}
