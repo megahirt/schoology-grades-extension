@@ -198,3 +198,11 @@ ol.refs .why { display: block; color: var(--muted); font-size: 15px; margin-top:
 .support-text p { margin: 0; }
 .support-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .support-links .btn { padding: 10px 16px; font-size: 15px; }
+
+/* "Only what you can still turn in": the badge key, drawn like the
+   extension's badges (a gray letter in a white circle). */
+.via-key { list-style: none; padding: 0; margin: 12px 0 16px; display: grid; gap: 8px; }
+.via-key li { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--muted); }
+.via { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; background: #fff; border: 1px solid #cbd2db; color: #6b7280; font: 600 11.5px/1 system-ui, -apple-system, sans-serif; }
+.via.none { border-style: dashed; }
+.spotlight .feature-media img { box-shadow: 0 12px 28px rgba(15, 23, 42, .10); }

@@ -12,7 +12,8 @@
 //    "nothing missing" run, and refreshes for real against the mock server.
 // 3. Saves the home page hero (1440×900: the panel open beside a made-up
 //    Schoology course page, scripts/schoology-backdrop.mjs), then desktop
-//    shots (1280×800) of the panel, Missing work, the
+//    shots (1280×800) of the panel, Overdue and Due soon with their badges
+//    (real-overdue), Missing work, the
 //    grade chart, Records, the popup and the settings page; then phone
 //    shots (390×844), each also placed in a drawn phone frame.
 // 4. Does the same as the student (Sam), in a fresh profile.
@@ -213,6 +214,9 @@ async function save(target, name, opts = {}) {
 async function openPanel(ctx, where = '/showcase', viewport = DESKTOP) {
   const page = await ctx.newPage();
   await page.setViewportSize(viewport);
+  // No "new" fade-ins or celebrations mid-shot: the dashboard skips them
+  // when motion is reduced, so every run comes out the same.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`${base}${where}`);
   const sheet = page.locator('#sgd-panel-host aside.sheet');
   const tab = page.locator('#sgd-panel-host button.edge-tab');
@@ -338,6 +342,28 @@ try {
       await page.waitForTimeout(300);
       await save(page, 'parent-sam');
 
+      // "Only what you can still turn in": Sam's name card (this week's bar,
+      // pointing at its "done offline" part) down through Overdue and Due
+      // soon, with the badges saying where each is turned in.
+      {
+        const card = sheet.locator('.card', { hasText: 'Sam Rivera' });
+        const dueSec = sheet.locator('section.sec').filter({ has: page.locator('h2', { hasText: 'Due soon' }) });
+        // A taller window, so Due soon fits without scrolling the panel.
+        await page.setViewportSize({ width: DESKTOP.width, height: 1300 });
+        await body.evaluate((el) => { el.scrollTop = 0; });
+        await page.waitForTimeout(400);
+        const passed = card.locator('.wk-part.passed');
+        if (await passed.count()) await passed.hover();
+        await page.waitForTimeout(300);
+        const top = await card.boundingBox();
+        const bottom = await dueSec.boundingBox();
+        const pad = 12;
+        await save(page, 'real-overdue', { clip: { x: top.x - pad, y: top.y - pad, width: top.width + 2 * pad, height: bottom.y + bottom.height - top.y + 2 * pad } });
+        await page.mouse.move(0, 0);
+        await page.setViewportSize(DESKTOP);
+        await page.waitForTimeout(300);
+      }
+
       // Buttons pictured in RELEASE_NOTES.md (docs/release-notes/), with a
       // little of the header around each.
       for (const [act, name] of [['print', 'print-button']]) {
@@ -416,6 +442,7 @@ try {
 
       // Popup.
       const popup = await ctx.newPage();
+      await popup.emulateMedia({ reducedMotion: 'reduce' });
       await popup.setViewportSize({ width: 400, height: 640 });
       await popup.goto(`chrome-extension://${extId}/popup/dashboard.html`);
       await popup.locator('.card').first().waitFor();
