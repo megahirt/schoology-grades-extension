@@ -2,7 +2,7 @@
 //   - the What's new dialog after an update (build.mjs bundles the section
 //     for the version being built: whatsNewFor);
 //   - the store notes: Safari's What's New and Firefox's release notes
-//     (--format plain / amo);
+//     (--format plain / amo / appstore);
 //   - the GitHub Release text (--format github; the workflow adds the
 //     merged-PR list after it).
 //
@@ -17,7 +17,7 @@
 // still reads with the image's alt text in its place) are understood.
 //
 // CLI (the release workflow):
-//   node scripts/release-notes.mjs --version 1.5.1 --format check|plain|amo|github
+//   node scripts/release-notes.mjs --version 1.5.1 --format check|plain|amo|appstore|github
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -75,9 +75,18 @@ const plainItem = (item) => item.parts.map((p) => (p.t === 'img' ? p.alt : p.v))
 // "✨ New" -> "New" (the store text keeps each item's own emoji only).
 const plainTitle = (title) => title.replace(/^[^\p{L}\p{N}]+/u, '').trim() || title;
 
-// Store text (App Store What's New, AMO release notes): plain lines.
+// Store text (AMO release notes): plain lines.
 export function toPlain(release) {
   return release.sections.map((s) => [`${plainTitle(s.title)}:`, ...s.items.map(plainItem)].join('\n')).join('\n\n');
+}
+
+// App Store What's New: the same lines without emoji, which Apple refuses
+// there (HTTP 409 "can't contain the following character(s)"). Each item's
+// leading emoji becomes a bullet.
+const EMOJI = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[\u{1F3FB}-\u{1F3FF}\u200D\uFE0E\uFE0F\u20E3])+/gu;
+export const noEmoji = (text) => text.replace(EMOJI, '').replace(/[ \t]{2,}/g, ' ').trim();
+export function toAppStore(release) {
+  return release.sections.map((s) => [`${noEmoji(plainTitle(s.title))}:`, ...s.items.map((it) => `• ${noEmoji(plainItem(it))}`)].join('\n')).join('\n\n');
 }
 
 // GitHub Release text: the section as Markdown, images from the tag.
@@ -123,6 +132,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   const out = format === 'check' ? `RELEASE_NOTES.md has notes for ${version}.`
     : format === 'github' ? toGithub(rel)
+    : format === 'appstore' ? toAppStore(rel)
     : format === 'amo' ? JSON.stringify({ version: { release_notes: { 'en-US': toPlain(rel) } } }, null, 2)
     : toPlain(rel);
   process.stdout.write(`${out}\n`);

@@ -2,7 +2,7 @@
 // store notes and the GitHub Release.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseReleaseNotes, releaseFor, toPlain, toGithub, whatsNewFor, NOTES_FILE } from '../../scripts/release-notes.mjs';
+import { parseReleaseNotes, releaseFor, toPlain, toAppStore, noEmoji, toGithub, whatsNewFor, NOTES_FILE } from '../../scripts/release-notes.mjs';
 
 const MD = `# Release notes
 
@@ -44,6 +44,10 @@ describe('store and GitHub text', () => {
   it('plain text for the stores: a heading per list, one item per line, images read as their alt text', () => {
     expect(toPlain(rel)).toBe('New:\n🖨️ Print one page. Look for the Print button at the top.\n📶 A thin bar while grades refresh.\n\nFixed:\n😬 Overdue leaves out paper work.');
   });
+  it("App Store What's New: no emoji (Apple refuses them), a bullet per item", () => {
+    expect(toAppStore(rel)).toBe('New:\n• Print one page. Look for the Print button at the top.\n• A thin bar while grades refresh.\n\nFixed:\n• Overdue leaves out paper work.');
+    expect(noEmoji('👨‍👩‍👧 A child 🇺🇸 page 👍🏽 1️⃣ ok')).toBe('A child page 1 ok');
+  });
   it('Markdown for the GitHub Release, images from the tag', () => {
     expect(toGithub(rel)).toBe('### ✨ New\n- 🖨️ **Print** one page. Look for the <img src="https://raw.githubusercontent.com/megahirt/schoology-grades-extension/v1.5.1/docs/release-notes/print-button.png" alt="Print button" height="22"> at the top.\n- 📶 A thin bar while grades refresh.\n\n### 🛠️ Fixed\n- 😬 Overdue leaves out paper work.');
   });
@@ -73,6 +77,9 @@ describe('RELEASE_NOTES.md itself', () => {
     }
     // whatsNewFor reads every picture of every release: throws if one is missing.
     for (const r of all) expect(() => whatsNewFor(md, r.version)).not.toThrow();
+  });
+  it("every release's App Store text is free of emoji", () => {
+    for (const r of all) expect(toAppStore(r), r.version).not.toMatch(/\p{Extended_Pictographic}|\u200D|\uFE0F/u);
   });
   it('versions are newest first', () => {
     const n = (v) => v.split('.').reduce((a, x) => a * 1000 + Number(x), 0);
