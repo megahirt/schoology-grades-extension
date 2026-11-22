@@ -4,10 +4,13 @@
 // them to App Store Connect. Run by the release workflow's `safari` job on a
 // macOS runner; also works on a Mac. See docs/safari.md.
 //
-//   node scripts/upload-safari.mjs [--platforms macOS,iOS] [--no-upload]
+//   node scripts/upload-safari.mjs [--platforms macOS,iOS] [--no-upload | --compile-only]
 //
 // --no-upload signs and exports the .pkg/.ipa into safari/build/export-*
 // instead of uploading (a dry run that still proves signing works).
+// --compile-only builds both apps unsigned and needs no key or team: the
+// release workflow's `safari-build` job runs it before any approval, so a
+// broken Safari build stops the release before anything reaches a store.
 //
 // Environment:
 //   APPLE_TEAM_ID         the Apple developer team (10 characters)
@@ -51,7 +54,12 @@ export function exportOptions(teamId, upload) {
 }
 
 // xcodebuildArgs(step, platform, opts) -> the xcodebuild arguments.
-export function xcodebuildArgs(step, platform, { teamId, keyPath, keyId, issuerId, optionsPath }) {
+export function xcodebuildArgs(step, platform, { teamId, keyPath, keyId, issuerId, optionsPath } = {}) {
+  if (step === 'compile') {
+    return ['build', '-project', PROJECT, '-scheme', `${APP_NAME} (${platform})`, '-configuration', 'Release',
+      '-destination', DESTINATIONS[platform], '-derivedDataPath', path.join(BUILD_DIR, 'compile'),
+      'CODE_SIGNING_ALLOWED=NO', 'CODE_SIGNING_REQUIRED=NO', 'CODE_SIGN_IDENTITY='];
+  }
   const archive = path.join(BUILD_DIR, `${platform}.xcarchive`);
   const auth = ['-allowProvisioningUpdates', '-authenticationKeyPath', keyPath, '-authenticationKeyID', keyId, '-authenticationKeyIssuerID', issuerId];
   if (step === 'archive') {
@@ -66,6 +74,15 @@ function main() {
   const i = process.argv.indexOf('--platforms');
   const platforms = (i > 0 ? process.argv[i + 1] : 'macOS,iOS').split(',').map((s) => s.trim()).filter(Boolean);
   for (const p of platforms) if (!DESTINATIONS[p]) throw new Error(`Unknown platform ${p} (use macOS, iOS).`);
+  if (process.argv.includes('--compile-only')) {
+    for (const platform of platforms) {
+      console.log(`\n== ${platform}: compile (unsigned) ==`);
+      const r = spawnSync('xcodebuild', xcodebuildArgs('compile', platform), { stdio: 'inherit' });
+      if (r.status !== 0) throw new Error(`xcodebuild build for ${platform} failed (exit ${r.status}).`);
+    }
+    console.log(`\nDone: ${platforms.join(' and ')} compiled (unsigned, nothing uploaded).`);
+    return;
+  }
   const upload = !process.argv.includes('--no-upload');
   const teamId = (process.env.APPLE_TEAM_ID || '').trim();
   const keyId = process.env.ASC_API_KEY_ID;

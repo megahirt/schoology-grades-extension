@@ -225,6 +225,12 @@ extension-only update channel.
 ## Releases from GitHub Actions
 
 Pushing a `vX.Y.Z` tag runs [`release.yml`](../.github/workflows/release.yml).
+First its `safari-build` job, with no approval and no keys, makes the Xcode
+project and compiles the Mac and iOS apps unsigned
+(`scripts/upload-safari.mjs --compile-only`), so a broken Safari build stops
+the release before anything is approved or sent to a store. Signing needs the
+App Store Connect key, so the signed build happens later, in the `safari` job.
+
 Its `safari` job (on a `macos-26` runner, after you approve it in the
 `release` environment) does everything Xcode's Archive and App Store
 Connect's Submit buttons do:
@@ -243,14 +249,8 @@ Connect's Submit buttons do:
    review. The version is released **automatically** once Apple approves
    it, so approving the job is the go-live decision.
 
-**What's New** is the tag's message when the tag is annotated:
-
-```bash
-git tag -a v1.5.0 -m "New Overdue section, and holiday logos."
-git push origin v1.5.0
-```
-
-A plain tag gets a line pointing at the GitHub release notes.
+**What's New** is the version's section of
+[`RELEASE_NOTES.md`](../RELEASE_NOTES.md), as plain text.
 
 Settings (Settings → Environments → `release`): the secrets
 `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID` and `ASC_API_KEY_P8_B64` (the
@@ -263,6 +263,7 @@ Same steps on a Mac, to try signing without uploading:
 ```bash
 RELEASE_VERSION=1.5.0 BUILD_NUMBER=1 APPLE_TEAM_ID=F2YJQBNUHD npm run build:safari
 node scripts/upload-safari.mjs --no-upload   # also needs the ASC_* variables
+node scripts/upload-safari.mjs --compile-only   # unsigned compile only: no team or key
 ```
 
 The job is safe to re-run: the submit step skips a version that is
