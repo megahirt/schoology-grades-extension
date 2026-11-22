@@ -360,8 +360,9 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       // Pictures of buttons, when this version's notes have any, come along
       // as data: URLs (nothing to fetch). Which ones depends on the newest
       // notes; release-notes.test.js covers reading them in.
-      for (const src of await dialog.locator('img').evaluateAll((els) => els.map((e) => e.getAttribute('src')))) {
-        expect(src).toMatch(/^data:image\/(png|jpeg|svg\+xml);base64,/);
+      const imgs = dialog.locator('img');
+      for (let i = 0, n = await imgs.count(); i < n; i++) {
+        await expect(imgs.nth(i)).toHaveAttribute('src', /^data:image\/(png|jpeg|svg\+xml);base64,/);
       }
       // And a link to every release's notes on GitHub.
       await expect(dialog.getByRole('link', { name: 'All release notes' }))
