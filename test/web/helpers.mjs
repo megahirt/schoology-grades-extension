@@ -448,20 +448,33 @@ export async function clickDashboard(browser, selector, { hasText = null, label 
 // The viewport point at (fx, fy) (fractions of its box) of the first
 // `selector` in the dashboard with hasText, scrolled into view first.
 async function pointIn(browser, selector, hasText, fx, fy) {
-  const box = await expectDashboard(
-    browser,
-    (root, q, sel, has) => {
+  // Its point on screen, not moving (two reads in a row agree, so not mid-way
+  // through the panel sliding in or a line appearing above it), and the top
+  // element there is the target (hit-tested through the panel's shadow root).
+  let prev = null;
+  let box = null;
+  await browser.waitUntil(async () => {
+    box = await inDashboard(browser, (root, q, sel, has, px, py) => {
       const el = q(sel, has)[0];
       if (!el) return null;
       el.scrollIntoView({ block: 'center' });
       const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight };
-    },
-    // Its centre on screen (not, say, mid-way through the panel sliding in).
-    (b) => b && b.w > 0 && b.h > 0 && b.x + b.w / 2 >= 0 && b.x + b.w / 2 < b.vw && b.y + b.h / 2 >= 0 && b.y + b.h / 2 < b.vh,
-    `no visible ${selector}${hasText ? ` with "${hasText}"` : ''}`,
-    { args: [selector, hasText] },
-  );
+      const x = r.x + r.width * px;
+      const y = r.y + r.height * py;
+      let top = document.elementFromPoint(x, y);
+      while (top && top.shadowRoot) {
+        const inner = top.shadowRoot.elementFromPoint(x, y);
+        if (!inner || inner === top) break;
+        top = inner;
+      }
+      return { x: r.x, y: r.y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight, onTop: Boolean(top && (top === el || el.contains(top))) };
+    }, selector, hasText, fx, fy);
+    const steady = Boolean(box && prev && ['x', 'y', 'w', 'h'].every((k) => Math.abs(box[k] - prev[k]) < 0.5));
+    prev = box;
+    const cx = box && box.x + box.w * fx;
+    const cy = box && box.y + box.h * fy;
+    return Boolean(box && box.w > 0 && box.h > 0 && cx >= 0 && cx < box.vw && cy >= 0 && cy < box.vh && box.onTop && steady);
+  }, { timeout: 15_000, interval: 150, timeoutMsg: () => `${WAIT_PREFIX} no visible, still, uncovered ${selector}${hasText ? ` with "${hasText}"` : ''}: ${JSON.stringify(box)}` });
   return { x: Math.round(box.x + box.w * fx), y: Math.round(box.y + box.h * fy) };
 }
 
