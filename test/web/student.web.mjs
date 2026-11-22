@@ -130,6 +130,10 @@ test('student persona: 1 Missing, no verdict shown to students, quarter grades',
     });
     await browser.refresh();
     // The Missing item fades in; it is not good news, so no celebration.
+    // It is marked new only once it is in view (an IntersectionObserver), and
+    // the Overdue list above it can push it below the fold in a short window.
+    await see(count, 1, 'Missing card after reload', '.missing-card');
+    await inDashboard(browser, (root) => root.querySelector('.missing-card').scrollIntoView({ block: 'center' }));
     await see(count, 1, 'Missing item fades in', '.missing-card.new-in');
     // Good news (a good grade, a record, a class up): one celebration only.
     assert.ok((await inDashboard(browser, count, '[data-cue]')) > 0, 'good news to celebrate');

@@ -361,4 +361,56 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
       rmSync(userDataDir, { recursive: true, force: true });
     }
   });
+
+  test('Overdue leaves out work its own page says can\'t be submitted online', async () => {
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'student');
+      await configureExtension(context, extensionId, worker);
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      const overdue = panel.locator('.overdue-list');
+      await expect(overdue).toContainText('Primary Source Notes', { timeout: 30000 });
+      await expect(overdue).not.toContainText('Field Trip Form');
+      const known = await worker.evaluate(async () => Object.entries(await chrome.storage.local.get(null)).find(([k]) => k.startsWith('noSubmissions@'))?.[1]);
+      expect(Object.keys(known || {})).toEqual(['5203']);
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
+
+  test('a parent opening a child\'s class page doesn\'t start a refresh', async () => {
+    // Schoology names the child as the page's user there, not the parent.
+    const userDataDir = freshUserDataDir();
+    const { context, extensionId, worker } = await launchWithExtension(userDataDir);
+    try {
+      await loginAs(context, 'parent');
+      await configureExtension(context, extensionId, worker);
+      const page = await context.newPage();
+      await page.goto(`${mockBase}/home`);
+      const panel = page.locator('#sgd-panel-host aside.sheet');
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 30000 });
+      await expect(panel.locator('.refresh-line, .refreshing')).toHaveCount(0, { timeout: 30000 });
+      const state = () => worker.evaluate(async () => {
+        const all = await chrome.storage.local.get(null);
+        const pick = (p) => Object.entries(all).find(([k]) => k.startsWith(p))?.[1] || {};
+        return { started: pick('refreshState@').startedAt, uid: pick('user@').uid };
+      });
+      const before = await state();
+      const preview = await panel.locator('a[href*="/preview/"]').first().getAttribute('href');
+      expect(preview).toBeTruthy();
+      await page.goto(new URL(preview, mockBase).href);
+      await expect(panel.getByRole('tab', { name: 'Sam' })).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(2000);
+      expect(await state()).toEqual(before);
+      await page.close();
+    } finally {
+      await context.close();
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+  });
 });

@@ -1,6 +1,7 @@
 // Web feature suite: the automatic refresh when a Schoology page loads.
 // Ported from test/e2e/extension.spec.js "refreshes by itself when a
-// Schoology page loads, with banner, progress and a disabled button".
+// Schoology page loads, with banner, progress and a disabled button",
+// including its thin-refresh-bar ending (added on main in #120).
 // See test/web/helpers.mjs.
 //
 // Adaptations (the assertions themselves are all kept):
@@ -20,7 +21,7 @@
 /* global shown */ // in page-side readers: see inDashboard (helpers.mjs)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WAIT_PREFIX, expectDashboard, inDashboard, requestsTo, freshStart, signIn, skipReason, useMock, visible, waitForPanel, withSession } from './helpers.mjs';
+import { WAIT_PREFIX, clickInPanel, expectDashboard, inDashboard, requestsTo, freshStart, signIn, skipReason, useMock, visible, waitForPanel, withSession } from './helpers.mjs';
 
 // The refreshState of `site` as stored (the shim keeps storage in localStorage).
 const refreshState = (browser, site) => browser.execute((s) => {
@@ -133,5 +134,12 @@ test('refreshes by itself when a Schoology page loads, with banner, progress and
     assert.equal(after.running, false, 'nothing running');
     assert.equal(accountReads.count(), 0, 'no refresh request reached the mock');
     assert.equal(await inDashboard(browser, visible, 'Refreshing grades…'), false, 'no refresh banner');
+
+    // With grades on screen, a refresh shows only a thin bar under the
+    // child tabs, not the banner, so the dashboard doesn't move.
+    assert.ok(await clickInPanel(browser, /^Refresh grades$/), 'Refresh grades button in the panel');
+    await see((root, q) => shown(q('.tabs-bar .refresh-line[role="progressbar"]')[0]), true, 'thin refresh bar under the child tabs', { timeout: 10_000 });
+    assert.equal(await inDashboard(browser, (root, q) => q('.refreshing').length), 0, 'no refresh banner while the thin bar shows');
+    await see((root, q) => q('.refresh-line').length, 0, 'thin refresh bar gone when the refresh ends', { timeout: 30_000 });
   }, { delayMs: 700 });
 });

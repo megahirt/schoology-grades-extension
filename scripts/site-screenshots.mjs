@@ -413,6 +413,23 @@ try {
       await save(popup, 'popup', { fullPage: true });
       await popup.close();
 
+      // The print sheet for Jamie (Missing work, boxes to tick off): the
+      // page the dashboard's Print button opens, without the print dialog.
+      const jamieUid = await worker.evaluate(async () => {
+        const all = await chrome.storage.local.get(null);
+        const [, dashboards] = Object.entries(all).find(([k]) => k.startsWith('dashboards@')) || [, {}];
+        return Object.keys(dashboards).find((uid) => /^Jamie\b/.test(dashboards[uid].studentName || '')) || '';
+      });
+      const print = await ctx.newPage();
+      await print.setViewportSize({ width: 900, height: 1200 });
+      const q = new URLSearchParams({ site: new URL(base).origin, uid: jamieUid, auto: '0' });
+      await print.goto(`chrome-extension://${extId}/popup/print.html?${q}`);
+      await print.locator('.p-name').waitFor();
+      await hideDev(print);
+      await print.waitForTimeout(400);
+      await save(print.locator('.paper'), 'print-sheet');
+      await print.close();
+
       // Settings page.
       const opts = await ctx.newPage();
       await opts.setViewportSize({ width: 1100, height: 900 });

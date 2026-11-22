@@ -146,8 +146,11 @@ async function refreshGrades(site, progress = () => {}) {
   const markedDone = (await getMarkedDone(scope)) || {};
 
   if (account.type === 'parent') {
+    // Assignments found to take no submissions (assignment-page.js).
+    const noSubmissions = (await storageGet('noSubmissions', {}, scope)) || {};
     const dashboards = await client.fetchParentDashboards({
       turnedInIdsByStudent: turnedIn,
+      noSubmissions,
       // +1: the account check above counts as the first step.
       onProgress: ({ done, total, label }) => progress({ done: done + 1, total: total + 1, label }),
     });
@@ -163,6 +166,7 @@ async function refreshGrades(site, progress = () => {}) {
       }
       byUid[d.studentUid] = { ...d, summary, updatedAt: new Date().toISOString() };
     }
+    await storageSet('noSubmissions', noSubmissions, scope);
     if (Object.keys(byUid).length > 0) await setDashboards(byUid, scope);
     return { ok: true, accountType: 'parent', students: Object.keys(byUid) };
   }
@@ -170,7 +174,9 @@ async function refreshGrades(site, progress = () => {}) {
   // A student account.
   {
     progress({ done: 1, total: 2, label: 'Reading your grades' });
-    const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self });
+    const noSubmissions = (await storageGet('noSubmissions', {}, scope)) || {};
+    const result = await client.fetchStudentDashboard({ turnedInIds: turnedIn.self, noSubmissions });
+    await storageSet('noSubmissions', noSubmissions, scope);
     if (result.error === 'LOGGED_OUT') {
       // Signed out between the account check and the grades page.
       await setUser({ ...((await getUser(site)) || { uid, name: null }), signedOut: true, checkedAt: new Date().toISOString() }, site);
@@ -319,6 +325,11 @@ async function handlePageUser(message, sender) {
   const uid = message.uid ? String(message.uid) : null;
   if (!uid) return { ok: true };
   if (before && before.uid === uid && !before.signedOut) return { ok: true };
+  // A parent on one child's page: Schoology's page names the child it is
+  // showing as the user, not the parent who is signed in. Still the same
+  // account, so nothing changes (otherwise every click to a child's class
+  // would start a full refresh).
+  if (before && before.uid && !before.signedOut && uid in ((await getDashboards(site)) || {})) return { ok: true, child: true };
   const same = before && before.uid === uid;
   await setUser({ uid, name: same ? before.name : null, type: same ? before.type : null, signedOut: false, checkedAt: now }, site);
   // A refresh already running checks who is signed in first, so it only has

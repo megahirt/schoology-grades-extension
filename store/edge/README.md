@@ -148,10 +148,20 @@ school grades
 
 ## 6. Notes for certification
 
-Paste this when you click Publish, on the "Submit your extension" page:
+Partner Center: **Submission options → Notes for certification**. Paste
+this when you submit (an earlier version was sent back under 1.3.1 Product
+is Testable for not explaining the missing test account):
 
 ```text
-The extension needs a Schoology account to show real grades. Without one, click the toolbar button, then "See a demo", then "Show demo data" to see the full dashboard with made-up students. With a Schoology account: sign in at app.schoology.com, open Grades, and the dashboard panel appears on the right; the toolbar button links to the Schoology pages where it appears.
+Test credentials can't be provided. Schoology accounts are created by each school for its own enrolled students and their parents; the developer can't create one, and a real account would show a child's grades. Instead, the extension has a built-in demo mode with made-up students that shows every feature.
+
+To test without an account:
+1. Click the Grades Dashboard button in the toolbar, then "See a demo". The full dashboard opens in a tab.
+2. Click "Show demo data". Two made-up students appear (a parent's view): missing and overdue work, due dates, grades by class, weekly progress, Share and Print.
+   (Also in Settings → Privacy & data → "Show demo data".)
+3. "Exit demo mode" at the bottom clears the demo data.
+
+While demo mode is on, the extension reads nothing from Schoology. With a real account, the same dashboard appears as a panel on the right of Schoology pages (app.schoology.com) after signing in. The extension only reads the signed-in user's Schoology pages, stores everything on the device, and sends nothing to any server.
 ```
 
 For an update, add one line saying what changed (the GitHub Release notes
