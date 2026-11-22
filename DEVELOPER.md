@@ -156,7 +156,8 @@ git push origin v1.4.0
 1. Checks the tag is `vX.Y.Z`, on `main`, and that `RELEASE_NOTES.md` has
    its section.
 2. Builds Chrome/Edge, Firefox and Safari ZIPs with that version, plus a
-   ZIP of the source.
+   ZIP of the source. On macOS it also compiles the Mac and iOS apps
+   unsigned, so a broken Safari build stops the release before any approval.
 3. Creates the GitHub Release (the release notes, ZIPs, checksums and the
    merged PRs).
 4. Redeploys the site so it shows the new version.
