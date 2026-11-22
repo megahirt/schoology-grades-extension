@@ -27,6 +27,7 @@ export function forFirefox(input) {
     gecko_android: {},
   };
   // Firefox match patterns can't name a port; without one they match any.
+  // (build.mjs no longer adds one, Safari ignores them too; kept for safety.)
   const noPort = (list) => (list || []).map((m) => m.replace('localhost:*', 'localhost'));
   manifest.host_permissions = noPort(manifest.host_permissions);
   for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);

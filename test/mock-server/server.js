@@ -25,6 +25,13 @@
 //   GET  /parent/home?child_uid=<uid>        parent: switch the viewed child (cookie mock-view-child)
 //   GET  /parent/grades_attendance/grades    parent: every course of the viewed child
 //
+// MOCK_WEB_EXT=1 (or createServer({ webExt: <abs path of dist-web> })) also
+// serves that web build at /__ext/ and adds its background.js and content.js
+// to every HTML page. A page asked for with ?mock-no-background=1 gets only
+// content.js: a second open page then has no background of its own, as in
+// the real extension (one background per browser), instead of starting its
+// own refresh (test/web/refresh.web.mjs).
+//
 // MOCK_DATA=showcase (or createServer({ dataset: 'showcase' })) swaps the
 // personas below for the richer showcase data in ./showcase.js.
 //
@@ -38,6 +45,7 @@
 //   parent  — "Sam Rivera" (2 Missing + a class at 55% => NO-GO) and
 //             "Jamie Rivera" (1 Missing, all classes >= 90 => GO).
 
+import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -176,9 +184,33 @@ function send(res, status, type, body, headers = {}) {
   res.end(body);
 }
 // Signed-in pages get Schoology's page settings with the person's own id.
-const sendHtml = (res, status, html, headers) => send(res, status, 'text/html',
-  res.mockUserUid ? String(html).replace('</body>', `<script>jQuery.extend(Drupal.settings, {"s_common":{"user":{"uid":"${res.mockUserUid}","school_nid":"1"}}});</script></body>`) : html,
-  headers);
+// With a web build of the extension (webExt), every page also loads the
+// extension's background and content scripts, after the page settings.
+const WEB_EXT_TAGS = '<script src="/__ext/background.js"></script><script src="/__ext/content.js"></script>';
+const WEB_EXT_CONTENT_ONLY = '<script src="/__ext/content.js"></script>';
+const sendHtml = (res, status, html, headers) => {
+  let body = res.mockUserUid
+    ? String(html).replace('</body>', `<script>jQuery.extend(Drupal.settings, {"s_common":{"user":{"uid":"${res.mockUserUid}","school_nid":"1"}}});</script></body>`)
+    : html;
+  if (res.mockWebExt) body = String(body).replace('</body>', `${res.mockWebExt === 'content' ? WEB_EXT_CONTENT_ONLY : WEB_EXT_TAGS}</body>`);
+  send(res, status, 'text/html', body, headers);
+};
+const EXT_TYPES = {
+  '.js': 'text/javascript', '.html': 'text/html', '.css': 'text/css', '.json': 'application/json',
+  '.png': 'image/png', '.map': 'application/json',
+};
+// GET /__ext/<path>: a file of the web build, never one outside it.
+async function sendExtFile(res, webExt, rawRel) {
+  let rel;
+  try { rel = decodeURIComponent(rawRel); } catch { return send(res, 404, 'text/plain', 'Not found'); }
+  const type = EXT_TYPES[path.extname(rel)];
+  const file = path.resolve(webExt, rel);
+  if (!type || rel.split(/[\\/]/).includes('..') || !file.startsWith(path.resolve(webExt) + path.sep)) return send(res, 404, 'text/plain', 'Not found');
+  let data;
+  try { data = await readFile(file); } catch { return send(res, 404, 'text/plain', 'Not found'); }
+  res.writeHead(200, { 'content-type': type.startsWith('image/') ? type : `${type}; charset=utf-8` });
+  res.end(data);
+}
 const sendJson = (res, status, obj) => send(res, status, 'application/json', JSON.stringify(obj));
 
 function redirect(res, location, headers = {}) {
@@ -213,7 +245,9 @@ const parentHref = (child, c) => (item) => `/course/${c.id}/preview/${child.uid}
 // (./showcase.js: richer data with dates relative to today, for the promo
 // site screenshots; MOCK_DATA env when run directly).
 // now: the showcase's "today" (ms); defaults to the real time.
-export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() } = {}) {
+// webExt: absolute path of a built dist-web/ (npm run build:web); served at
+// /__ext/ and loaded into every page (see test/web-harness/).
+export function createServer({ delayMs = 0, dataset = 'test', now = Date.now(), webExt = null } = {}) {
   const showcase = dataset === 'showcase' ? buildShowcase(now) : null;
   const STUDENT_DATA_ALL = showcase ? showcase.student : STUDENT;
   const PARENT_DATA = showcase ? showcase.parent : PARENT;
@@ -228,6 +262,13 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
     try {
       const reqUrl = new URL(req.url, 'http://localhost');
       const pathname = reqUrl.pathname;
+      res.mockWebExt = webExt ? (reqUrl.searchParams.get('mock-no-background') === '1' ? 'content' : 'all') : false;
+      // Judged on the path as sent: URL parsing would tidy `/__ext/../x` into `/x`.
+      const rawPath = req.url.split('?')[0];
+      if (webExt && req.method === 'GET' && rawPath.startsWith('/__ext/')) {
+        await sendExtFile(res, webExt, rawPath.slice('/__ext/'.length));
+        return;
+      }
       const cookies = parseCookies(req);
 
       if (pathname === '/login') {
@@ -387,8 +428,8 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now() }
   });
 }
 
-export function startServer(port = DEFAULT_PORT, { delayMs = 0, dataset = 'test', now } = {}) {
-  const server = createServer({ delayMs, dataset, ...(now === undefined ? {} : { now }) });
+export function startServer(port = DEFAULT_PORT, { delayMs = 0, dataset = 'test', now, webExt = null } = {}) {
+  const server = createServer({ delayMs, dataset, webExt, ...(now === undefined ? {} : { now }) });
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => {
       const address = server.address();
@@ -408,6 +449,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const port = Number(process.env.PORT || DEFAULT_PORT);
   const delayMs = Number(process.env.MOCK_DELAY_MS || 0);
   const dataset = process.env.MOCK_DATA === 'showcase' ? 'showcase' : 'test';
-  const { url } = await startServer(port, { delayMs, dataset });
+  // MOCK_WEB_EXT=1: also serve and load the web build (npm run build:web).
+  const webExt = process.env.MOCK_WEB_EXT === '1' ? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist-web') : null;
+  const { url } = await startServer(port, { delayMs, dataset, webExt });
   console.log(`Mock Schoology server listening on ${url}${delayMs ? ` (answers delayed ${delayMs} ms)` : ''}${dataset === 'showcase' ? ' (showcase data)' : ''}`);
 }

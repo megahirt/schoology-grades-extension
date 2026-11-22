@@ -79,8 +79,18 @@ export function schoolOrigin(typed) {
   return `https://${host}`;
 }
 
-// The match pattern for one school address ("https://host/*").
-export const originPattern = (origin) => `${origin}/*`;
+// The match pattern for one site ("https://host/*"). Never with a port:
+// Safari ignores match patterns with one (http://localhost:8123/* matches
+// nothing there), and in Chrome and Firefox a pattern without a port already
+// matches every port. Callers that need one exact origin filter by URL.
+export function originPattern(origin) {
+  try {
+    const u = new URL(origin);
+    return `${u.protocol}//${u.hostname}/*`;
+  } catch {
+    return `${origin}/*`;
+  }
+}
 
 // addedSchoolHosts(origins) -> the school addresses the family allowed, from
 // browser.permissions.getAll().origins: exact https hosts outside the

@@ -82,7 +82,7 @@ async function writeDashboard(uid, dashboard, site) {
 async function pageFetchFor(site) {
   let tabs = [];
   try {
-    tabs = await browser.tabs.query({ url: `${site}/*` });
+    tabs = await browser.tabs.query({ url: originPattern(site) });
   } catch {
     return null;
   }
@@ -498,8 +498,8 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
       if (!(await hasSiteAccess(site))) continue;
       const account = await getAccount(site);
       if (account && account.type === 'parent') {
-        const active = await browser.tabs.query({ active: true, url: `${site}/*` });
-        if (active.length > 0) continue;
+        const active = await browser.tabs.query({ active: true, url: originPattern(site) });
+        if (active.some((t) => { try { return new URL(t.url).origin === site; } catch { return false; } })) continue;
       }
       await startRefresh('alarm', site);
     }

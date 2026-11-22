@@ -99,13 +99,22 @@ npm run build:dev     # dev build: localhost permission for the mock server
 npm run build:firefox # Firefox dev build (reloads a running `npm run firefox`)
 npm run chromium      # Chromium window with the dev build, on real Schoology
 npm run firefox       # Firefox window with the dev build; reloads on every Firefox build
-npm run test:e2e      # Playwright e2e in Chromium and Firefox, against the mock Schoology server
+npm run build:web     # web build (dist-web/) for the feature suite
+npm run test:web      # feature suite on the web build, in Chrome
+npm run test:safari   # the same in Safari (macOS); quits a Safari you started
+npm run test:web:firefox   # the same in Firefox (CI runs it)
+npm run test:e2e      # Playwright: extension wiring in Chromium and Firefox
 npm run mock-server   # the mock Schoology server on its own (port 8123)
 ```
 
-CI ([`ci.yml`](.github/workflows/ci.yml)) runs all of these on every push
-and pull request. `main` requires the CI `test` check, and PRs auto-merge
-once it passes.
+All of them run against the mock Schoology server. The features are tested
+once, on the web build, in Safari, Chrome and Firefox; Playwright keeps a
+few tests of the real extension's wiring. Details: [test/README.md](test/README.md).
+
+CI ([`ci.yml`](.github/workflows/ci.yml)) runs the lint, builds and tests
+on every push and pull request: job `test` on Linux (Chromium, Chrome and
+Firefox), job `safari` on macOS (the feature suite in Safari). `main`
+requires the CI `test` and `safari` checks, and PRs auto-merge once both pass.
 
 Site screenshots: `npm run build:dev && npm run site:screenshots` (on a
 Mac), then commit `site/img/`.
@@ -154,7 +163,10 @@ secrets and phases, is in [docs/release-plan.md](docs/release-plan.md).
 | `safari/` | Safari project output, `convert.sh` and notes |
 | `site/` | The website (GitHub Pages, [`pages.yml`](.github/workflows/pages.yml)); plan in [docs/promo-site-plan.md](docs/promo-site-plan.md) |
 | `test/unit/` | Vitest unit tests |
-| `test/e2e/` | Playwright end-to-end tests |
+| `test/web/` | Feature suite: the web build in Safari, Chrome and Firefox (webdriverio) |
+| `test/web-harness/` | In-page stand-in for the extension APIs, used only by the web build |
+| `test/e2e/` | Playwright tests of the real extension's wiring |
+| `test/safari/` | Manual check of the real extension in Safari |
 | `test/mock-server/` | Mock Schoology server with live-style markup and made-up data |
 | `test/probe/` | Live-test probe extension and results |
 | `SPEC.md` | The original build spec |

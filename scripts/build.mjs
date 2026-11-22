@@ -2,7 +2,7 @@
 // Bundles the extension with esbuild into dist/ and copies static assets.
 //   --dev : shows a "Data: Real Schoology / Mock server" switch in the
 //           dashboard footer (default: real Schoology), adds
-//           http://localhost:*/* to host_permissions (mock server for
+//           http://localhost/* to host_permissions (mock server for
 //           Playwright e2e) and renames the extension "Grades Dashboard
 //           (Dev)". Prod builds NEVER contain localhost permissions.
 //   --firefox : writes a Firefox build to dist-firefox/ instead (combine
@@ -14,6 +14,11 @@
 //           permission: with it, Safari badges and prompts on every site
 //           (WebKit bug 290508), so Safari covers only the manifest's
 //           sites until that is fixed (docs/schoology-domains-research.md).
+//   --web : writes a DEV build for the web harness to dist-web/ (implies --dev;
+//           see test/web-harness/). The extension's pages and scripts run on
+//           the mock server's origin, with browser-shim.js standing in for
+//           webextension-polyfill, and the popup and options pages also load
+//           /__ext/background.js. Never published.
 //   --fake-now=<date> : (with --dev only) the extension's clock starts at
 //           <date> (e.g. 2026-11-08T16:42:00, local time) and runs on from
 //           there. Used by scripts/site-screenshots.mjs so the promo
@@ -36,7 +41,8 @@ import { forFirefox } from './manifest-firefox.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const extDir = path.join(root, 'extension');
-const isDev = process.argv.includes('--dev');
+const isWeb = process.argv.includes('--web');
+const isDev = process.argv.includes('--dev') || isWeb;
 const isFirefox = process.argv.includes('--firefox');
 const isSafari = process.argv.includes('--safari');
 const fakeNowArg = process.argv.find((a) => a.startsWith('--fake-now='));
@@ -56,7 +62,7 @@ const FAKE_NOW_BANNER = fakeNow === null ? '' : `(() => {
   }
   globalThis.Date = FakeDate;
 })();`;
-const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : 'dist');
+const distDir = path.join(root, isFirefox ? 'dist-firefox' : isSafari ? 'dist-safari' : isWeb ? 'dist-web' : 'dist');
 
 // Adding a school's own Schoology address (schoology.yourschool.org) needs
 // the optional "https://*/*" host permission, plus "scripting" and
@@ -97,6 +103,27 @@ async function main() {
   await mkdir(path.join(distDir, 'options'), { recursive: true });
   await mkdir(path.join(distDir, 'icons'), { recursive: true });
 
+  // Manifest (transformed for --dev).
+  let manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
+  manifest.version = releaseVersion();
+  if (isDev) {
+    manifest.name = 'Grades Dashboard (Dev)';
+    manifest.short_name = 'Grades Dashboard (Dev)';
+    // Build stamp, so a running dev build can be identified (version_name is
+    // display-only; Chrome and Safari keep using `version`).
+    manifest.version_name = `${manifest.version}-dev.${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;
+    // No port in the pattern: Safari ignores patterns with one, and without
+    // one it matches every port in every browser.
+    manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost/*'];
+    // Run the content script (grades scrape + panel) on the mock server too.
+    for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost/*'];
+  }
+  if (isFirefox) manifest = forFirefox(manifest);
+  if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;
+  if (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES) {
+    manifest.permissions = manifest.permissions.filter((p) => p !== 'scripting' && p !== 'activeTab');
+  }
+
   const entries = {
     background: path.join(extDir, 'background.js'),
     content: path.join(extDir, 'content.js'),
@@ -115,31 +142,20 @@ async function main() {
       outfile: path.join(distDir, `${outName}.js`),
       sourcemap: isDev,
       // __DEV__ turns on dev-only UI (the real/mock data source switch).
-      define: { __DEV__: JSON.stringify(isDev) },
+      define: {
+        __DEV__: JSON.stringify(isDev),
+        ...(isWeb && {
+          __WEB_ROLE__: JSON.stringify(outName === 'background' ? 'background' : 'page'),
+          __WEB_MANIFEST__: JSON.stringify(manifest),
+        }),
+      },
+      alias: isWeb ? { 'webextension-polyfill': path.join(root, 'test', 'web-harness', 'browser-shim.js') } : undefined,
       banner: FAKE_NOW_BANNER ? { js: FAKE_NOW_BANNER } : undefined,
       loader: { '.css': 'text', '.png': 'dataurl' },
       logLevel: 'info',
     });
   }
 
-  // Manifest (transformed for --dev).
-  let manifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'));
-  manifest.version = releaseVersion();
-  if (isDev) {
-    manifest.name = 'Grades Dashboard (Dev)';
-    manifest.short_name = 'Grades Dashboard (Dev)';
-    // Build stamp, so a running dev build can be identified (version_name is
-    // display-only; Chrome and Safari keep using `version`).
-    manifest.version_name = `${manifest.version}-dev.${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;
-    manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost:*/*'];
-    // Run the content script (grades scrape + panel) on the mock server too.
-    for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost:*/*'];
-  }
-  if (isFirefox) manifest = forFirefox(manifest);
-  if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;
-  if (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES) {
-    manifest.permissions = manifest.permissions.filter((p) => p !== 'scripting' && p !== 'activeTab');
-  }
   await writeFile(path.join(distDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
   // Static assets.
@@ -151,14 +167,26 @@ async function main() {
   await cp(path.join(extDir, 'options', 'options.css'), path.join(distDir, 'options', 'options.css'));
   await cp(path.join(extDir, 'icons'), path.join(distDir, 'icons'), { recursive: true });
 
+  // Web build: the popup and options pages run on the mock server's origin
+  // with no background of their own, so each loads the background script first.
+  if (isWeb) {
+    for (const page of ['popup/popup.html', 'popup/dashboard.html', 'popup/print.html', 'options/options.html']) {
+      const file = path.join(distDir, page);
+      const html = await readFile(file, 'utf8');
+      const own = html.match(/<script src="[^"]+"><\/script>/);
+      if (!own) throw new Error(`${page}: no script tag to put the background script before`);
+      await writeFile(file, html.replace(own[0], `<script src="/__ext/background.js"></script>\n${own[0]}`));
+    }
+  }
+
   // Dev builds: a marker written last, so `npm run firefox` (web-ext) reloads
   // the extension once the whole build is in place, never halfway through.
   // It sits next to the build folder (dist-firefox.build-done), not in it:
   // the build deletes and remakes that folder, and a watcher loses files in it.
   if (isDev) await writeFile(`${distDir}.build-done`, `${new Date().toISOString()}\n`);
 
-  console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''}${isSafari ? ' Safari' : ''} extension ${manifest.version} -> ${distDir}`);
-  if (isDev) console.log('Dev build includes http://localhost:*/* host permission.');
+  console.log(`Built ${isDev ? 'DEV' : 'PROD'}${isFirefox ? ' Firefox' : ''}${isWeb ? ' web' : ''}${isSafari ? ' Safari' : ''} extension ${manifest.version} -> ${distDir}`);
+  if (isDev) console.log('Dev build includes http://localhost/* host permission.');
 }
 
 main().catch((err) => {
