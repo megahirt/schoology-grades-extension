@@ -171,6 +171,22 @@ git push origin v1.4.0
    draft that waits for the owner's Publish click in Partner Center
    ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)).
 
+**One review at a time.** Before tagging, check that no store is still
+busy with the last version (in review, or approved and not out yet):
+
+```bash
+gh workflow run store-status.yml --ref main
+```
+
+It reports each store and goes red while one is busy. It never cancels a
+review: the next release waits for it. The release workflow runs the same
+check ([`scripts/store-status.mjs`](scripts/store-status.mjs)) as its
+`stores` job, before the GitHub Release or any upload, so a tag pushed too
+early stops there; re-run its failed jobs once the review is done. Edge's API
+can't report reviews, so check Partner Center before clicking Publish. The
+check uses the `release` environment's keys, so each run waits for
+approval, and that environment must allow `main` as well as `v*` tags.
+
 Local builds use the newest `vX.Y.Z` tag, or `0.0.0` if there is none. Set
 `RELEASE_VERSION=1.4.0` to override. The full plan, including stores,
 secrets and phases, is in [docs/release-plan.md](docs/release-plan.md).

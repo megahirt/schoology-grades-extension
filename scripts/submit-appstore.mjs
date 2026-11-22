@@ -27,10 +27,10 @@ import { fileURLToPath } from 'node:url';
 
 const API = 'https://api.appstoreconnect.apple.com';
 export const BUNDLE_ID = 'net.hirtfamily.schoology-dashboard';
-const PLATFORMS = ['IOS', 'MAC_OS'];
-const NAMES = { IOS: 'iPhone and iPad', MAC_OS: 'Mac' };
+export const PLATFORMS = ['IOS', 'MAC_OS'];
+export const NAMES = { IOS: 'iPhone and iPad', MAC_OS: 'Mac' };
 // Versions App Store Connect still lets us edit (and so attach a build to).
-const EDITABLE = ['PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED', 'INVALID_BINARY'];
+export const EDITABLE = ['PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED', 'INVALID_BINARY'];
 
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
@@ -48,7 +48,7 @@ export function ascJwt({ keyId, issuerId, p8 }, now = Date.now()) {
 // state(version) -> its App Store state (appVersionState is the newer name).
 // States of a version that is finished with (live, or gone): anything else
 // still blocks a new version on that platform.
-const SETTLED = ['READY_FOR_DISTRIBUTION', 'READY_FOR_SALE', 'REPLACED_WITH_NEW_VERSION', 'REMOVED_FROM_SALE', 'DEVELOPER_REMOVED_FROM_SALE'];
+export const SETTLED = ['READY_FOR_DISTRIBUTION', 'READY_FOR_SALE', 'REPLACED_WITH_NEW_VERSION', 'REMOVED_FROM_SALE', 'DEVELOPER_REMOVED_FROM_SALE'];
 const DESCRIBE = {
   WAITING_FOR_REVIEW: 'waiting for review', IN_REVIEW: 'in review',
   PENDING_DEVELOPER_RELEASE: 'approved and waiting for you to release it',
@@ -56,8 +56,8 @@ const DESCRIBE = {
   PROCESSING_FOR_DISTRIBUTION: 'approved and being prepared for release',
   PROCESSING_FOR_APP_STORE: 'approved and being prepared for release',
 };
-const describe = (s) => DESCRIBE[s] || `in state ${s || 'unknown'}`;
-const state = (v) => (v && v.attributes && (v.attributes.appVersionState || v.attributes.appStoreState)) || '';
+export const describe = (s) => DESCRIBE[s] || `in state ${s || 'unknown'}`;
+export const state = (v) => (v && v.attributes && (v.attributes.appVersionState || v.attributes.appStoreState)) || '';
 
 export async function submitAppStore({
   version, build, platforms = PLATFORMS, key, whatsNew, fetchImpl = fetch, log = console.log,

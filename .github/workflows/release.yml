@@ -22,9 +22,12 @@
 #   2. build   — lint + unit tests, then Chrome/Edge, Firefox and Safari
 #                builds stamped with the version, zipped, plus a ZIP of the
 #                source (Mozilla's reviewers rebuild from it), with SHA256SUMS.
-#   3. release — GitHub Release for the tag (generated notes + the zips),
+#   3. stores  — no store is still reviewing an earlier version
+#                (scripts/store-status.mjs); else everything waits.
+#                Owner approval (the `release` environment).
+#   4. release — GitHub Release for the tag (generated notes + the zips),
 #                then redeploys the site (pages.yml) to show the version.
-#   4. chrome / edge / firefox / safari — store jobs. They run in the `release` environment
+#   5. chrome / edge / firefox / safari — store jobs. They run in the `release` environment
 #                (owner approval gate + store secrets). Chrome and Safari
 #                are set up and fail if their secrets go missing; Edge and
 #                Firefox skip, without failing, until theirs are set; see
@@ -139,9 +142,44 @@ jobs:
           path: out/
           if-no-files-found: error
 
+  stores:
+    # Is any store still busy with an earlier version (in review, or
+    # approved and not out yet)? Then stop here, before the GitHub Release
+    # or any upload: the release waits for those reviews instead of
+    # replacing them. Once they're done, "Re-run failed jobs" carries on.
+    # scripts/store-status.mjs; the same check runs any time from the Store
+    # status workflow. Runs in the `release` environment (its store keys),
+    # so it waits for the owner's approval like the store jobs.
+    runs-on: ubuntu-latest
+    needs: verify
+    environment: release
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Ask each store whether a review is in progress
+        env:
+          CWS_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON_B64 }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ vars.EDGE_CLIENT_ID }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
+        run: node scripts/store-status.mjs --version "${{ needs.verify.outputs.version }}"
+
   release:
     runs-on: ubuntu-latest
-    needs: [verify, build]
+    needs: [verify, build, stores]
     permissions:
       contents: write   # create the Release
       actions: write    # start the Pages workflow
