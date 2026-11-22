@@ -113,10 +113,18 @@ const STUDENT = {
   ],
 };
 
-// Assignment pages (/assignment/<id>/info), as live Schoology draws them
-// (extension/src/assignment-page.js): 'none' has no Submissions box (it
-// can't be submitted online), 'box' an empty one, 'submitted' lists work.
+// Assignment pages, as live Schoology draws them
+// (extension/src/assignment-page.js). /assignment/<id> leads to:
+//   'none'       the classic page with no Submissions box (paper work)
+//   'box'        the classic page with an empty Submissions box
+//   'submitted'  the classic page listing turned-in work
+//   'google'     the newer page (/assignments/<id>/info), handing off to Google
+//   'tool'       an outside tool (/external_tool/<n>/launch), 403 for a parent
+// Showcase items name theirs with `page` (showcase.js).
 const ASSIGNMENT_PAGES = { 5203: 'none', 5204: 'box' };
+function googlePage(id) {
+  return renderPage('Assignment', `<script>window.siteNavigationUiProps={"props":{"assignmentId":${id},"hasSubmissionsEnabled":true,"launchUrl":"https:\\/\\/lti-submission-google.app.schoology.com\\/lti\\/assignment"}}</script>`);
+}
 function assignmentPage(id, kind) {
   const box = kind === 'none' ? '' : '<div class="drop-items"><div class="right-block-big-wrapper drop-item-display-own"><h3 class="h3-med-flat">Submissions</h3><div class="right-block-big">' +
     (kind === 'submitted' ? `<div id="dropbox-revisions" class="dropbox-revisions"><ul><li><a href="/assignment/${id}/dropbox/view/1?revision=1" class="dropbox-view-link">Assignment submitted</a></li></ul></div>` : `<form action="/assignment/${id}/info" method="post"></form>`) +
@@ -253,6 +261,14 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now(), 
   const PARENT_DATA = showcase ? showcase.parent : PARENT;
   const adminsOf = showcase ? showcase.admins : courseAdmins;
   const adminNames = showcase ? SHOWCASE_ADMINS : ADMIN_NAMES;
+  // Which page each assignment leads to (above): the test ones, plus any
+  // showcase item that names one.
+  const pageKinds = { ...ASSIGNMENT_PAGES };
+  if (showcase) {
+    for (const who of [showcase.student, ...showcase.parent.children]) {
+      for (const c of who.courses) for (const per of c.periods || []) for (const it of per.items || []) if (it.page) pageKinds[it.id] = it.page;
+    }
+  }
   let pageOnly = false; // see /__mock/page-only below
   let pageOnlyFails = false;
   return http.createServer(async (req, res) => {
@@ -319,11 +335,25 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now(), 
       // The second student (test data only): same routes, own name and classes.
       const STUDENT_DATA = who === 'student2' && !showcase ? STUDENT2 : STUDENT_DATA_ALL;
 
-      // An assignment's own page: /assignment/<id> goes to /assignment/<id>/info.
+      // An assignment's own page: /assignment/<id> goes to its page (above).
       const assignment = pathname.match(/^\/assignment\/(\d+)(\/info)?$/);
-      if (assignment && ASSIGNMENT_PAGES[assignment[1]]) {
-        if (!assignment[2]) redirect(res, `/assignment/${assignment[1]}/info`);
-        else sendHtml(res, 200, assignmentPage(assignment[1], ASSIGNMENT_PAGES[assignment[1]]));
+      const pageKind = assignment && pageKinds[assignment[1]];
+      if (pageKind) {
+        const id = assignment[1];
+        if (pageKind === 'google') redirect(res, `/assignments/${id}/info`);
+        else if (pageKind === 'tool') redirect(res, `/external_tool/9${id}/launch`);
+        else if (!assignment[2]) redirect(res, `/assignment/${id}/info`);
+        else sendHtml(res, 200, assignmentPage(id, pageKind));
+        return;
+      }
+      const newPage = pathname.match(/^\/assignments\/(\d+)\/info$/);
+      if (newPage && pageKinds[newPage[1]] === 'google') {
+        sendHtml(res, 200, googlePage(newPage[1]));
+        return;
+      }
+      if (/^\/external_tool\/\d+\/launch$/.test(pathname)) {
+        // As for a parent on live Schoology: not allowed, and no tool named.
+        sendHtml(res, 403, renderPage('Schoology', '<p>You do not have access to this page.</p>'));
         return;
       }
       if (pathname === '/home') {
@@ -370,6 +400,13 @@ export function createServer({ delayMs = 0, dataset = 'test', now = Date.now(), 
         const previewUid = (coursePage[2].match(/^preview\/(\d+)\/parent$/) || [])[1];
         const previewChild = persona === 'parent' && previewUid && PARENT_DATA.children.find((c) => c.uid === previewUid);
         const courseHeaders = previewChild ? { 'set-cookie': `mock-view-child=${previewChild.uid}; Path=/` } : {};
+        // A preview link to an assignment leads on to that assignment's page.
+        const previewAssignment = (String(reqUrl.searchParams.get('url') || '').match(/^assignment\/(\d+)$/) || [])[1];
+        if (previewChild && previewAssignment && pageKinds[previewAssignment]) {
+          res.writeHead(302, { location: `/assignment/${previewAssignment}`, ...courseHeaders });
+          res.end();
+          return;
+        }
         // ...and, as on Schoology, the page then names that child as the user.
         if (previewChild) res.mockUserUid = previewChild.uid;
         sendHtml(res, 200, renderPage('Course', `<h3><a href="/course/${coursePage[1]}/members" class="view-members">${admins.length} Admin${admins.length > 1 ? 's' : ''}</a> &sdot; <a href="${compose}" class="enrollment-members-message"><span class="message-icon"></span></a></h3><div class='picture_block clearfix'>${pictures}</div>`), courseHeaders);

@@ -14,6 +14,12 @@
 //
 // Each class lists a teacher, and some also list Mr. Ortiz (a department
 // admin on many classes), so "Message the teacher" shows the chooser.
+//
+// Sam's work this week names its own assignment page (`page`, served by
+// server.js): paper work past its due date ('none': done offline, not
+// Overdue), two real Overdue items (Schoology and Google), and Due soon
+// work turned in on Schoology, Google, DeltaMath ('tool', "DM:") or on
+// paper. The site's "Only what you can still turn in" shot shows these.
 
 const DAY = 24 * 60 * 60 * 1000;
 const SUBMITTED = 'This student has completed assignment submission';
@@ -64,7 +70,9 @@ export function buildShowcase(now = Date.now()) {
     const span = Math.max(1, Math.round((today - 2 * DAY - q2Start) / DAY));
     return titles.map((title, i) => {
       const t = q2Start + Math.round(((i + 1) / (titles.length + 1)) * span) * DAY;
-      return { id: String(nextItem++), title, kind: /quiz|test/i.test(title) ? 'assessment' : 'assignment', due: due(t), score: Math.round((percents[i] / 100) * max), max };
+      // Every other one was turned in online, as in a class that uses
+      // Schoology's Submissions box (so its box is trusted: assignment-page.js).
+      return { id: String(nextItem++), title, kind: /quiz|test/i.test(title) ? 'assessment' : 'assignment', due: due(t), score: Math.round((percents[i] / 100) * max), max, ...(i % 2 ? { note: SUBMITTED } : {}) };
     });
   }
   const at = (days, extra) => ({ id: String(nextItem++), due: due(today + days * DAY), kind: 'assignment', ...extra });
@@ -81,6 +89,7 @@ export function buildShowcase(now = Date.now()) {
       due: due(semStart + Math.round(((i + 1) / (Q1_TITLES.length + 1)) * span) * DAY),
       score: Math.max(0, Math.min(20, Math.round(((q1 + Q1_SPREAD[i]) / 100) * 20))),
       max: 20,
+      ...(i % 2 ? { note: SUBMITTED } : {}), // every other one turned in online
     }));
   }
 
@@ -102,12 +111,15 @@ export function buildShowcase(now = Date.now()) {
       course('4001', 'Biology: Section 2', { q2: 91, q1: 84, sem: 88 }, [
         ...graded(['Cell Structure Lab', 'Mitosis Quiz', 'Microscope Drawings', 'Genetics Worksheet', 'Punnett Square Quiz'], [88, 92, 95, 90, 93]),
         at(-1, { title: 'DNA Model', score: 19, max: 20 }),
-        at(0, { title: 'Lab Report: Osmosis' }),
+        at(-2, { title: 'Microscope Lab Practical', kind: 'assessment', page: 'none' }),
+        at(0, { title: 'Lab Report: Osmosis', page: 'google' }),
       ]),
       course('4002', 'Geometry: Section 4', { q2: 86, q1: 79, sem: 82 }, [
         ...graded(['Proofs Practice', 'Triangle Congruence Quiz', 'Similarity Worksheet', 'Unit 3 Test', 'Area Problems'], [80, 84, 88, 86, 90]),
         at(-2, { title: 'Circles Worksheet', note: SUBMITTED, score: 18, max: 20 }),
-        at(1, { title: 'Chapter 7 Review' }),
+        at(-1, { title: 'Practice Set 7.2', page: 'google', max: 10 }),
+        at(1, { title: 'Chapter 7 Review', page: 'none' }),
+        at(1, { title: 'DM: Circle Theorems', page: 'tool', max: 10 }),
       ]),
       course('4003', 'English 10: Section 1', { q2: 89, q1: 90, sem: 89 }, [
         ...graded(['Reading Journal 4', 'Vocabulary Quiz 6', 'Essay Outline', 'Poetry Response', 'Vocabulary Quiz 7'], [90, 85, 92, 88, 90]),
@@ -117,23 +129,27 @@ export function buildShowcase(now = Date.now()) {
       ]),
       course('4004', 'World History: Section 3', { q2: 93, q1: 94, sem: 93 }, [
         ...graded(['Map Quiz: Europe', 'Primary Source Analysis', 'Unit 4 Test', 'Timeline Project', 'Chapter 9 Questions'], [95, 90, 92, 96, 91]),
-        at(0, { title: 'Chapter 10 Notes' }),
+        at(-3, { title: 'Map Quiz: Asia', kind: 'assessment', page: 'none' }),
+        at(0, { title: 'Chapter 10 Notes', page: 'box' }),
       ]),
       course('4005', 'Spanish 2: Section 1', { q2: 84, q1: 86, sem: 85 }, [
         ...graded(['Vocabulario 4', 'Preterite Quiz', 'Conversation Recording', 'Reading Check', 'Vocabulario 5'], [86, 80, 90, 84, 85]),
         at(-4, { title: 'Workbook p. 112–113', exception: 'missing', max: 10 }),
-        at(1, { title: 'Vocabulario 6 Quiz', kind: 'assessment' }),
+        at(1, { title: 'Vocabulario 6 Quiz', kind: 'assessment', page: 'box' }),
       ]),
       course('4006', 'Health & PE: Section 6', { q2: 97, q1: 98, sem: 97 }, [
         ...graded(['Fitness Log 1', 'Nutrition Worksheet', 'Fitness Log 2', 'Team Sports Reflection', 'Fitness Log 3'], [100, 95, 100, 92, 100], 10),
+        at(-1, { title: 'Fitness Log 4', page: 'none', max: 10 }),
       ]),
       course('4007', 'Art Foundations: Section 2', { q2: 95, q1: 96, sem: 95 }, [
         ...graded(['Contour Drawing', 'Value Scale', 'Still Life Sketch', 'Color Wheel', 'Artist Study'], [94, 96, 92, 98, 95]),
         at(-3, { title: 'Perspective Drawing', score: 20, max: 20 }),
+        at(-2, { title: 'Sketchbook Check', page: 'none', max: 10 }),
       ]),
       course('4008', 'Computer Science: Section 1', { q2: 92, q1: 88, sem: 90 }, [
         ...graded(['Loops Practice', 'Functions Quiz', 'Debugging Lab', 'Lists Project', 'Unit 2 Test'], [90, 94, 88, 96, 92]),
         at(-1, { title: 'Pixel Art Program', note: SUBMITTED, score: 20, max: 20 }),
+        at(-2, { title: 'Code Review Checklist', page: 'box', max: 10 }),
       ]),
       { id: '4009', title: 'Advisory 10: Section 1', courseGrade: null, periods: [] },
     ],
