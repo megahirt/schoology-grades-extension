@@ -269,6 +269,9 @@ node scripts/upload-safari.mjs --compile-only   # unsigned compile only: no team
 The job is safe to re-run: the submit step skips a version that is
 already in review.
 
+What's New goes to Apple without emoji (`--format appstore`): Apple refuses
+them there.
+
 ## iOS and iPadOS
 
 `npm run build:safari` makes one Xcode project with two apps: **Grades

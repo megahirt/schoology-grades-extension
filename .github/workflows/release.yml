@@ -496,5 +496,5 @@ jobs:
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_API_KEY_P8_B64: ${{ secrets.ASC_API_KEY_P8_B64 }}
         run: |
-          export WHATS_NEW="$(node scripts/release-notes.mjs --version "$VERSION" --format plain)"
+          export WHATS_NEW="$(node scripts/release-notes.mjs --version "$VERSION" --format appstore)"
           node scripts/submit-appstore.mjs --version "$VERSION" --build "$BUILD_NUMBER"
