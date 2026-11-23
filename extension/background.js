@@ -621,14 +621,6 @@ async function teacherComposeUrl({ uid, courseId, site }) {
   }
 }
 
-async function holidayIconDataUrl(slug) {
-  const res = await fetch(browser.runtime.getURL(`icons/holidays/${slug}.png`));
-  if (!res.ok) return null;
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return `data:image/png;base64,${btoa(bin)}`;
-}
 
 // Demo mode (src/demo-mode.js): every message that would read Schoology, or
 // write what a Schoology page reports, does nothing. Refresh says it worked,
@@ -657,12 +649,6 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       });
       await setLiveTest({ ...evidence, gradesUrl: message.url });
       return evidence;
-    }
-    case 'holiday-icon': {
-      // The in-page panel can't load extension files on a Schoology page, so
-      // it asks for the holiday logo here (icons/holidays/<slug>.png).
-      if (!/^[a-z-]+$/.test(String(message.slug || ''))) return { ok: false };
-      return { ok: true, src: await holidayIconDataUrl(message.slug) };
     }
     case 'open-print': {
       // The dashboard's Print button: one child's dashboard on one page

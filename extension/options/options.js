@@ -256,7 +256,7 @@ async function init() {
   const holiday = holidayFor(Date.now());
   const logo = $('top-logo');
   if (holiday) {
-    logo.src = browser.runtime.getURL(`icons/holidays/${holiday.slug}.png`);
+    logo.src = browser.runtime.getURL(`icons/holidays/${holiday.slug}.webp`);
     logo.classList.add('holiday');
     logo.alt = holiday.name;
     logo.title = holiday.label;

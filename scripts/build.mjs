@@ -118,6 +118,8 @@ async function main() {
     manifest.host_permissions = [...(manifest.host_permissions || []), 'http://localhost/*'];
     // Run the content script (grades scrape + panel) on the mock server too.
     for (const cs of manifest.content_scripts || []) cs.matches = [...cs.matches, 'http://localhost/*'];
+    // The holiday logos, for the panel on the mock server's pages too.
+    for (const war of manifest.web_accessible_resources || []) war.matches = [...war.matches, 'http://localhost/*'];
   }
   if (isFirefox) manifest = forFirefox(manifest);
   if (isSafari || (!isDev && !ASK_FOR_OTHER_SCHOOL_SITES)) delete manifest.optional_host_permissions;

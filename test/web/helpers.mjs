@@ -331,10 +331,13 @@ export async function waitForPanel(browser, predicate, { timeout = 30_000, messa
 }
 
 // Count the mock's requests whose URL starts with pathPrefix (from now on).
+// The extension's own files (/__ext/: scripts, the holiday logo) aren't
+// Schoology, so they never count.
 export function requestsTo(mock, pathPrefix) {
   let n = 0;
   mock.server.on('request', (req) => {
-    if ((req.url || '').startsWith(pathPrefix)) n += 1;
+    const url = req.url || '';
+    if (url.startsWith(pathPrefix) && !url.startsWith('/__ext/')) n += 1;
   });
   return { count: () => n };
 }

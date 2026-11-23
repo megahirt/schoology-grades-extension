@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HOLIDAYS, holidayFor } from '../../extension/src/holidays.js';
@@ -32,7 +32,7 @@ describe('holiday dates', () => {
   });
 
   it('has an icon for every holiday, and a holiday for every icon', () => {
-    for (const h of HOLIDAYS) expect(existsSync(path.join(ROOT, 'extension/icons/holidays', `${h.slug}.png`)), h.slug).toBe(true);
+    for (const h of HOLIDAYS) expect(existsSync(path.join(ROOT, 'extension/icons/holidays', `${h.slug}.webp`)), h.slug).toBe(true);
     expect(new Set(HOLIDAYS.map((h) => h.slug)).size).toBe(HOLIDAYS.length);
   });
 });
@@ -70,5 +70,14 @@ describe('holidayFor', () => {
   it('shows nothing on ordinary days, including summer', () => {
     expect(holidayFor(at(2026, 11, 18))).toBeNull();
     expect(holidayFor(at(2027, 7, 15))).toBeNull();
+  });
+});
+
+describe('the holiday logos load on the Schoology sites', () => {
+  it('the manifest makes them web-accessible wherever the panel runs', () => {
+    const manifest = JSON.parse(readFileSync(path.join(ROOT, 'extension/manifest.json'), 'utf8'));
+    const war = (manifest.web_accessible_resources || []).find((w) => w.resources.includes('icons/holidays/*.webp'));
+    expect(war).toBeTruthy();
+    for (const cs of manifest.content_scripts) for (const m of cs.matches) expect(war.matches, m).toContain(m);
   });
 });

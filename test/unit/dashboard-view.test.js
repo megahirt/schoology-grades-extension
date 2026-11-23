@@ -451,17 +451,3 @@ describe('work with nothing to turn in online, and where work is turned in', () 
   });
 });
 
-describe('the holiday logo never holds up the dashboard', () => {
-  it('a request with no answer gives up (plain logo); a quick answer is used and remembered', async () => {
-    const { holidayIconSrc } = await import('../../extension/src/dashboard-view.js');
-    const hang = { runtime: { sendMessage: () => new Promise(() => {}) } };
-    const t0 = Date.now();
-    expect(await holidayIconSrc(hang, 'test-hang', 50)).toBe(null);
-    expect(Date.now() - t0).toBeLessThan(1000);
-    let asks = 0;
-    const quick = { runtime: { sendMessage: async () => { asks += 1; return { src: 'data:image/png;base64,AA' }; } } };
-    expect(await holidayIconSrc(quick, 'test-quick', 50)).toBe('data:image/png;base64,AA');
-    expect(await holidayIconSrc(quick, 'test-quick', 50)).toBe('data:image/png;base64,AA');
-    expect(asks).toBe(1);
-  });
-});

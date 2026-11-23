@@ -2,8 +2,10 @@
 // holiday-icons.mjs — `npm run holiday:icons`
 //
 // Draws the holiday versions of the Grades Dashboard icon into
-// extension/icons/holidays/<slug>.png (drawn as SVG, saved as transparent
-// PNG by Chromium, so the lighting and brush texture are baked in). Each is the ordinary green tile
+// extension/icons/holidays/<slug>.webp (drawn as SVG, saved as a transparent
+// WebP, quality 90, by Chromium, so the lighting and brush texture are baked
+// in and every browser shows the same picture). The files are web-accessible
+// (manifest.json), so the in-page panel loads today's one directly. Each is the ordinary green tile
 // (site/img/icon.svg, untouched) with something on, around or beside it: a
 // hat sitting on top, lights wrapped around, a pumpkin next to it.
 //
@@ -652,15 +654,28 @@ function svg(icon) {
 }
 
 mkdirSync(OUT, { recursive: true });
-for (const file of readdirSync(OUT)) if (/\.(svg|png)$/.test(file)) rmSync(path.join(OUT, file));
+for (const file of readdirSync(OUT)) if (/\.(svg|png|webp)$/.test(file)) rmSync(path.join(OUT, file));
 const drawn = ICONS.map((icon) => ({ icon, text: svg(icon) }));
-// Each SVG is saved as a PNG at its own size (the tile 128 px square), on a
-// transparent background.
+// Each SVG is drawn at its own size (the tile 128 px square) on a
+// transparent background, then encoded as WebP (quality 90: about a third
+// of the PNG's size, no visible difference) by Chromium's own encoder.
+const QUALITY = 0.9;
 const browser = await chromium.launch({ channel: 'chromium' });
 for (const { icon, text } of drawn) {
   const page = await browser.newPage({ viewport: { width: icon.w, height: H }, deviceScaleFactor: 1 });
   await page.setContent(`<!doctype html><html><body style="margin:0;background:transparent">${text}</body></html>`);
-  await page.screenshot({ path: path.join(OUT, `${icon.slug}.png`), omitBackground: true, clip: { x: 0, y: 0, width: icon.w, height: H } });
+  const png = await page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: icon.w, height: H } });
+  const webp = await page.evaluate(async ({ b64, q }) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c.toDataURL('image/webp', q).split(',')[1];
+  }, { b64: png.toString('base64'), q: QUALITY });
+  writeFileSync(path.join(OUT, `${icon.slug}.webp`), Buffer.from(webp, 'base64'));
   await page.close();
 }
 await browser.close();
@@ -670,8 +685,8 @@ const galleryArg = process.argv.find((a) => a.startsWith('--gallery='));
 if (galleryArg) {
   const file = path.resolve(galleryArg.slice('--gallery='.length));
   const rows = drawn.map(({ icon, text }, i) => {
-    // The PNG, inline, so the page works on its own wherever it's opened.
-    const src = `data:image/png;base64,${readFileSync(path.join(OUT, `${icon.slug}.png`)).toString('base64')}`;
+    // The WebP, inline, so the page works on its own wherever it's opened.
+    const src = `data:image/webp;base64,${readFileSync(path.join(OUT, `${icon.slug}.webp`)).toString('base64')}`;
     return `<div class="row"><div class="n">${i + 1}</div><div class="name"><b>${icon.name}</b><br><span>${icon.when}</span></div>` +
       `<img src="${src}" height="${H}"><img src="${src}" height="${f((44 * H) / TILE_H)}"><img src="${src}" height="${f((28 * H) / TILE_H)}"></div>`;
   }).join('');
