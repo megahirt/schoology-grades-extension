@@ -908,22 +908,35 @@ export function headLogoHtml(holiday, src) {
 }
 // Where a holiday picture comes from: an extension page (popup, settings)
 // loads the file itself; the in-page panel asks the background for it.
+// The dashboard never waits for it: it draws with the plain logo, and draws
+// again once the picture arrives (holidayLogo below). An answer that hasn't
+// come within HOLIDAY_WAIT_MS counts as none, so the plain logo stays.
+const HOLIDAY_WAIT_MS = 3000;
 const holidaySrcs = new Map();
-async function holidayIconSrc(browser, slug) {
+const holidayAsks = new Map();
+export function holidayIconSrc(browser, slug, waitMs = HOLIDAY_WAIT_MS) {
+  if (holidaySrcs.has(slug)) return Promise.resolve(holidaySrcs.get(slug));
+  if (holidayAsks.has(slug)) return holidayAsks.get(slug);
+  const ask = (async () => {
+    if (/-extension:$/.test(globalThis.location?.protocol || '')) return browser.runtime.getURL(`icons/holidays/${slug}.png`);
+    const res = await browser.runtime.sendMessage({ type: 'holiday-icon', slug });
+    return (res && res.src) || null;
+  })().catch(() => null);
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), waitMs));
+  const done = Promise.race([ask, timeout]).then((src) => {
+    holidaySrcs.set(slug, src);
+    holidayAsks.delete(slug);
+    return src;
+  });
+  holidayAsks.set(slug, done);
+  return done;
+}
+// The holiday picture if it's already here; otherwise null for now, and
+// `redraw` runs once it arrives.
+function holidayLogo(browser, slug, redraw) {
   if (holidaySrcs.has(slug)) return holidaySrcs.get(slug);
-  let src = null;
-  try {
-    if (/-extension:$/.test(globalThis.location?.protocol || '')) {
-      src = browser.runtime.getURL(`icons/holidays/${slug}.png`);
-    } else {
-      const res = await browser.runtime.sendMessage({ type: 'holiday-icon', slug });
-      src = (res && res.src) || null;
-    }
-  } catch {
-    src = null;
-  }
-  holidaySrcs.set(slug, src);
-  return src;
+  if (!holidayAsks.has(slug)) holidayIconSrc(browser, slug).then((src) => { if (src) redraw(); });
+  return null;
 }
 
 // Demo data and demo mode: src/demo-mode.js.
@@ -1298,7 +1311,7 @@ export function mountDashboard(container, { browser, showDemo = true, openOption
       : `<h1 class="title">Hi, ${escapeHtml(firstName(current.studentName))}</h1>`;
 
     const holiday = holidayFor(Date.now());
-    const holidaySrc = holiday ? await holidayIconSrc(browser, holiday.slug) : null;
+    const holidaySrc = holiday ? holidayLogo(browser, holiday.slug, () => render()) : null;
     let header = `<header class="head">${siteSwitch && !demo ? await siteSwitchHtml() : ''}<div class="head-row">${headLogoHtml(holiday, holidaySrc)}<div class="grow">${heading}` +
       `<div class="muted">${latest ? escapeHtml(updatedLabel(latest)) : 'Not updated yet'}</div></div>` +
       // On phones these move to their own row under the greeting (dashboard.css).
