@@ -31,5 +31,6 @@ export function forFirefox(input) {
   const noPort = (list) => (list || []).map((m) => m.replace('localhost:*', 'localhost'));
   manifest.host_permissions = noPort(manifest.host_permissions);
   for (const cs of manifest.content_scripts || []) cs.matches = noPort(cs.matches);
+  for (const war of manifest.web_accessible_resources || []) war.matches = noPort(war.matches);
   return manifest;
 }

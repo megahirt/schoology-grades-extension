@@ -1,7 +1,7 @@
 // holidays.js — which holiday icon to show, if any (pure, no browser APIs).
 //
 // The dashboard and the settings page show a holiday version of the logo
-// (icons/holidays/<slug>.png, drawn by scripts/holiday-icons.mjs) from three
+// (icons/holidays/<slug>.webp, drawn by scripts/holiday-icons.mjs) from three
 // days before a holiday through the day itself. Hovering it says which day:
 // "Christmas – Dec 25".
 //
