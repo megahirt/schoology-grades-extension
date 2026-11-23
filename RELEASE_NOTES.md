@@ -7,6 +7,19 @@ becomes the What's new note the extension shows once after updating, the
 App Store's What's New, the Firefox release notes and the top of the
 GitHub release. Format: `scripts/release-notes.mjs`.
 
+## 1.7.0 — November 22, 2026
+
+### ✨ New
+
+- 🏷️ A small badge shows where each assignment is turned in: S for Schoology, G for Google, Δ for DeltaMath, or a globe for another online tool.
+- ⌛ Due soon lists work you can turn in online first, within each day.
+
+### 🛠️ Fixed
+
+- ✅ Work done on paper or in class no longer shows as Overdue. Once its due date passes it counts as done, unless the teacher marks it Missing.
+- 📊 This week's progress bar and each class's checks count that work as done, shown as "done offline".
+- 📬 Paper and in-class work no longer shows under Submitted, not graded yet.
+
 ## 1.6.0 — November 21, 2026
 
 ### ✨ New
