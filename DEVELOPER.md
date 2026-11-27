@@ -168,9 +168,9 @@ git push origin v1.4.0
    it ([docs/firefox-amo-setup.md](docs/firefox-amo-setup.md)). Safari too:
    a macOS runner builds, signs and uploads the Mac and iOS apps and
    submits them for review, and they are released once Apple approves
-   them ([docs/safari.md](docs/safari.md)). Edge gets a
-   draft that waits for the owner's Publish click in Partner Center
-   ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)).
+   them ([docs/safari.md](docs/safari.md)). Edge too: the package is
+   uploaded and published to certification, and goes live once Microsoft
+   approves it ([docs/edge-add-ons-setup.md](docs/edge-add-ons-setup.md)).
 
 **One review at a time.** Before tagging, check that no store is still
 busy with the last version (in review, or approved and not out yet):
@@ -184,7 +184,8 @@ review: the next release waits for it. The release workflow runs the same
 check ([`scripts/store-status.mjs`](scripts/store-status.mjs)) as its
 `stores` job, before the GitHub Release or any upload, so a tag pushed too
 early stops there; re-run its failed jobs once the review is done. Edge's API
-can't report reviews, so check Partner Center before clicking Publish. The
+can't report reviews, so check Partner Center; if Edge is still reviewing,
+the `edge` job fails at publish and can be re-run once it's done. The
 check uses the `release` environment's keys, so each run waits for
 approval, and that environment must allow `main` as well as `v*` tags.
 

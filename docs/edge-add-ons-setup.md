@@ -49,14 +49,18 @@ is by hand (§2), and the API settings (§3) only exist after it.
 6. When you're happy, switch **Availability → Visibility** to **Public** and
    publish again.
 
-## 3. Let releases upload drafts (after §2)
+## 3. Let releases publish (after §2)
 
 Each `vX.Y.Z` release runs the `edge` job in
 [release.yml](../.github/workflows/release.yml). It waits for your approval
 (the `release` environment), then `scripts/publish-edge.mjs` uploads the
-release's ZIP into the Edge **draft**. It never publishes. Until the three
-settings below exist, the job prints `SKIPPED` and the release still
-succeeds.
+release's ZIP into the Edge draft and **publishes** it, which sends it to
+certification with the notes for certification
+([store/edge/certification-notes.txt](../store/edge/certification-notes.txt)
+plus the version's section of `RELEASE_NOTES.md`). It goes live when
+certification passes, so approving the job is the go-live decision. Until
+the three settings below exist, the job prints `SKIPPED` and the release
+still succeeds.
 
 | Name | Kind | Where it comes from |
 |---|---|---|
@@ -68,8 +72,8 @@ succeeds.
    experience, click **Enable**. Click **Create API credentials** (it can
    take a few minutes).
 2. Copy the **Client ID** and the **API key**, and note the key's
-   **Expiry** date in your calendar: uploads stop working after it, and you
-   repeat this step with a new key.
+   **Expiry** date in your calendar: releases stop reaching Edge after it
+   (the job fails with HTTP 401), and you repeat this step with a new key.
 3. Store them. The last command asks for the key, so it never lands in your
    shell history:
 
@@ -88,17 +92,24 @@ succeeds.
 ## 4. Each release
 
 1. Tag and push as usual (`DEVELOPER.md` → Releasing) and approve the
-   `edge` job.
-2. Partner Center → the extension: the new package is in the draft. Click
-   **Publish**, add a line on what changed, and **Publish** again.
-3. It goes live when certification passes.
+   `edge` job. Its log ends with `Submitted for certification`.
+2. It goes live when certification passes (up to seven business days).
+   Partner Center → the extension shows its progress.
+
+To upload without publishing (to check the draft first, say), run the
+script by hand with `--draft-only` and the three settings in your
+environment, then click **Publish** in Partner Center.
 
 **Gotchas:**
 
 - Each release needs a version higher than the one in the store (tags
   already guarantee that).
-- While a submission is in certification, don't publish another: wait for
-  it to finish.
+- Only one submission can be in certification at a time. If the last one
+  is still there, the job fails with `InProgressSubmission`; the new
+  package is already in the draft. Once that review is done, re-run the
+  `edge` job (or click **Publish** in Partner Center).
+- Any other failure names the store's reason (`SubmissionValidationError`,
+  `ModuleStateUnPublishable`, …) and what to fix in Partner Center.
 - Listing text and images can't be changed through the API; edit them in
   Partner Center (and in `store/edge/README.md`, so the kit stays true).
 

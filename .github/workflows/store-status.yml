@@ -2,7 +2,8 @@
 # and the App Store whether an earlier version is still in review (or
 # approved and not out yet). Fails (red) while one is, so a release waits
 # for it; nothing is cancelled or changed. Edge can't be asked (its API has
-# no status): check Partner Center before clicking Publish there.
+# no status): check Partner Center. If Edge is still reviewing, the release's
+# `edge` job fails at publish and can be re-run once that review is done.
 #
 #   gh workflow run store-status.yml --ref main [-f version=1.6.0]
 #

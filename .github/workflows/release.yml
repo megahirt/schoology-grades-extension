@@ -32,9 +32,11 @@
 #   4. release — GitHub Release for the tag (generated notes + the zips),
 #                then redeploys the site (pages.yml) to show the version.
 #   5. chrome / edge / firefox / safari — store jobs. They run in the `release` environment
-#                (owner approval gate + store secrets). Chrome and Safari
-#                are set up and fail if their secrets go missing; Edge and
-#                Firefox skip, without failing, until theirs are set; see
+#                (owner approval gate + store secrets). Each one submits
+#                for review and the version goes live once the store
+#                approves it. Chrome and Safari fail if their secrets go
+#                missing; Edge and Firefox skip, without failing, until
+#                theirs are set; see
 #                docs/release-plan.md. The `release` environment must allow
 #                tags matching v* (Settings → Environments → release →
 #                Deployment branches and tags), or these jobs can't start.
@@ -302,8 +304,13 @@ jobs:
   edge:
     # Microsoft Edge Add-ons (Update REST API v1.1, scripts/publish-edge.mjs):
     # uploads the release's Chrome ZIP (Edge takes it as is) into the
-    # product's DRAFT. It never publishes: the owner clicks Publish in
-    # Partner Center, which sends the draft to certification. Runs in the
+    # product's draft, then publishes the draft, which sends it to
+    # certification with the notes for certification
+    # (store/edge/certification-notes.txt + this version's release notes).
+    # It goes live once certification passes, so approving this job is the
+    # go-live decision. If an earlier version is still in certification,
+    # the publish fails (InProgressSubmission) with the new package left in
+    # the draft: re-run the job once that review is done. Runs in the
     # `release` environment (owner approval). Skips, without failing, until
     # the API key and IDs are set (docs/edge-add-ons-setup.md §3).
     runs-on: ubuntu-latest
@@ -343,18 +350,18 @@ jobs:
           name: release-files
           path: out
 
-      - name: Upload to the Edge Add-ons draft
+      - name: Upload to Edge Add-ons and publish for certification
         if: steps.edge.outputs.configured == 'true'
         env:
           EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
           EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
           EDGE_CLIENT_ID: ${{ vars.EDGE_CLIENT_ID }}
-        run: node scripts/publish-edge.mjs "out/schoology-grades-extension-${VERSION}-chrome.zip"
+        run: node scripts/publish-edge.mjs "out/schoology-grades-extension-${VERSION}-chrome.zip" --version "$VERSION"
 
       - name: Skip (not set up yet)
         if: steps.edge.outputs.configured != 'true'
         run: |
-          echo "SKIPPED: Edge Add-ons upload. Set the EDGE_API_KEY secret and the EDGE_PRODUCT_ID and EDGE_CLIENT_ID variables (docs/edge-add-ons-setup.md); not a failure."
+          echo "SKIPPED: Edge Add-ons submission. Set the EDGE_API_KEY secret and the EDGE_PRODUCT_ID and EDGE_CLIENT_ID variables (docs/edge-add-ons-setup.md); not a failure."
 
   firefox:
     # addons.mozilla.org (web-ext sign, Mozilla's own tool): submits the

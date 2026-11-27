@@ -275,7 +275,7 @@ target.
 |---|---|---|
 | Account | Firefox Account, free | Microsoft Partner Center developer account, free (individual) |
 | Code changes | Firefox MV3 uses `background.scripts`, not `service_worker`. It needs `browser_specific_settings.gecko.id` (+ `data_collection_permissions` for new AMO submissions; verify). → a `--target=firefox` manifest transform in `build.mjs`, its own ZIP, Playwright can't cover it. Our `browser.*` + polyfill code should otherwise run. | None. It takes the Chrome ZIP as is. |
-| CI | `web-ext sign --channel listed` with an AMO JWT issuer + secret and the source ZIP (the `firefox` job). Setup: `docs/firefox-amo-setup.md`; listing text: `store/firefox/` | Edge Add-ons API v1.1: upload package to the draft only (`scripts/publish-edge.mjs`, the `edge` job); API key + client ID from Partner Center → Publish API. Setup: `docs/edge-add-ons-setup.md`; listing text: `store/edge/` |
+| CI | `web-ext sign --channel listed` with an AMO JWT issuer + secret and the source ZIP (the `firefox` job). Setup: `docs/firefox-amo-setup.md`; listing text: `store/firefox/` | Edge Add-ons API v1.1: upload the package to the draft, then publish it to certification (`scripts/publish-edge.mjs`, the `edge` job); API key + client ID from Partner Center → Publish API. Setup: `docs/edge-add-ons-setup.md`; listing text: `store/edge/` |
 | Review | Automated plus possible human review; source upload needed only if code is minified/bundled in ways reviewers can't read (esbuild bundle → **probably yes**, upload the repo ZIP) | Hours to ~7 days |
 | Effort | ~half a day + ongoing manual testing | ~1–2 hours |
 
@@ -285,9 +285,10 @@ Firefox (Playwright's e2e stays Chromium-only).
 
 **Keeping the owner's click on each store:**
 
-- **Edge:** CI uploads the new package as a draft (API "upload" only).
-  The owner clicks **Publish** in Partner Center, which sends it to
-  certification, and it goes live when certification passes. Visibility:
+- **Edge:** CI uploads the new package to the draft and publishes it
+  (API "upload" + "publish"), which sends it to certification; it goes
+  live when certification passes. So, like Firefox, the click is the
+  GitHub approval gate on the Edge job. Visibility:
   **Public**. For testing first, Partner Center can hide the listing
   (link-only) before switching it to public; verify the option name.
 - **Firefox:** AMO has no "wait after review" state; a submission goes
@@ -350,13 +351,12 @@ How it combines with each store's own go-live click:
 | Store | GitHub gate (before upload) | Store-side click (after review) |
 |---|---|---|
 | Chrome | **Approve = the go-live decision** | none (`DEFAULT_PUBLISH`: live once review passes) |
-| Edge | Approve | **Publish** in Partner Center (CI uploads the draft only) |
+| Edge | **Approve = the go-live decision** | none: CI uploads and publishes to certification, live once it passes |
 | Firefox | **Approve = the go-live decision** | none (AMO goes live once approved) |
 | Safari | **Approve = the go-live decision** | none: CI uploads both apps, submits X.Y.Z for review and it is released automatically once Apple approves it (docs/safari.md, "Releases from GitHub Actions") |
 
-For Chrome, Edge and Safari, the store-side click is what satisfies
-"wait for the owner's click", so the GitHub gate is extra protection
-there. Firefox is the one store where the gate does that job. Decided:
+No store has a store-side click any more, so on every store the GitHub
+gate is what satisfies "wait for the owner's click". Decided:
 the gate stays on for **every** store job. One tap per release is cheap,
 and it stops a mistaken version-bump merge from ever touching a store.
 
