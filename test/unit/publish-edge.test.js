@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { publishEdge } from '../../scripts/publish-edge.mjs';
+import { readFileSync } from 'node:fs';
+import { publishEdge, certificationNotes, CERT_NOTES_FILE } from '../../scripts/publish-edge.mjs';
 
 const PRODUCT = '0a1b2c3d-1111-2222-3333-444455556666';
 const API = 'https://api.addons.microsoftedge.microsoft.com';
-const UPLOAD = `${API}/v1/products/${PRODUCT}/submissions/draft/package`;
+const SUBMISSIONS = `${API}/v1/products/${PRODUCT}/submissions`;
+const UPLOAD = `${SUBMISSIONS}/draft/package`;
 const zip = { name: 'x-chrome.zip', data: Buffer.from('PK fake zip') };
 const KEY = 'secret-api-key-value';
 
@@ -27,13 +29,17 @@ function fakeStore(answers) {
 }
 const accepted = (location = 'op-1') => ({ status: 202, headers: { Location: location } });
 const op = (status, extra = {}) => ({ status: 200, body: { id: 'op-1', status, message: null, errorCode: null, errors: null, ...extra } });
-const opts = (fetchImpl, extra = {}) => ({ zip, productId: PRODUCT, clientId: 'cid', apiKey: KEY, fetchImpl, log: () => {}, sleep: async () => {}, ...extra });
+// Draft-only by default: most tests are about the upload. The publish tests
+// below turn it off.
+const opts = (fetchImpl, extra = {}) => ({ zip, productId: PRODUCT, clientId: 'cid', apiKey: KEY, draftOnly: true, fetchImpl, log: () => {}, sleep: async () => {}, ...extra });
+const publishing = (fetchImpl, extra = {}) => opts(fetchImpl, { draftOnly: false, notes: 'Reviewer notes', ...extra });
 
 describe('publish-edge', () => {
-  it('uploads the ZIP as a draft, waits for it, and never publishes', async () => {
+  it('with draftOnly, uploads the ZIP as a draft, waits for it, and does not publish', async () => {
     const { calls, fetchImpl } = fakeStore([accepted(), op('Succeeded', { message: 'Successfully updated package to x-chrome.zip' })]);
     const done = await publishEdge(opts(fetchImpl));
-    expect(done.status).toBe('Succeeded');
+    expect(done.upload.status).toBe('Succeeded');
+    expect(done.publish).toBeNull();
     expect(calls).toHaveLength(2);
     expect(calls[0]).toMatchObject({ url: UPLOAD, method: 'POST', body: zip.data });
     expect(calls[0].headers).toMatchObject({ Authorization: `ApiKey ${KEY}`, 'X-ClientID': 'cid', 'Content-Type': 'application/zip' });
@@ -94,5 +100,74 @@ describe('publish-edge', () => {
     await publishEdge(opts(fetchImpl, { log: (l) => lines.push(String(l)) }));
     expect(lines.length).toBeGreaterThan(0);
     expect(lines.join('\n')).not.toContain(KEY);
+  });
+
+  it('publishes the draft after the upload, with the notes, and waits for it', async () => {
+    const { calls, fetchImpl } = fakeStore([
+      accepted('up-1'), op('Succeeded'),
+      accepted('pub-1'), op('InProgress'), op('Succeeded', { message: 'Successfully created submission with ID 42' }),
+    ]);
+    const done = await publishEdge(publishing(fetchImpl));
+    expect(done.publish.status).toBe('Succeeded');
+    expect(calls.map((c) => [c.method, c.url])).toEqual([
+      ['POST', UPLOAD],
+      ['GET', `${UPLOAD}/operations/up-1`],
+      ['POST', SUBMISSIONS],
+      ['GET', `${SUBMISSIONS}/operations/pub-1`],
+      ['GET', `${SUBMISSIONS}/operations/pub-1`],
+    ]);
+    expect(calls[2].headers).toMatchObject({ Authorization: `ApiKey ${KEY}`, 'X-ClientID': 'cid', 'Content-Type': 'application/json' });
+    expect(JSON.parse(calls[2].body)).toEqual({ notes: 'Reviewer notes' });
+  });
+
+  it('does not publish when the upload fails', async () => {
+    const { calls, fetchImpl } = fakeStore([accepted(), op('Failed', { message: 'Bad package' })]);
+    await expect(publishEdge(publishing(fetchImpl))).rejects.toThrow('Bad package');
+    expect(calls.some((c) => c.url === SUBMISSIONS)).toBe(false);
+  });
+
+  it('explains a publish refused because a review is still in progress', async () => {
+    const { fetchImpl } = fakeStore([accepted('up-1'), op('Succeeded'), accepted('pub-1'),
+      op('Failed', { message: "Can't publish extension as your extension submission is in progress.", errorCode: 'InProgressSubmission' })]);
+    const err = await publishEdge(publishing(fetchImpl)).catch((e) => e);
+    expect(err.message).toContain('InProgressSubmission');
+    expect(err.message).toContain('re-run this job');
+  });
+
+  it('lists the store\'s validation errors when the publish fails', async () => {
+    const { fetchImpl } = fakeStore([accepted('up-1'), op('Succeeded'), accepted('pub-1'),
+      op('Failed', { message: 'validation failures', errorCode: 'SubmissionValidationError', errors: ['Missing privacy policy'] })]);
+    await expect(publishEdge(publishing(fetchImpl))).rejects.toThrow('Missing privacy policy');
+  });
+
+  it('stops when the store accepts the publish but names no operation', async () => {
+    const { fetchImpl } = fakeStore([accepted('up-1'), op('Succeeded'), { status: 202 }]);
+    await expect(publishEdge(publishing(fetchImpl))).rejects.toThrow('Location');
+  });
+
+  it('reports an HTTP error from the publish call', async () => {
+    const { fetchImpl } = fakeStore([accepted('up-1'), op('Succeeded'), { status: 401, body: { message: 'Key expired' } }]);
+    await expect(publishEdge(publishing(fetchImpl))).rejects.toThrow('Publish failed (HTTP 401): Key expired');
+  });
+
+  it('never prints the API key while publishing', async () => {
+    const lines = [];
+    const { fetchImpl } = fakeStore([accepted('up-1'), op('Succeeded'), accepted('pub-1'), op('Succeeded')]);
+    await publishEdge(publishing(fetchImpl, { log: (l) => lines.push(String(l)) }));
+    expect(lines.join('\n')).toContain('certification');
+    expect(lines.join('\n')).not.toContain(KEY);
+  });
+});
+
+describe('certificationNotes', () => {
+  it('puts the reviewer text first, then what changed in this version', () => {
+    const notes = certificationNotes({ reviewerText: 'How to test.\n', version: '1.6.0', releaseNotes: 'New:\n🖨️ Print' });
+    expect(notes).toBe("How to test.\n\nWhat's new in 1.6.0:\nNew:\n🖨️ Print");
+  });
+
+  it('the reviewer text in the repo explains the demo mode', () => {
+    const text = readFileSync(CERT_NOTES_FILE, 'utf8');
+    expect(text).toContain('demo');
+    expect(text).not.toMatch(/```/);
   });
 });

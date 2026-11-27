@@ -22,9 +22,10 @@
 //   Safari:  ASC_API_KEY_ID, ASC_API_ISSUER_ID, ASC_API_KEY_P8_B64
 //            (App Store Connect: versions in progress, per platform)
 //   Edge:    EDGE_API_KEY, EDGE_PRODUCT_ID, EDGE_CLIENT_ID. Edge's API can't
-//            report a submission's state, so it is never "busy" here: the
-//            release only updates its draft, and Partner Center won't let
-//            Publish through while a review is in progress.
+//            report a submission's state, so it is never "busy" here. The
+//            release's publish call is refused while a review is in
+//            progress (InProgressSubmission), leaving the new package in the
+//            draft; the `edge` job is re-run once the review is done.
 // Keys and tokens are never printed.
 
 import { createHmac, randomUUID } from 'node:crypto';
@@ -152,7 +153,7 @@ export async function storeStatus({ env = process.env, version = '', fetchImpl =
     }));
   } else out.push(answer('Chrome', 'not-set-up', 'no store keys here, not checked.'));
   if (env.EDGE_API_KEY && env.EDGE_PRODUCT_ID && env.EDGE_CLIENT_ID) {
-    out.push(answer('Edge', 'unknown', "its API can't report reviews. The release only updates the draft; Partner Center shows whether a review is in progress before you click Publish."));
+    out.push(answer('Edge', 'unknown', "its API can't report reviews; Partner Center shows them. If one is in progress, the release's edge job fails at publish (the new package stays in the draft): re-run it once the review is done."));
   } else out.push(answer('Edge', 'not-set-up', 'no store keys here, not checked.'));
   if (env.AMO_JWT_ISSUER && env.AMO_JWT_SECRET) {
     out.push(await ask('Firefox', () => firefoxStatus({ issuer: env.AMO_JWT_ISSUER, secret: env.AMO_JWT_SECRET, version, fetchImpl })));
