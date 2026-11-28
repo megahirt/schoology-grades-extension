@@ -2,7 +2,7 @@
 // store notes and the GitHub Release.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseReleaseNotes, releaseFor, toPlain, toAppStore, noEmoji, toGithub, whatsNewFor, NOTES_FILE } from '../../scripts/release-notes.mjs';
+import { parseReleaseNotes, releaseFor, toPlain, toAppStore, noEmoji, toGithub, whatsNewFor, hasNewFeatures, isNewSection, NOTES_FILE } from '../../scripts/release-notes.mjs';
 
 const MD = `# Release notes
 
@@ -63,6 +63,25 @@ describe('whatsNewFor (bundled into the extension)', () => {
   it('no notes for the version: none in a release build, the newest in a dev build', () => {
     expect(whatsNewFor(MD, '1.6.0', { readImage })).toBe(null);
     expect(whatsNewFor(MD, '0.0.0', { dev: true, readImage }).version).toBe('1.5.1');
+  });
+});
+
+describe('hasNewFeatures (only these show the What\'s new dialog)', () => {
+  const rel = (titles) => ({ version: '1.0.0', sections: titles.map((title) => ({ title, items: [{ md: 'x', parts: [] }] })) });
+  it('a release with a New section, with or without its emoji', () => {
+    expect(hasNewFeatures(rel(['✨ New', '🛠️ Fixed']))).toBe(true);
+    expect(hasNewFeatures(rel(['New']))).toBe(true);
+    expect(hasNewFeatures(releaseFor(MD, '1.5.1'))).toBe(true);
+  });
+  it('a fixes-only release has none', () => {
+    expect(hasNewFeatures(rel(['🛠️ Fixed']))).toBe(false);
+    expect(hasNewFeatures(rel(['Fixed', 'Improved']))).toBe(false);
+    expect(hasNewFeatures(null)).toBe(false);
+  });
+  it('"New" must be the heading\'s first word', () => {
+    expect(isNewSection('🆕 New features')).toBe(true);
+    expect(isNewSection('Newsletter')).toBe(false);
+    expect(isNewSection('Fixed: new bugs')).toBe(false);
   });
 });
 

@@ -1,6 +1,8 @@
 // release-notes.mjs — RELEASE_NOTES.md, one section per release, read for:
 //   - the What's new dialog after an update (build.mjs bundles the section
-//     for the version being built: whatsNewFor);
+//     for the version being built: whatsNewFor). Only a release with a
+//     "New" section gets the dialog (hasNewFeatures): a fixes-only release
+//     updates quietly;
 //   - the store notes: Safari's What's New and Firefox's release notes
 //     (--format plain / amo / appstore);
 //   - the GitHub Release text (--format github; the workflow adds the
@@ -74,6 +76,12 @@ export function releaseFor(md, version) {
 const plainItem = (item) => item.parts.map((p) => (p.t === 'img' ? p.alt : p.v)).join('').replace(/\s+/g, ' ').trim();
 // "✨ New" -> "New" (the store text keeps each item's own emoji only).
 const plainTitle = (title) => title.replace(/^[^\p{L}\p{N}]+/u, '').trim() || title;
+
+// Does this release add features ("### ✨ New", or "### New")? Only those
+// show the What's new dialog after an update; a release with only Fixed
+// (or other) sections updates without it.
+export const isNewSection = (title) => /^new\b/i.test(plainTitle(title));
+export const hasNewFeatures = (release) => !!release && release.sections.some((s) => isNewSection(s.title));
 
 // Store text (AMO release notes): plain lines.
 export function toPlain(release) {
