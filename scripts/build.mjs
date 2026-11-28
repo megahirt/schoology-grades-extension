@@ -37,7 +37,7 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { forFirefox } from './manifest-firefox.mjs';
-import { NOTES_FILE, whatsNewFor } from './release-notes.mjs';
+import { NOTES_FILE, whatsNewFor, isNewSection, parseReleaseNotes, hasNewFeatures } from './release-notes.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -131,10 +131,21 @@ async function main() {
   // of RELEASE_NOTES.md (dev builds: the newest section if this version has
   // none). A release build without notes for its version fails here, so a
   // release is never tagged before its notes are written.
-  const whatsNew = whatsNewFor(await readFile(NOTES_FILE, 'utf8'), manifest.version, { dev: isDev });
-  if (!whatsNew && !isDev && manifest.version !== '0.0.0') {
+  const notesMd = await readFile(NOTES_FILE, 'utf8');
+  const notes = whatsNewFor(notesMd, manifest.version, { dev: isDev });
+  if (!notes && !isDev && manifest.version !== '0.0.0') {
     throw new Error(`RELEASE_NOTES.md has no section for ${manifest.version}. Write the release notes before tagging.`);
   }
+  // Only a release with a "New" section shows the dialog: a fixes-only
+  // release bundles no note, so the dashboard skips it (dashboard-view.js).
+  // Dev builds always carry one, so the dialog can be tried: the newest
+  // release that has a "New" section.
+  let whatsNew = notes && notes.sections.some((s) => isNewSection(s.title)) ? notes : null;
+  if (!whatsNew && isDev) {
+    const withNew = parseReleaseNotes(notesMd).find(hasNewFeatures);
+    whatsNew = withNew ? whatsNewFor(notesMd, withNew.version) : null;
+  }
+  console.log(`What's new dialog: ${whatsNew ? `shown after updating to ${whatsNew.version}` : 'none (no "New" section for this version)'}`);
 
   const DASHBOARD_ENTRIES = ['content', 'popup/dashboard'];
   const entries = {

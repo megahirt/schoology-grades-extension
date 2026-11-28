@@ -7,6 +7,17 @@ becomes the What's new note the extension shows once after updating, the
 App Store's What's New, the Firefox release notes and the top of the
 GitHub release. Format: `scripts/release-notes.mjs`.
 
+Only a version with a `### ✨ New` section shows the What's new note in the
+extension. A version with only `### 🛠️ Fixed` (or other sections) updates
+quietly; its notes still go to the stores and the GitHub release.
+
+## 1.7.1 — November 28, 2026
+
+### 🛠️ Fixed
+
+- 🤫 Small updates with only fixes, like this one, no longer show a What's new note.
+- 🧩 Updates reach Microsoft Edge Add-ons on their own, the same as the other stores.
+
 ## 1.7.0 — November 22, 2026
 
 ### ✨ New

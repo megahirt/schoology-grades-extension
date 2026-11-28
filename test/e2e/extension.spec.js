@@ -342,7 +342,7 @@ test.describe('Grades Dashboard extension (mock Schoology)', () => {
 
   // After an update, background.js sets whatsNewPending; the dashboard then
   // shows this version's notes from RELEASE_NOTES.md once (dev builds: the
-  // newest section), until Got it. Set directly here: an update can't be
+  // newest section with a "New" part), until Got it. Set directly here: an update can't be
   // made to happen in a test.
   test("What's new shows once after an update, from RELEASE_NOTES.md", async () => {
     const userDataDir = freshUserDataDir();

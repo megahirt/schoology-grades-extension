@@ -134,7 +134,9 @@ developer terms). A picture of a button can go inline,
 made by `npm run site:screenshots`. That one section becomes:
 
 - the **What's new** note the extension shows once after it updates (in every
-  browser; the build bundles it, [`scripts/release-notes.mjs`](scripts/release-notes.mjs));
+  browser; the build bundles it, [`scripts/release-notes.mjs`](scripts/release-notes.mjs)),
+  **only if the section has a ✨ New part**. A fixes-only release (just
+  🛠️ Fixed) updates quietly, with no note;
 - Safari's **What's New** in the App Store and Firefox's **release notes** on AMO
   (plain text);
 - the top of the **GitHub Release**, followed by GitHub's list of merged PRs.
